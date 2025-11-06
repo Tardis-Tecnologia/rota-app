@@ -1,9 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Ionicons } from '@expo/vector-icons';
+import { Platform } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
-import { Colors } from '@/constants/theme';
+import { AppColors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
@@ -12,16 +13,42 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#0066CC',
-        tabBarInactiveTintColor: 'gray',
-        headerStyle: {
-          backgroundColor: '#0066CC',
-        },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
+        tabBarActiveTintColor: AppColors.tab.active,
+        tabBarInactiveTintColor: AppColors.tab.inactive,
+        headerShown: false, // Remover header padrão
         tabBarButton: HapticTab,
+        tabBarStyle: {
+          backgroundColor: AppColors.tab.background,
+          borderTopWidth: 0,
+          elevation: 0,
+          shadowOpacity: 0,
+          height: Platform.OS === 'ios' ? 90 : 70,
+          paddingBottom: Platform.OS === 'ios' ? 25 : 10,
+          paddingTop: 10,
+          marginHorizontal: 16,
+          marginBottom: 12,
+          borderRadius: 999,
+          borderTopColor: 'transparent',
+          ...Platform.select({
+            ios: {
+              shadowColor: AppColors.shadow,
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.3,
+              shadowRadius: 20,
+            },
+            android: {
+              elevation: 20,
+            },
+          }),
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+          marginTop: 4,
+        },
+        tabBarIconStyle: {
+          marginTop: 4,
+        },
       }}>
       <Tabs.Screen
         name="index"
@@ -32,37 +59,72 @@ export default function TabLayout() {
       <Tabs.Screen
         name="noticias"
         options={{
-          title: 'Notícias',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="newspaper-outline" size={size} color={color} />
+          title: 'Home',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name="home" 
+              size={24} 
+              color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
+            />
           ),
         }}
       />
       <Tabs.Screen
-        name="eventos"
+        name="explorar"
         options={{
-          title: 'Eventos',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
+          title: 'Explorar',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name="compass-outline" 
+              size={24} 
+              color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
+            />
           ),
         }}
       />
       <Tabs.Screen
-        name="posts"
+        name="servicos"
         options={{
-          title: 'Posts',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="create-outline" size={size} color={color} />
+          title: 'Serviços',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name="document-text-outline" 
+              size={24} 
+              color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="mensagens"
+        options={{
+          title: 'Mensagens',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name="chatbubbles-outline" 
+              size={24} 
+              color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="feed"
+        options={{
+          title: 'Feed',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name="list-outline" 
+              size={24} 
+              color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
+            />
           ),
         }}
       />
       <Tabs.Screen
         name="mapa"
         options={{
-          title: 'Mapa',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="map-outline" size={size} color={color} />
-          ),
+          href: null, // Esconder da tab bar (será usado no explorar)
         }}
       />
       <Tabs.Screen

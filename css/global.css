@@ -1,0 +1,101 @@
+/**
+ * Global CSS Variables - Cores do Projeto
+ * Este arquivo contém todas as cores usadas no aplicativo
+ * Para uso em web ou com NativeWind/Tailwind
+ */
+
+:root {
+  /* Cores Primárias - Prefeitura de Maricá */
+  --color-primary: #0066CC;
+  --color-primary-dark: #4DA6FF;
+  --color-primary-light: #0891b2; /* cyan-600 */
+  
+  /* Cores de Texto */
+  --color-text-primary: #11181C;
+  --color-text-secondary: #333;
+  --color-text-tertiary: #666;
+  --color-text-quaternary: #999;
+  --color-text-white: #fff;
+  --color-text-dark: #ECEDEE;
+  
+  /* Cores de Fundo */
+  --color-background: #fff;
+  --color-background-light: #f5f5f5;
+  --color-background-dark: #151718;
+  --color-background-overlay: rgba(255, 255, 255, 0.8);
+  
+  /* Cores Neutras */
+  --color-gray-100: #f5f5f5;
+  --color-gray-200: #eee;
+  --color-gray-300: #ddd;
+  --color-gray-400: #ccc;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #666;
+  --color-gray-700: #333;
+  --color-gray-800: #11181C;
+  --color-gray-900: #000;
+  
+  /* Cores de Status */
+  --color-success: #27AE60;
+  --color-error: #E74C3C;
+  --color-warning: #F39C12;
+  --color-info: #3498DB;
+  
+  /* Cores de Categorias - Pontos de Interesse */
+  --color-categoria-governo: #0066CC;
+  --color-categoria-saude: #E74C3C;
+  --color-categoria-lazer: #27AE60;
+  --color-categoria-educacao: #3498DB;
+  --color-categoria-cultura: #9B59B6;
+  --color-categoria-turismo: #1ABC9C;
+  --color-categoria-esporte: #F39C12;
+  --color-categoria-meio-ambiente: #27AE60;
+  
+  /* Cores da Tab Bar */
+  --color-tab-active: #0891b2; /* cyan-600 */
+  --color-tab-inactive: #6b7280; /* gray-500 */
+  --color-tab-background: rgba(255, 255, 255, 0.8);
+  --color-tab-border: rgba(229, 231, 235, 0.8); /* gray-200/80 */
+  
+  /* Cores de Sombra */
+  --color-shadow: #000;
+  
+  /* Cores de Ícones */
+  --color-icon-default: #687076;
+  --color-icon-selected: #0066CC;
+  --color-icon-dark: #9BA1A6;
+}
+
+/* Classes utilitárias para cores de texto */
+.text-primary { color: var(--color-text-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-tertiary { color: var(--color-text-tertiary); }
+.text-quaternary { color: var(--color-text-quaternary); }
+.text-white { color: var(--color-text-white); }
+
+/* Classes utilitárias para cores de fundo */
+.bg-primary { background-color: var(--color-primary); }
+.bg-background { background-color: var(--color-background); }
+.bg-background-light { background-color: var(--color-background-light); }
+.bg-overlay { background-color: var(--color-background-overlay); }
+
+/* Classes utilitárias para cores de categorias */
+.bg-governo { background-color: var(--color-categoria-governo); }
+.bg-saude { background-color: var(--color-categoria-saude); }
+.bg-lazer { background-color: var(--color-categoria-lazer); }
+.bg-educacao { background-color: var(--color-categoria-educacao); }
+.bg-cultura { background-color: var(--color-categoria-cultura); }
+.bg-turismo { background-color: var(--color-categoria-turismo); }
+.bg-esporte { background-color: var(--color-categoria-esporte); }
+.bg-meio-ambiente { background-color: var(--color-categoria-meio-ambiente); }
+
+/* Classes utilitárias para cores de status */
+.bg-success { background-color: var(--color-success); }
+.bg-error { background-color: var(--color-error); }
+.bg-warning { background-color: var(--color-warning); }
+.bg-info { background-color: var(--color-info); }
+
+/* Classes utilitárias para cores de tab */
+.tab-active { color: var(--color-tab-active); }
+.tab-inactive { color: var(--color-tab-inactive); }
+

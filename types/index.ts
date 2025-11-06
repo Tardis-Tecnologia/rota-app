@@ -17,6 +17,7 @@ export interface Evento {
   local: string;
   descricao: string;
   tipo: 'Cultura' | 'Saúde' | 'Educação' | 'Meio Ambiente' | 'Esporte' | 'Turismo';
+  imagem?: string;
 }
 
 export interface Post {
@@ -30,6 +31,9 @@ export interface Post {
   comentarios: number;
   compartilhamentos: number;
   curtido: boolean;
+  username?: string; // @pref_cidade
+  tipo?: 'post' | 'alerta'; // Tipo do post
+  titulo?: string; // Para alertas
 }
 
 export interface PontoInteresse {

@@ -1,6 +1,6 @@
 import { AppColors } from '@/constants/theme';
-import { Post } from '@/types';
-import React, { useEffect, useState } from 'react';
+import { FeedFilter, Post } from '@/types';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,7 +11,11 @@ import {
   View
 } from 'react-native';
 
-export default function NewsPosts() {
+interface NewsPostsProps {
+  filter?: FeedFilter;
+}
+
+export default function NewsPosts({ filter = 'todos' }: NewsPostsProps) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -36,6 +40,7 @@ export default function NewsPosts() {
         curtido: false,
         username: '@pref_cidade',
         tipo: 'post',
+        categoria: 'noticias',
       },
       {
         id: '2',
@@ -50,6 +55,7 @@ export default function NewsPosts() {
         curtido: false,
         tipo: 'alerta',
         titulo: 'Alerta de Alagamento na Av. Brasil: Fortes chuvas causam pontos de alagamento.',
+        categoria: 'obras',
       },
       {
         id: '3',
@@ -64,6 +70,7 @@ export default function NewsPosts() {
         curtido: true,
         username: '@pref_cidade',
         tipo: 'post',
+        categoria: 'lazer',
       },
     ];
 
@@ -73,6 +80,13 @@ export default function NewsPosts() {
     }, 1000);
   };
 
+  const filteredPosts = useMemo(() => {
+    if (filter === 'todos') {
+      return posts;
+    }
+    return posts.filter((post) => post.categoria === filter);
+  }, [filter, posts]);
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -81,7 +95,7 @@ export default function NewsPosts() {
     );
   }
 
-  if (posts.length === 0) {
+  if (filteredPosts.length === 0) {
     return null;
   }
 
@@ -146,9 +160,8 @@ export default function NewsPosts() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Últimas Notícias</Text>
       <View style={styles.postsContainer}>
-        {posts.map((post) => renderPostCard(post))}
+        {filteredPosts.map((post) => renderPostCard(post))}
       </View>
     </View>
   );

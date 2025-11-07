@@ -7,6 +7,7 @@ import { HapticTab } from '@/components/haptic-tab';
 import { AppColors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
 
@@ -62,7 +63,7 @@ export default function TabLayout() {
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
-              name="home" 
+              name="home-outline" 
               size={24} 
               color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
             />
@@ -84,8 +85,18 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="services"
-        options={{
+        options={({ navigation }) => ({
+          headerShown: true,
           title: 'Serviços',
+          headerLeft: () => (
+            <Ionicons 
+              name="arrow-back-outline" 
+              paddingLeft={20}
+              size={24} 
+              color={'black'} 
+              onPress={() => navigation.goBack()}
+            />
+          ),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
               name="document-text-outline" 
@@ -93,11 +104,22 @@ export default function TabLayout() {
               color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
             />
           ),
-        }}
+          tabBarStyle: { display: 'none' },       
+        })}
       />
       <Tabs.Screen
         name="messages"
-        options={{
+        options={({ navigation }) => ({
+          headerShown: true,
+          headerLeft: () => (
+            <Ionicons 
+              name="arrow-back-outline" 
+              paddingLeft={20}
+              size={24} 
+              color={'black'} 
+              onPress={() => navigation.goBack()}
+            />
+          ),
           title: 'Mensagens',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
@@ -106,11 +128,22 @@ export default function TabLayout() {
               color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
             />
           ),
-        }}
+          tabBarStyle: { display: 'none' },       
+        })}
       />
       <Tabs.Screen
         name="feed"
-        options={{
+        options={({ navigation }) => ({
+          headerShown: true,
+          headerLeft: () => (
+            <Ionicons 
+              name="arrow-back-outline" 
+              paddingLeft={20}
+              size={24} 
+              color={'black'} 
+              onPress={() => navigation.goBack()}
+            />
+          ),
           title: 'Feed',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
@@ -119,7 +152,8 @@ export default function TabLayout() {
               color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
             />
           ),
-        }}
+          tabBarStyle: { display: 'none' },       
+        })}
       />
     </Tabs>
   );

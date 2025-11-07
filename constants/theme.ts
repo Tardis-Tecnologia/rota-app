@@ -37,6 +37,7 @@ export const AppColors = {
     light: '#f5f5f5',
     dark: '#151718',
     overlay: 'rgba(255, 255, 255, 0.8)',
+    muted: '#F8FAFC',
   },
   
   // Cores Neutras (Escala de Cinza)
@@ -88,6 +89,37 @@ export const AppColors = {
     default: '#687076',
     selected: '#0066CC',
     dark: '#9BA1A6',
+  },
+
+  // Cores de Borda
+  border: {
+    muted: 'rgba(148, 163, 184, 0.4)',
+  },
+
+  // Cores específicas de seções
+  feed: {
+    filterBackground: '#FFFFFF',
+    filterButton: '#F8FAFC',
+    filterActive: '#0891b2',
+    filterText: '#1F2937',
+  },
+
+  alerts: {
+    primary: '#fbbf24',
+    secondary: '#f97316',
+  },
+
+  gradients: {
+    services: {
+      transport: ['#3B82F6', '#22D3EE'] as [string, string],
+      health: ['#EF4444', '#FB923C'] as [string, string],
+      education: ['#8B5CF6', '#6366F1'] as [string, string],
+      jobs: ['#14B8A6', '#4ADE80'] as [string, string],
+      culture: ['#EC4899', '#D946EF'] as [string, string],
+      tourism: ['#0EA5E9', '#3B82F6'] as [string, string],
+      citizenship: ['#F59E0B', '#FACC15'] as [string, string],
+      animals: ['#22C55E', '#10B981'] as [string, string],
+    },
   },
 };
 

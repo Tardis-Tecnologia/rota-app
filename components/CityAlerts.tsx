@@ -39,7 +39,7 @@ export default function CityAlerts() {
 
       <View style={styles.alertCard}>
         <LinearGradient
-          colors={['#fbbf24', '#f97316']} // from-yellow-400 to-orange-500
+          colors={[AppColors.alerts.primary, AppColors.alerts.secondary]}
           style={styles.iconContainer}
         >
           <Ionicons name="rainy-outline" size={32} color={AppColors.text.white} />
@@ -70,14 +70,14 @@ const styles = StyleSheet.create({
   alertCard: {
     backgroundColor: AppColors.background.default,
     borderWidth: 1,
-    borderColor: 'rgba(229, 231, 235, 0.8)', // gray-200/80
+    borderColor: AppColors.border.muted,
     borderRadius: 16,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
     marginHorizontal: 24,
-    shadowColor: '#eab308', // yellow-500
+    shadowColor: AppColors.alerts.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#eab308', // yellow-500
+    shadowColor: AppColors.alerts.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.5,
     shadowRadius: 8,

@@ -8,8 +8,7 @@ import React, { useState } from 'react';
 import {
   FlatList,
   RefreshControl,
-  StyleSheet,
-  View,
+  StyleSheet, Text, View
 } from 'react-native';
 
 export default function NoticiasScreen() {
@@ -32,8 +31,11 @@ export default function NoticiasScreen() {
       <CityAlerts />
       {/* Componente de Eventos (Carrossel) */}
       <EventCarousel />
-       {/* Componente de Posts (Alerta) */}
-       <NewsPosts />
+      <View>
+      <Text style={styles.title}>Últimas Notícias</Text>
+        {/* Componente de Posts (Alerta) */}
+        <NewsPosts />
+      </View>
     </View>
   );
 
@@ -62,6 +64,13 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flexGrow: 1,
+  },
+  title: {
+    marginLeft: 24,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: AppColors.text.secondary,
+    marginBottom: 16,
   },
 });
 

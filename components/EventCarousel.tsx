@@ -166,6 +166,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
+    marginLeft: 10,
     fontSize: 20,
     fontWeight: 'bold',
     color: AppColors.text.secondary,

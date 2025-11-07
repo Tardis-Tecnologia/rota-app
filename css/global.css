@@ -9,6 +9,13 @@
   --color-primary: #0066CC;
   --color-primary-dark: #4DA6FF;
   --color-primary-light: #0891b2; /* cyan-600 */
+  --color-cyan-500: #06b6d4;
+  --color-cyan-600: #0891b2;
+  --color-background-muted: #F8FAFC;
+  --color-text-slate: #1F2937;
+  --color-border-muted: rgba(148, 163, 184, 0.4);
+  --color-alert-primary: #fbbf24;
+  --color-alert-secondary: #f97316;
   
   /* Cores de Texto */
   --color-text-primary: #11181C;
@@ -77,7 +84,10 @@
 .bg-primary { background-color: var(--color-primary); }
 .bg-background { background-color: var(--color-background); }
 .bg-background-light { background-color: var(--color-background-light); }
+.bg-background-muted { background-color: var(--color-background-muted); }
 .bg-overlay { background-color: var(--color-background-overlay); }
+.bg-cyan-500 { background-color: var(--color-cyan-500); }
+.bg-cyan-600 { background-color: var(--color-cyan-600); }
 
 /* Classes utilitárias para cores de categorias */
 .bg-governo { background-color: var(--color-categoria-governo); }
@@ -98,4 +108,90 @@
 /* Classes utilitárias para cores de tab */
 .tab-active { color: var(--color-tab-active); }
 .tab-inactive { color: var(--color-tab-inactive); }
+
+/* Feed - filtros */
+.feed-filter-btn {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-muted);
+  background-color: var(--color-background-muted);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-slate);
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.feed-filter-btn.active {
+  background-color: var(--color-primary-light);
+  border-color: var(--color-primary-light);
+  color: var(--color-text-white);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(0, 102, 204, 0.25);
+}
+
+.feed-filter-btn:active {
+  transform: scale(0.97);
+}
+
+/* Serviços - Gradientes de Cards */
+.service-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 140px;
+  padding: 24px 16px;
+  border-radius: 16px;
+  color: var(--color-text-white);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.service-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.service-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.2);
+  margin-bottom: 16px;
+}
+
+.service-card--transport {
+  background: linear-gradient(135deg, #3B82F6, #22D3EE);
+}
+
+.service-card--health {
+  background: linear-gradient(135deg, #EF4444, #FB923C);
+}
+
+.service-card--education {
+  background: linear-gradient(135deg, #8B5CF6, #6366F1);
+}
+
+.service-card--jobs {
+  background: linear-gradient(135deg, #14B8A6, #4ADE80);
+}
+
+.service-card--culture {
+  background: linear-gradient(135deg, #EC4899, #D946EF);
+}
+
+.service-card--tourism {
+  background: linear-gradient(135deg, #0EA5E9, #3B82F6);
+}
+
+.service-card--citizenship {
+  background: linear-gradient(135deg, #F59E0B, #FACC15);
+}
+
+.service-card--animals {
+  background: linear-gradient(135deg, #22C55E, #10B981);
+}
+
+/* Botão flotante (FAB) */
 

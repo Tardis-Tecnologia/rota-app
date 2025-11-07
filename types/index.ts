@@ -1,3 +1,5 @@
+export type FeedFilter = 'todos' | 'noticias' | 'obras' | 'lazer';
+
 export interface Noticia {
   id: string;
   titulo: string;
@@ -34,6 +36,7 @@ export interface Post {
   username?: string; // @pref_cidade
   tipo?: 'post' | 'alerta'; // Tipo do post
   titulo?: string; // Para alertas
+  categoria: Exclude<FeedFilter, 'todos'>;
 }
 
 export interface PontoInteresse {

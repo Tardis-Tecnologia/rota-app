@@ -1,19 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import MapaView from '@/components/MapaView';
+import { AppColors } from '@/constants/theme';
+import { Localizacao, PontoInteresse } from '@/types';
+import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
   Dimensions,
   Platform,
   ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import * as Location from 'expo-location';
-import { Ionicons } from '@expo/vector-icons';
-import { PontoInteresse, Localizacao } from '@/types';
-import MapaView from '@/components/MapaView';
 
 const { width, height } = Dimensions.get('window');
 
@@ -141,15 +142,7 @@ export default function ExplorarScreen() {
   };
 
   const getMarkerColor = (tipo: PontoInteresse['tipo']): string => {
-    const cores: Record<PontoInteresse['tipo'], string> = {
-      'governo': '#0066CC',
-      'saude': '#E74C3C',
-      'lazer': '#27AE60',
-      'educacao': '#3498DB',
-      'cultura': '#9B59B6',
-      'turismo': '#1ABC9C',
-    };
-    return cores[tipo] || '#0066CC';
+    return AppColors.categoria[tipo] || AppColors.primary;
   };
 
   const alternarTipoMapa = (): void => {
@@ -162,7 +155,7 @@ export default function ExplorarScreen() {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#0066CC" />
+        <ActivityIndicator size="large" color={AppColors.primary} />
         <Text style={styles.loadingText}>Carregando mapa de Maricá...</Text>
       </View>
     );
@@ -174,7 +167,7 @@ export default function ExplorarScreen() {
       <View style={styles.container}>
         <ScrollView style={styles.webContainer}>
           <View style={styles.webHeader}>
-            <Ionicons name="compass-outline" size={32} color="#0066CC" />
+            <Ionicons name="compass-outline" size={32} color={AppColors.primary} />
             <Text style={styles.webTitle}>Pontos de Interesse - Maricá</Text>
             <Text style={styles.webSubtitle}>
               O mapa interativo está disponível apenas em dispositivos móveis.
@@ -189,7 +182,7 @@ export default function ExplorarScreen() {
                   <Text style={styles.pontoTitulo}>{ponto.titulo}</Text>
                   <Text style={styles.pontoDescricao}>{ponto.descricao}</Text>
                   <View style={styles.pontoCoords}>
-                    <Ionicons name="location-outline" size={14} color="#666" />
+                  <Ionicons name="location-outline" size={14} color={AppColors.text.tertiary} />
                     <Text style={styles.pontoCoordText}>
                       {ponto.latitude.toFixed(4)}, {ponto.longitude.toFixed(4)}
                     </Text>
@@ -217,7 +210,7 @@ export default function ExplorarScreen() {
           style={styles.botaoControle}
           onPress={alternarTipoMapa}
         >
-          <Ionicons name="map-outline" size={24} color="#fff" />
+          <Ionicons name="map-outline" size={24} color={AppColors.text.white} />
           <Text style={styles.botaoTexto}>
             {tipoMapa === 'standard' ? 'Satélite' :
              tipoMapa === 'satellite' ? 'Híbrido' : 'Padrão'}
@@ -228,7 +221,7 @@ export default function ExplorarScreen() {
           style={styles.botaoControle}
           onPress={solicitarPermissaoLocalizacao}
         >
-          <Ionicons name="locate" size={24} color="#fff" />
+          <Ionicons name="locate" size={24} color={AppColors.text.white} />
           <Text style={styles.botaoTexto}>Minha Localização</Text>
         </TouchableOpacity>
       </View>
@@ -236,27 +229,27 @@ export default function ExplorarScreen() {
       <View style={styles.legenda}>
         <Text style={styles.legendaTitulo}>Legenda:</Text>
         <View style={styles.legendaItem}>
-          <View style={[styles.legendaCor, { backgroundColor: '#0066CC' }]} />
+          <View style={[styles.legendaCor, { backgroundColor: AppColors.categoria.governo }]} />
           <Text style={styles.legendaTexto}>Governo</Text>
         </View>
         <View style={styles.legendaItem}>
-          <View style={[styles.legendaCor, { backgroundColor: '#E74C3C' }]} />
+          <View style={[styles.legendaCor, { backgroundColor: AppColors.categoria.saude }]} />
           <Text style={styles.legendaTexto}>Saúde</Text>
         </View>
         <View style={styles.legendaItem}>
-          <View style={[styles.legendaCor, { backgroundColor: '#27AE60' }]} />
+          <View style={[styles.legendaCor, { backgroundColor: AppColors.categoria.lazer }]} />
           <Text style={styles.legendaTexto}>Lazer</Text>
         </View>
         <View style={styles.legendaItem}>
-          <View style={[styles.legendaCor, { backgroundColor: '#3498DB' }]} />
+          <View style={[styles.legendaCor, { backgroundColor: AppColors.categoria.educacao }]} />
           <Text style={styles.legendaTexto}>Educação</Text>
         </View>
         <View style={styles.legendaItem}>
-          <View style={[styles.legendaCor, { backgroundColor: '#9B59B6' }]} />
+          <View style={[styles.legendaCor, { backgroundColor: AppColors.categoria.cultura }]} />
           <Text style={styles.legendaTexto}>Cultura</Text>
         </View>
         <View style={styles.legendaItem}>
-          <View style={[styles.legendaCor, { backgroundColor: '#1ABC9C' }]} />
+          <View style={[styles.legendaCor, { backgroundColor: AppColors.categoria.turismo }]} />
           <Text style={styles.legendaTexto}>Turismo</Text>
         </View>
       </View>
@@ -267,17 +260,18 @@ export default function ExplorarScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: AppColors.background.default,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: AppColors.background.light,
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666',
+    color: AppColors.text.tertiary,
   },
   map: {
     width: width,
@@ -285,25 +279,25 @@ const styles = StyleSheet.create({
   },
   webContainer: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: AppColors.background.light,
   },
   webHeader: {
-    backgroundColor: '#fff',
+    backgroundColor: AppColors.background.default,
     padding: 24,
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: AppColors.gray[200],
   },
   webTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: AppColors.text.secondary,
     marginTop: 12,
     marginBottom: 8,
   },
   webSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: AppColors.text.tertiary,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -312,11 +306,11 @@ const styles = StyleSheet.create({
   },
   pontoCard: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: AppColors.background.default,
     borderRadius: 12,
     marginBottom: 12,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: AppColors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -333,12 +327,12 @@ const styles = StyleSheet.create({
   pontoTitulo: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: AppColors.text.secondary,
     marginBottom: 4,
   },
   pontoDescricao: {
     fontSize: 14,
-    color: '#666',
+    color: AppColors.text.tertiary,
     marginBottom: 8,
   },
   pontoCoords: {
@@ -348,7 +342,7 @@ const styles = StyleSheet.create({
   },
   pontoCoordText: {
     fontSize: 12,
-    color: '#999',
+    color: AppColors.text.quaternary,
   },
   controles: {
     position: 'absolute',
@@ -359,19 +353,19 @@ const styles = StyleSheet.create({
   botaoControle: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0066CC',
+    backgroundColor: AppColors.primary,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
     gap: 8,
-    shadowColor: '#000',
+    shadowColor: AppColors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
   },
   botaoTexto: {
-    color: '#fff',
+    color: AppColors.text.white,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -379,10 +373,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 80,
     left: 16,
-    backgroundColor: '#fff',
+    backgroundColor: AppColors.background.default,
     padding: 12,
     borderRadius: 8,
-    shadowColor: '#000',
+    shadowColor: AppColors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
@@ -391,7 +385,7 @@ const styles = StyleSheet.create({
   legendaTitulo: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
+    color: AppColors.text.secondary,
     marginBottom: 8,
   },
   legendaItem: {
@@ -407,7 +401,7 @@ const styles = StyleSheet.create({
   },
   legendaTexto: {
     fontSize: 12,
-    color: '#666',
+    color: AppColors.text.tertiary,
   },
 });
 

@@ -17,6 +17,10 @@ export default function RootLayout() {
           name="notifications"
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="HealthService"
+          options={{ headerShown: false }}
+        />
       </Stack>
       <StatusBar style="dark" />
     </ThemeProvider>

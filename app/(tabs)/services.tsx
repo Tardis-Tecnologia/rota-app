@@ -1,6 +1,7 @@
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import React from 'react';
 import {
   Alert,
@@ -81,8 +82,12 @@ const servicesCards: ServiceCard[] = [
 
 export default function ServicosScreen() {
   const handleCardPress = (serviceId: string, title: string) => {
+    if (serviceId === 'health') {
+      router.push('/HealthService');
+      return;
+    }
+
     Alert.alert(title, 'Serviço disponível em breve.');
-    // Aqui futuramente podemos navegar ou executar ações específicas conforme o serviceId
   };
 
   const isWeb = Platform.OS === 'web';

@@ -1,5 +1,4 @@
 import { AppColors } from '@/constants/theme';
-import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -22,8 +21,7 @@ interface Novidade {
   imagem: string;
 }
 
-export default function NovidadesCarousel() {
-  const router = useRouter();
+export default function NewsCarousel() {
   const scrollViewRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
 
@@ -95,11 +93,9 @@ export default function NovidadesCarousel() {
           snapToInterval={CARD_WIDTH}
         >
           {novidades.map((novidade) => (
-            <TouchableOpacity
+            <View
               key={novidade.id}
               style={[styles.carouselItem, { width: CARD_WIDTH }]}
-              activeOpacity={0.9}
-              onPress={() => router.push(`/(tabs)/noticia/${novidade.id}`)}
             >
               <Image
                 source={{ uri: novidade.imagem }}
@@ -118,7 +114,7 @@ export default function NovidadesCarousel() {
                   {novidade.descricao}
                 </Text>
               </View>
-            </TouchableOpacity>
+            </View>
           ))}
         </ScrollView>
 

@@ -57,7 +57,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="noticias"
+        name="home"
         options={{
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
@@ -70,7 +70,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="explorar"
+        name="explore"
         options={{
           title: 'Explorar',
           tabBarIcon: ({ color, focused }) => (
@@ -83,7 +83,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="servicos"
+        name="services"
         options={{
           title: 'Serviços',
           tabBarIcon: ({ color, focused }) => (
@@ -96,7 +96,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="mensagens"
+        name="messages"
         options={{
           title: 'Mensagens',
           tabBarIcon: ({ color, focused }) => (
@@ -119,24 +119,6 @@ export default function TabLayout() {
               color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
             />
           ),
-        }}
-      />
-      <Tabs.Screen
-        name="mapa"
-        options={{
-          href: null, // Esconder da tab bar (será usado no explorar)
-        }}
-      />
-      <Tabs.Screen
-        name="noticia"
-        options={{
-          href: null, // Esconder toda a pasta noticia da tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="evento"
-        options={{
-          href: null, // Esconder toda a pasta evento da tab bar
         }}
       />
     </Tabs>

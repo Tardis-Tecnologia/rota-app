@@ -1,6 +1,6 @@
 import { AppColors } from '@/constants/theme';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import {
   StyleSheet,
@@ -15,7 +15,7 @@ interface Alerta {
   tipo?: 'chuva' | 'calor' | 'vento' | 'outro';
 }
 
-export default function AlertasCidade() {
+export default function CityAlerts() {
   const alertas: Alerta[] = [
     {
       id: '1',

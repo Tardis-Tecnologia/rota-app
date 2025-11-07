@@ -1,9 +1,9 @@
 import { AppColors } from '@/constants/theme';
 import { Post } from '@/types';
-import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   StyleSheet,
   Text,
@@ -11,8 +11,7 @@ import {
   View
 } from 'react-native';
 
-export default function PostsAlert() {
-  const router = useRouter();
+export default function NewsPosts() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -93,7 +92,7 @@ export default function PostsAlert() {
           key={post.id}
           style={styles.alertCard}
           activeOpacity={0.7}
-          onPress={() => router.push(`/(tabs)/noticia/${post.id}`)}
+          onPress={() => Alert.alert('Alertas', 'Detalhes disponíveis em breve.')}
         >
           {post.imagem && (
             <Image 

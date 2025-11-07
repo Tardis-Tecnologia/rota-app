@@ -1,15 +1,15 @@
-import AlertasCidade from '@/components/AlertasCidade';
-import EventosCarousel from '@/components/EventosCarousel';
+import CityAlerts from '@/components/CityAlerts';
+import EventCarousel from '@/components/EventCarousel';
 import Header from '@/components/Header';
-import NovidadesCarousel from '@/components/NovidadesCarousel';
-import PostsAlert from '@/components/PostsAlert';
+import NewsCarousel from '@/components/NewsCarousel';
+import NewsPosts from '@/components/NewsPosts';
 import { AppColors } from '@/constants/theme';
 import React, { useState } from 'react';
 import {
-    FlatList,
-    RefreshControl,
-    StyleSheet,
-    View,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  View,
 } from 'react-native';
 
 export default function NoticiasScreen() {
@@ -27,13 +27,13 @@ export default function NoticiasScreen() {
       {/* Componente Header */}
       <Header />
       {/* Componente Novidades (Carrossel) */}
-      <NovidadesCarousel />
+      <NewsCarousel />
       {/* Componente Alertas da Cidade */}
-      <AlertasCidade />
+      <CityAlerts />
       {/* Componente de Eventos (Carrossel) */}
-      <EventosCarousel />
+      <EventCarousel />
        {/* Componente de Posts (Alerta) */}
-       <PostsAlert />
+       <NewsPosts />
     </View>
   );
 

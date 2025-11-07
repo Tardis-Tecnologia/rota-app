@@ -16,7 +16,7 @@ import {
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = 240; // w-60 = 240px
 
-export default function EventosCarousel() {
+export default function EventCarousel() {
   const router = useRouter();
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -117,7 +117,12 @@ export default function EventosCarousel() {
             key={evento.id}
             style={[styles.card, { width: CARD_WIDTH }]}
             activeOpacity={0.7}
-            onPress={() => router.push(`/(tabs)/evento/${evento.id}`)}
+            onPress={() =>
+              router.push({
+                pathname: '/',
+                params: { id: evento.id },
+              })
+            }
           >
             {evento.imagem && (
               <Image 

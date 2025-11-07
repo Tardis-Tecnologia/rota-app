@@ -109,6 +109,21 @@ export const AppColors = {
     secondary: '#f97316',
   },
 
+  notification: {
+    alert: {
+      background: '#fef3c7',
+      icon: '#d97706',
+    },
+    job: {
+      background: '#ccfbf1',
+      icon: '#0d9488',
+    },
+    education: {
+      background: '#e0e7ff',
+      icon: '#4f46e5',
+    },
+  },
+
   gradients: {
     services: {
       transport: ['#3B82F6', '#22D3EE'] as [string, string],

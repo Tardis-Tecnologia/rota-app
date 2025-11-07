@@ -1,5 +1,6 @@
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React from 'react';
 import {
   Image,
@@ -24,6 +25,15 @@ export default function Header({
   onProfilePress,
   temNotificacao = true,
 }: HeaderProps) {
+  const handleNotificationPress = () => {
+    if (onNotificationPress) {
+      onNotificationPress();
+      return;
+    }
+
+    router.push('/notifications');
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.card}>
@@ -36,7 +46,7 @@ export default function Header({
           <View style={styles.actionsContainer}>
             <TouchableOpacity
               style={styles.notificationButton}
-              onPress={onNotificationPress}
+              onPress={handleNotificationPress}
               activeOpacity={0.7}
             >
               <Ionicons name="notifications-outline" size={20} color={AppColors.text.tertiary} />

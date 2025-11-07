@@ -1,18 +1,12 @@
+import FilterTabs, { FilterOption } from '@/components/FilterTabs';
 import NewsPosts from '@/components/NewsPosts';
 import { AppColors } from '@/constants/theme';
 import { FeedFilter } from '@/types';
 import { MaterialIcons } from '@expo/vector-icons';
 import React, { useState } from 'react';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-
-const FILTERS: Array<{ key: FeedFilter; label: string }> = [
+const FILTERS: Array<FilterOption> = [
   { key: 'todos', label: 'Todos' },
   { key: 'noticias', label: 'Notícias' },
   { key: 'obras', label: 'Obras' },
@@ -22,40 +16,15 @@ const FILTERS: Array<{ key: FeedFilter; label: string }> = [
 export default function FeedScreen() {
   const [activeFilter, setActiveFilter] = useState<FeedFilter>('todos');
 
-  const handleSelectFilter = (filter: FeedFilter) => {
-    setActiveFilter(filter);
+  const handleSelectFilter = (filterKey: string) => {
+    setActiveFilter(filterKey as FeedFilter);
   };
 
   return (
     <>
       <View style={styles.container}>
         <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.filtersWrapper}>
-          <View style={styles.filtersContainerBg}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filtersContent}
-            >
-              {FILTERS.map(({ key, label }) => {
-                const isActive = key === activeFilter;
-                return (
-                  <TouchableOpacity
-                    key={key}
-                    style={[styles.filterButton, isActive && styles.filterButtonActive]}
-                    onPress={() => handleSelectFilter(key)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.filterLabel, isActive && styles.filterLabelActive]}>
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-
+          <FilterTabs filters={FILTERS} active={activeFilter} onSelect={handleSelectFilter} />
           <NewsPosts filter={activeFilter} />
         </ScrollView>
       </View>
@@ -72,43 +41,6 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.background.light,
   },
 
-  filtersWrapper: {
-    paddingBottom: 12,
-  },
-  filtersContainerBg: {
-    backgroundColor: AppColors.feed.filterBackground,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 6,
-  },
-  filtersContent: {
-    paddingHorizontal: 8,
-    gap: 8,
-  },
-  filterButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: AppColors.border.muted,
-    backgroundColor: AppColors.feed.filterButton,
-  },
-  filterButtonActive: {
-    backgroundColor: AppColors.feed.filterActive,
-    borderColor: AppColors.feed.filterActive,
-  },
-  filterLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: AppColors.feed.filterText,
-  },
-  filterLabelActive: {
-    color: AppColors.text.white,
-  },
   fab: {
     position: 'absolute',
     bottom: 24,

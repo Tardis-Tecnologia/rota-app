@@ -42,6 +42,21 @@ export const AppColors = {
     input: '#e2e8f0',
     muted: '#F8FAFC',
   },
+
+  palette: {
+    amber: {
+      light: '#fef3c7',
+      base: '#f59e0b',
+    },
+    sky: {
+      light: '#e0f2fe',
+      base: '#0284c7',
+    },
+    indigo: {
+      light: '#e0e7ff',
+      base: '#6366f1',
+    },
+  },
   
   // Cores Neutras (Escala de Cinza)
   gray: {

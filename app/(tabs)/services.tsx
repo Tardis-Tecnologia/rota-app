@@ -92,6 +92,11 @@ export default function ServicosScreen() {
         return;
       }
 
+      if (serviceId === 'education') {
+        router.push('/EducationTab');
+        return;
+      }
+
     Alert.alert(title, 'Serviço disponível em breve.');
   };
 

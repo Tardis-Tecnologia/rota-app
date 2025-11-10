@@ -24,6 +24,8 @@ export default function RootLayout() {
         <Stack.Screen name="SearchTab" options={{ headerShown: false }} />
 
         <Stack.Screen name="PublicTransportation" options={{ headerShown: false }} />
+       
+       <Stack.Screen name="EducationTab" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="dark" />
     </ThemeProvider>

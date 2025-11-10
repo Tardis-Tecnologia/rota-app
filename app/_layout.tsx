@@ -21,6 +21,7 @@ export default function RootLayout() {
           name="HealthService"
           options={{ headerShown: false }}
         />
+        <Stack.Screen name="SearchTab" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="dark" />
     </ThemeProvider>

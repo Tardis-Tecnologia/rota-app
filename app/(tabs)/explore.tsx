@@ -1,3 +1,4 @@
+import ExploreFloatingCard from '@/components/ExploreFloatingCard';
 import MapaView from '@/components/MapaView';
 import { AppColors } from '@/constants/theme';
 import { Localizacao, PontoInteresse } from '@/types';
@@ -12,8 +13,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
@@ -31,6 +31,7 @@ export default function ExplorarScreen() {
   const [loading, setLoading] = useState<boolean>(true);
   const [tipoMapa, setTipoMapa] = useState<'standard' | 'satellite' | 'hybrid'>('standard');
   const [pontos, setPontos] = useState<PontoInteresse[]>([]);
+  const [categoriaSelecionada, setCategoriaSelecionada] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     carregarPontos();
@@ -204,54 +205,11 @@ export default function ExplorarScreen() {
         pontos={pontos}
         getMarkerColor={getMarkerColor}
       />
-
-      <View style={styles.controles}>
-        <TouchableOpacity
-          style={styles.botaoControle}
-          onPress={alternarTipoMapa}
-        >
-          <Ionicons name="map-outline" size={24} color={AppColors.text.white} />
-          <Text style={styles.botaoTexto}>
-            {tipoMapa === 'standard' ? 'Satélite' :
-             tipoMapa === 'satellite' ? 'Híbrido' : 'Padrão'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.botaoControle}
-          onPress={solicitarPermissaoLocalizacao}
-        >
-          <Ionicons name="locate" size={24} color={AppColors.text.white} />
-          <Text style={styles.botaoTexto}>Minha Localização</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.legenda}>
-        <Text style={styles.legendaTitulo}>Legenda:</Text>
-        <View style={styles.legendaItem}>
-          <View style={[styles.legendaCor, { backgroundColor: AppColors.categoria.governo }]} />
-          <Text style={styles.legendaTexto}>Governo</Text>
-        </View>
-        <View style={styles.legendaItem}>
-          <View style={[styles.legendaCor, { backgroundColor: AppColors.categoria.saude }]} />
-          <Text style={styles.legendaTexto}>Saúde</Text>
-        </View>
-        <View style={styles.legendaItem}>
-          <View style={[styles.legendaCor, { backgroundColor: AppColors.categoria.lazer }]} />
-          <Text style={styles.legendaTexto}>Lazer</Text>
-        </View>
-        <View style={styles.legendaItem}>
-          <View style={[styles.legendaCor, { backgroundColor: AppColors.categoria.educacao }]} />
-          <Text style={styles.legendaTexto}>Educação</Text>
-        </View>
-        <View style={styles.legendaItem}>
-          <View style={[styles.legendaCor, { backgroundColor: AppColors.categoria.cultura }]} />
-          <Text style={styles.legendaTexto}>Cultura</Text>
-        </View>
-        <View style={styles.legendaItem}>
-          <View style={[styles.legendaCor, { backgroundColor: AppColors.categoria.turismo }]} />
-          <Text style={styles.legendaTexto}>Turismo</Text>
-        </View>
+      <View pointerEvents="box-none" style={styles.overlay}>
+        <ExploreFloatingCard
+          activeItemId={categoriaSelecionada}
+          onSelectQuickAccess={setCategoriaSelecionada}
+        />
       </View>
     </View>
   );
@@ -261,6 +219,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: AppColors.background.default,
+  },
+  overlay: {
+    position: 'absolute',
+    top: 24,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
   },
   centerContainer: {
     flex: 1,

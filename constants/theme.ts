@@ -20,6 +20,7 @@ export const AppColors = {
   primary: '#0066CC',
   primaryDark: '#4DA6FF',
   primaryLight: '#0891b2', // cyan-600
+  accent: '#06b6d4', // corresponde à var(--color-cyan-500) em css/global.css
   
   // Cores de Texto
   text: {

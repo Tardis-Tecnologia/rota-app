@@ -1,6 +1,7 @@
+import mapStyle from '@/styles/mapStyle.json';
+import { Localizacao, PontoInteresse } from '@/types';
 import React from 'react';
-import MapView, { Marker } from 'react-native-maps';
-import { PontoInteresse, Localizacao } from '@/types';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 interface MapaViewProps {
   localizacao: Localizacao;
@@ -13,8 +14,10 @@ export default function MapaView({ localizacao, tipoMapa, pontos, getMarkerColor
   return (
     <MapView
       style={{ flex: 1 }}
+      provider={PROVIDER_GOOGLE}
       initialRegion={localizacao}
       mapType={tipoMapa}
+      customMapStyle={mapStyle}
       showsUserLocation={true}
       showsMyLocationButton={false}
     >

@@ -2,7 +2,7 @@ import { AppColors } from '@/constants/theme';
 import React from 'react';
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
-const mockEnrollments = [
+export const mockEnrollments = [
   {
     id: 'mat1',
     studentName: 'Sofia Pereira Costa',
@@ -21,7 +21,11 @@ const mockEnrollments = [
   },
 ];
 
-export default function EnrollmentsComponent() {
+interface EnrollmentsComponentProps {
+  onSelectEnrollment?: (enrollment: typeof mockEnrollments[number]) => void;
+}
+
+export default function EnrollmentsComponent({ onSelectEnrollment }: EnrollmentsComponentProps) {
   return (
     <View style={styles.container}>
       <FlatList
@@ -50,7 +54,7 @@ export default function EnrollmentsComponent() {
                 <Text style={styles.statusLabel}>Status</Text>
                 <Text style={styles.statusValue}>{item.status}</Text>
               </View>
-              <Pressable style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}>
+              <Pressable style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]} onPress={() => onSelectEnrollment?.(item)}>
                 <Text style={styles.actionText}>Efetivar Matrícula</Text>
               </Pressable>
             </View>

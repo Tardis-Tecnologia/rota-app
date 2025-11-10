@@ -1,22 +1,24 @@
-import EnrollmentsComponent from '@/components/EnrollmentsComponent';
+import EnrollmentsComponent, { mockEnrollments } from '@/components/EnrollmentsComponent';
+import ModalCompleteEnrollment from '@/components/ModalCompleteEnrollment';
 import SearchEnrollmentComponent from '@/components/SearchEnrollmentComponent';
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Pressable,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 type EducationTabKey = 'search' | 'enrollments';
 
 export default function EducationTab() {
   const [activeTab, setActiveTab] = useState<EducationTabKey>('search');
+  const [selectedEnrollment, setSelectedEnrollment] = useState<typeof mockEnrollments[number] | null>(null);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -61,8 +63,22 @@ export default function EducationTab() {
       </View>
 
       <View style={styles.content}>
-        {activeTab === 'search' ? <SearchEnrollmentComponent /> : <EnrollmentsComponent />}
+        {activeTab === 'search' ? (
+          <SearchEnrollmentComponent />
+        ) : (
+          <EnrollmentsComponent onSelectEnrollment={setSelectedEnrollment} />
+        )}
       </View>
+
+      {selectedEnrollment && (
+        <View style={styles.modalOverlay}>
+          <ModalCompleteEnrollment
+            onClose={() => setSelectedEnrollment(null)}
+            onSubmit={() => setSelectedEnrollment(null)}
+            initialData={{ studentName: selectedEnrollment.studentName }}
+          />
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -129,5 +145,14 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     backgroundColor: AppColors.background.default,
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    zIndex: 9999,
+    elevation: 9999,
   },
 });

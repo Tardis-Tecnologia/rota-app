@@ -38,6 +38,8 @@ export const AppColors = {
     light: '#f5f5f5',
     dark: '#151718',
     overlay: 'rgba(255, 255, 255, 0.8)',
+    glass: 'rgba(255, 255, 255, 0.94)',
+    input: '#e2e8f0',
     muted: '#F8FAFC',
   },
   

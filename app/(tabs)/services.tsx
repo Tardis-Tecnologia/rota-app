@@ -87,6 +87,11 @@ export default function ServicosScreen() {
       return;
     }
 
+      if (serviceId === 'transport') {
+        router.push('/PublicTransportation');
+        return;
+      }
+
     Alert.alert(title, 'Serviço disponível em breve.');
   };
 

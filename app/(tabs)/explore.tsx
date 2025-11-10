@@ -4,6 +4,7 @@ import { AppColors } from '@/constants/theme';
 import { Localizacao, PontoInteresse } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -32,6 +33,7 @@ export default function ExplorarScreen() {
   const [tipoMapa, setTipoMapa] = useState<'standard' | 'satellite' | 'hybrid'>('standard');
   const [pontos, setPontos] = useState<PontoInteresse[]>([]);
   const [categoriaSelecionada, setCategoriaSelecionada] = useState<string | undefined>(undefined);
+  const { category } = useLocalSearchParams<{ category?: string }>();
 
   useEffect(() => {
     carregarPontos();
@@ -41,6 +43,12 @@ export default function ExplorarScreen() {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof category === 'string' && category.length > 0) {
+      setCategoriaSelecionada(category);
+    }
+  }, [category]);
 
   const solicitarPermissaoLocalizacao = async (): Promise<void> => {
     try {

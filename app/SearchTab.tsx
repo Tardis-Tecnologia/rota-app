@@ -39,6 +39,14 @@ export default function SearchTab() {
     []
   );
 
+  const handleCategoryPress = (categoryId: string) => {
+    setSelectedCategory(categoryId);
+    router.replace({
+      pathname: '/(tabs)/explore',
+      params: { category: categoryId },
+    });
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -96,9 +104,7 @@ export default function SearchTab() {
                       isActive && styles.categoryCardActive,
                     ]}
                     activeOpacity={0.92}
-                    onPress={() =>
-                      setSelectedCategory((prev) => (prev === item.id ? null : item.id))
-                    }
+                    onPress={() => handleCategoryPress(item.id)}
                   >
                     <View
                       style={[
@@ -283,5 +289,6 @@ const styles = StyleSheet.create({
   categoryLabelActive: {
     color: AppColors.accent,
   },
+
 
 });

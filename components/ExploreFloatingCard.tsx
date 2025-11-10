@@ -3,13 +3,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React from 'react';
 import {
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-    ViewStyle,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ViewStyle,
 } from 'react-native';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -40,6 +40,7 @@ const DEFAULT_ITEMS: QuickAccessItem[] = [
   { id: 'hospital', label: 'Hospital', icon: 'medkit-outline' },
   { id: 'shopping_mall', label: 'Shopping', icon: 'bag-outline' },
   { id: 'bank', label: 'Bancos', icon: 'business-outline' },
+  { id: 'pharmacy', label: 'Farmácias', icon: 'medkit-outline' },
 ];
 
 export function ExploreFloatingCard({

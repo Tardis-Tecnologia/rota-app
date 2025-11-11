@@ -30,6 +30,8 @@
   --color-background-light: #f5f5f5;
   --color-background-dark: #151718;
   --color-background-overlay: rgba(255, 255, 255, 0.8);
+  --color-background-overlay-strong: rgba(15, 23, 42, 0.7);
+  --color-background-overlay-pressed: rgba(226, 232, 240, 0.6);
   --color-background-glass: rgba(255, 255, 255, 0.94);
   --color-input-background: #e2e8f0;
   --color-yellow-100: #fef3c7;
@@ -79,6 +81,7 @@
   
   /* Cores de Sombra */
   --color-shadow: #000;
+  --color-white-40: rgba(255, 255, 255, 0.4);
   
   /* Cores de Ícones */
   --color-icon-default: #687076;

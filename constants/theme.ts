@@ -38,6 +38,8 @@ export const AppColors = {
     light: '#f5f5f5',
     dark: '#151718',
     overlay: 'rgba(255, 255, 255, 0.8)',
+    overlayStrong: 'rgba(15, 23, 42, 0.7)',
+    overlayPressed: 'rgba(226, 232, 240, 0.6)',
     glass: 'rgba(255, 255, 255, 0.94)',
     input: '#e2e8f0',
     muted: '#F8FAFC',
@@ -55,6 +57,10 @@ export const AppColors = {
     indigo: {
       light: '#e0e7ff',
       base: '#6366f1',
+    },
+    teal: {
+      light: '#ccfbf1',
+      base: '#0d9488',
     },
   },
   
@@ -101,6 +107,10 @@ export const AppColors = {
   
   // Cores de Sombra
   shadow: '#000',
+
+  translucent: {
+    white40: 'rgba(255, 255, 255, 0.4)',
+  },
   
   // Cores de Ícones
   icon: {

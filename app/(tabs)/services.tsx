@@ -96,6 +96,11 @@ export default function ServicosScreen() {
         router.push('/EducationTab');
         return;
       }
+      
+      if (serviceId === 'jobs') {
+        router.push('/JobsTab');
+        return;
+      }
 
     Alert.alert(title, 'Serviço disponível em breve.');
   };

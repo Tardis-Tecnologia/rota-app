@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
     Image,
+    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -141,13 +142,21 @@ const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
     borderRadius: 20,
-    borderColor: AppColors.border.muted,
-    borderWidth: 0.5,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 6,
+    backgroundColor: AppColors.background.default,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.2)',
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(15, 23, 42, 0.08)',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.7,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 0,
+      },
+      default: {},
+    }),
   },
   cardContent: {
     padding: 16,

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React, { useMemo } from 'react';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
@@ -94,20 +94,31 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
+       <Tabs.Screen
         name="services"
         options={({ navigation }) => ({
           headerShown: true,
           title: 'Serviços',
+          headerTitleAlign: 'center',
+          headerTitleStyle: {
+            fontSize: 18,
+            fontWeight: '600',
+            color: AppColors.text.secondary,
+          },
           headerLeft: () => (
-            <Ionicons 
-              name="arrow-back-outline" 
-              paddingLeft={20}
-              size={24} 
-              color={'black'} 
+            <TouchableOpacity
+              style={styles.headerButton}
+              activeOpacity={0.7}
               onPress={() => navigation.goBack()}
-            />
+            >
+              <Ionicons
+                name="arrow-back-outline"
+                size={24}
+                color={AppColors.text.secondary}
+              />
+            </TouchableOpacity>
           ),
+          headerRight: () => <View style={styles.headerSpacer} />,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
               name="document-text-outline" 
@@ -122,15 +133,26 @@ export default function TabLayout() {
         name="messages"
         options={({ navigation }) => ({
           headerShown: true,
+          headerTitleAlign: 'center',
+          headerTitleStyle: {
+            fontSize: 18,
+            fontWeight: '600',
+            color: AppColors.text.secondary,
+          },
           headerLeft: () => (
-            <Ionicons 
-              name="arrow-back-outline" 
-              paddingLeft={20}
-              size={24} 
-              color={'black'} 
+            <TouchableOpacity
+              style={styles.headerButton}
+              activeOpacity={0.7}
               onPress={() => navigation.goBack()}
-            />
+            >
+              <Ionicons
+                name="arrow-back-outline"
+                size={24}
+                color={AppColors.text.secondary}
+              />
+            </TouchableOpacity>
           ),
+          headerRight: () => <View style={styles.headerSpacer} />,
           title: 'Mensagens',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
@@ -146,15 +168,26 @@ export default function TabLayout() {
         name="feed"
         options={({ navigation }) => ({
           headerShown: true,
+          headerTitleAlign: 'center',
+          headerTitleStyle: {
+            fontSize: 18,
+            fontWeight: '600',
+            color: AppColors.text.secondary,
+          },
           headerLeft: () => (
-            <Ionicons 
-              name="arrow-back-outline" 
-              paddingLeft={20}
-              size={24} 
-              color={'black'} 
+            <TouchableOpacity
+              style={styles.headerButton}
+              activeOpacity={0.7}
               onPress={() => navigation.goBack()}
-            />
+            >
+              <Ionicons
+                name="arrow-back-outline"
+                size={24}
+                color={AppColors.text.secondary}
+              />
+            </TouchableOpacity>
           ),
+          headerRight: () => <View style={styles.headerSpacer} />,
           title: 'Feed',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
@@ -169,3 +202,17 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  headerButton: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 4,
+  },
+  headerSpacer: {
+    width: 48,
+    marginRight: 4,
+  },
+});

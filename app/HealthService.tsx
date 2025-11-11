@@ -35,6 +35,7 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.background.default,
   },
   header: {
+    paddingTop: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

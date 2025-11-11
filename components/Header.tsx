@@ -73,7 +73,7 @@ export default function Header({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 24,
-    paddingTop: 32,
+    paddingTop: 42,
     paddingBottom: 16,
   },
   card: {

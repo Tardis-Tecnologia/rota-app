@@ -133,6 +133,7 @@ export function ExploreFloatingCard({
 
 const styles = StyleSheet.create({
   card: {
+    marginTop: 32,
     backgroundColor: 'rgba(255, 255, 255, 0.92)',
     borderRadius: 20,
     paddingVertical: 16,

@@ -197,11 +197,9 @@ const styles = StyleSheet.create({
     height: 208,
     borderRadius: 24,
     overflow: 'hidden',
-    backgroundColor: AppColors.background.input,
     shadowColor: AppColors.shadow,
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
+
     elevation: 6,
   },
   carouselImage: {
@@ -252,7 +250,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderRadius: 24,
     overflow: 'hidden',
-    elevation: 6,
   },
   serviceProvidersContainer: {
     marginHorizontal: 16,

@@ -17,7 +17,7 @@ export default function NotificationsScreen() {
             pressed && styles.backButtonPressed,
           ]}
         >
-          <Ionicons name="arrow-back-outline" size={22} color={AppColors.text.secondary} />
+          <Ionicons name="arrow-back-outline" size={22} marginLeft={20} marginTop={10} color={AppColors.text.secondary} />
         </Pressable>
         <Text style={styles.headerTitle}>Notificações</Text>
         <View style={{ width: 36 }} />
@@ -32,8 +32,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: AppColors.background.default,
-    paddingHorizontal: 16,
-    paddingTop: 16,
 
   },
   header: {
@@ -43,6 +41,12 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: AppColors.border.muted,
+  },
+  headertitle: {
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '700',
+    color: AppColors.text.secondary,
   },
   backButton: {
     width: 36,

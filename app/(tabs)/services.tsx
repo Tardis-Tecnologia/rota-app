@@ -182,11 +182,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
     borderRadius: 16,
     overflow: 'hidden',
-    elevation: 4,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    elevation: 0,
+
   },
   webCardWrapper: {
     paddingVertical: 24,

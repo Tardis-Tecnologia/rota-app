@@ -14,12 +14,12 @@ import {
     NativeScrollEvent,
     NativeSyntheticEvent,
     Pressable,
-    SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SLIDE_WIDTH = SCREEN_WIDTH - 32;
@@ -62,7 +62,7 @@ export default function JobsTab() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <Pressable

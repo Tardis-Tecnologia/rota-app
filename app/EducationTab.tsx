@@ -7,12 +7,12 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type EducationTabKey = 'search' | 'enrollments';
 
@@ -21,7 +21,7 @@ export default function EducationTab() {
   const [selectedEnrollment, setSelectedEnrollment] = useState<typeof mockEnrollments[number] | null>(null);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <View style={styles.headerInner}>
           <Pressable

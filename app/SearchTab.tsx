@@ -4,7 +4,6 @@ import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
     Pressable,
-    SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
@@ -12,6 +11,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SearchTab() {
   const [search, setSearch] = useState('');
@@ -48,7 +48,7 @@ export default function SearchTab() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <Pressable

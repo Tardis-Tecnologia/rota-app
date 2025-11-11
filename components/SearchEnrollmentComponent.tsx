@@ -1,14 +1,11 @@
+import CrecheSchoolList from '@/components/CrecheSchoolList';
 import DocumentDescription from '@/components/DocumentDescription';
+import FundamentalSchoolList from '@/components/FundamentalSchoolList';
+import MedioSchoolList from '@/components/MedioSchoolList';
 import { AppColors } from '@/constants/theme';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import {
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  View
-} from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 const educationLevels = [
   {
@@ -38,7 +35,21 @@ const educationLevels = [
 ];
 
 export default function SearchEnrollmentComponent() {
-  const [query, setQuery] = useState('');
+  const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
+
+  const handleBack = () => setSelectedLevel(null);
+
+  if (selectedLevel === 'creche') {
+    return <CrecheSchoolList onBack={handleBack} />;
+  }
+
+  if (selectedLevel === 'fundamental') {
+    return <FundamentalSchoolList onBack={handleBack} />;
+  }
+
+  if (selectedLevel === 'medio') {
+    return <MedioSchoolList onBack={handleBack} />;
+  }
 
   return (
     <View style={styles.container}>
@@ -51,7 +62,10 @@ export default function SearchEnrollmentComponent() {
         data={educationLevels}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <Pressable style={({ pressed }) => [styles.levelCard, pressed && styles.levelCardPressed]}>
+          <Pressable
+            onPress={() => setSelectedLevel(item.id)}
+            style={({ pressed }) => [styles.levelCard, pressed && styles.levelCardPressed]}
+          >
             <View style={[styles.levelIcon, { backgroundColor: item.backgroundColor }]}>
               <MaterialCommunityIcons name={item.iconName} size={24} color={item.iconColor} />
             </View>

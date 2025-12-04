@@ -29,7 +29,7 @@ export default function FeedScreen() {
         </ScrollView>
       </View>
       <TouchableOpacity activeOpacity={0.85} style={styles.fab} onPress={() => {}}>
-        <MaterialIcons name="add-circle-outline" size={28} color={AppColors.text.white} />
+        <MaterialIcons name="add" size={28} color={AppColors.text.white} />
       </TouchableOpacity>
     </>
   );

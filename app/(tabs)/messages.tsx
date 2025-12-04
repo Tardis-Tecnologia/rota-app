@@ -53,7 +53,7 @@ export default function MensagensScreen() {
       </View>
 
       <TouchableOpacity activeOpacity={0.85} style={styles.fab} onPress={() => {}}>
-        <MaterialIcons name="send" size={28} color={AppColors.text.white} />
+        <MaterialIcons name="send" size={32} color={AppColors.text.white} style={{ transform: [{ rotate: "-35deg" }] }}/>
       </TouchableOpacity>
     </View>
   );

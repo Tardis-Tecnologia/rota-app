@@ -1,5 +1,7 @@
 import { AppColors } from '@/constants/theme';
 import { FeedFilter, Post } from '@/types';
+import { Feather } from '@expo/vector-icons';
+
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -154,6 +156,34 @@ export default function NewsPosts({ filter = 'todos' }: NewsPostsProps) {
             />
           </View>
         )}
+        {post.imagem && <View style={styles.divider} />}
+        <View style={styles.postActions}>
+          <View style={styles.actionItem}>
+            <Feather name="message-circle" size={18} color={AppColors.text.tertiary} />
+            <Text style={styles.actionText}>{post.comentarios}</Text>
+          </View>
+
+          <View style={styles.actionItem}>
+            <Feather name="repeat" size={18} color={AppColors.text.tertiary} />
+            <Text style={styles.actionText}>{post.compartilhamentos}</Text>
+          </View>
+
+          <View style={styles.actionItem}>
+            <Feather
+              name="heart"
+              size={18}
+              color={post.curtido ? AppColors.tab.active : AppColors.text.tertiary}
+            />
+            <Text style={styles.actionText}>{post.curtidas}</Text>
+          </View>
+          <View style={styles.actionItem}>
+            <Feather
+              name="share-2"
+              size={18}
+              color={AppColors.text.tertiary}
+            />
+          </View>
+        </View> 
       </View>
     );
   };
@@ -276,5 +306,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: AppColors.text.tertiary,
   },
+  postActions: {
+  flexDirection: 'row',
+  justifyContent: 'space-around',
+  marginTop: 14,
+  paddingHorizontal: 4,
+},
+
+  actionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  actionText: {
+    fontSize: 13,
+    color: AppColors.text.tertiary,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: AppColors.gray[200],
+    marginTop: 12,
+    marginBottom: 7,
+    width: '100%',
+  },
+
 });
 

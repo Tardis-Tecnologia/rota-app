@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
+  Pressable,
   Image,
   ScrollView,
   StyleSheet,
@@ -103,6 +104,9 @@ export default function EventCarousel() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Eventos da Cidade</Text>
+         <Pressable hitSlop={8} style={styles.viewAllButton}>
+            <Text style={styles.viewAllText}>Ver todos</Text>
+          </Pressable>
       </View>
       <ScrollView
         horizontal
@@ -210,6 +214,15 @@ const styles = StyleSheet.create({
   local: {
     fontSize: 14,
     color: AppColors.text.tertiary, // gray-500
+  },
+  viewAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: AppColors.accent,
+  },
+  viewAllButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
   },
 });
 

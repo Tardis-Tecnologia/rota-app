@@ -12,7 +12,7 @@ type ProviderProfileScreenProps = {
         review: number;
         rating: number;
         about: string;
-        priceRange: string;
+
         reviews: {
             author: string;
             comment: string;
@@ -165,7 +165,6 @@ export default function ProviderProfileScreen({ data }: ProviderProfileScreenPro
                 </View>
             </View>
         )}
-        
         </ScrollView>
     );
 }

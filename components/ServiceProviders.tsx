@@ -24,9 +24,8 @@ type Provider = {
   rating: number;
   image: string;
   review: number;
-
   about: string;
-  priceRange: string;
+  
   reviews: {
     author: string;
     comment: string;
@@ -55,7 +54,6 @@ const providers: Provider[] = [
 
     about:
       'Especialista em reparos hidráulicos residenciais e comerciais. Mais de 15 anos de experiência com vazamentos, desentupimentos e instalações.',
-    priceRange: 'R$ 80 - R$ 200',
 
     reviews: [
       {
@@ -88,7 +86,6 @@ const providers: Provider[] = [
     
     about:
       'Soluções completas em elétrica. Instalação de quadros, reparos, iluminação e automação. Atendimento 24h para emergências.',
-    priceRange: 'R$ 80 - R$ 200',
 
     reviews: [
       {
@@ -119,7 +116,6 @@ const providers: Provider[] = [
     review: 88,
     about:
       'Criação e manutenção de jardins, gramados e hortas. Transformo seu espaço em um oásis verde.',
-    priceRange: 'R$ 80 - R$ 200',
 
     reviews: [
       {
@@ -145,7 +141,6 @@ const providers: Provider[] = [
     review: 54,
     about:
       'Pintura residencial e predial com acabamento de alta qualidade. Orçamento sem compromisso.',
-    priceRange: 'R$ 80 - R$ 200',
 
     reviews: [
       // {
@@ -174,7 +169,6 @@ const providers: Provider[] = [
     
     about:
       'Limpeza e organização pós-obra, faxina pesada e manutenção semanal. Deixo sua casa impecável.',
-    priceRange: 'R$ 80 - R$ 200',
 
     reviews: [
       {
@@ -199,7 +193,6 @@ const providers: Provider[] = [
     review: 95,
     about:
       'Especialista em pequenos reparos e instalações. Chuveiros, tomadas, ventiladores e mais.',
-    priceRange: 'R$ 80 - R$ 200',
 
     reviews: [
       // {

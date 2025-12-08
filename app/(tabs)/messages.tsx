@@ -1,8 +1,12 @@
 import { AppColors } from '@/constants/theme';
+import { useConversations } from '@/contexts/ConversationsContext';
 import { MaterialIcons } from '@expo/vector-icons';
-import React from 'react';
+import { router } from 'expo-router';
+import React, { useState } from 'react';
 import {
   Image,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -34,23 +38,91 @@ const messages = [
 ];
 
 export default function MensagensScreen() {
+  const { conversations } = useConversations();
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+
+  const getInitials = (name?: string) => {
+    if (!name) return '';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  };
+
+  const handleOpenChat = (conversation: typeof conversations[0]) => {
+    router.push({
+      pathname: '/ProviderChatTab',
+      params: {
+        provider: JSON.stringify(conversation.providerData),
+      },
+    });
+  };
+
   return (
     <View style={styles.container}>
-      <View style={styles.list}>
-        {messages.map((message) => (
-          <View key={message.id} style={styles.card}>
-            <Image source={{ uri: message.imgUrl }} style={styles.avatar} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* Provider Conversations */}
+        {conversations.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Prestadores de Serviço</Text>
+            <View style={styles.list}>
+              {conversations.map((conversation) => {
+                const showFallback = !conversation.providerImage || imageErrors[conversation.id] || conversation.providerImage === '';
+                return (
+                  <Pressable
+                    key={conversation.id}
+                    style={styles.card}
+                    onPress={() => handleOpenChat(conversation)}
+                  >
+                    {showFallback ? (
+                      <View style={styles.avatarFallback}>
+                        <Text style={styles.avatarFallbackText}>
+                          {getInitials(conversation.providerName)}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Image
+                        source={{ uri: conversation.providerImage }}
+                        style={styles.avatar}
+                        onError={() => setImageErrors(prev => ({ ...prev, [conversation.id]: true }))}
+                      />
+                    )}
 
-            <View style={styles.cardContent}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.name}>{message.name}</Text>
-                <Text style={styles.date}>{message.date}</Text>
-              </View>
-              <Text style={styles.message}>{message.message}</Text>
+                    <View style={styles.cardContent}>
+                      <View style={styles.cardHeader}>
+                        <Text style={styles.name}>{conversation.providerName}</Text>
+                        <Text style={styles.date}>{conversation.date}</Text>
+                      </View>
+                      <Text style={styles.message} numberOfLines={2}>
+                        {conversation.lastMessage}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
-        ))}
-      </View>
+        )}
+
+        {/* System Messages */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Notificações</Text>
+          <View style={styles.list}>
+            {messages.map((message) => (
+              <View key={message.id} style={styles.card}>
+                <Image source={{ uri: message.imgUrl }} style={styles.avatar} />
+
+                <View style={styles.cardContent}>
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.name}>{message.name}</Text>
+                    <Text style={styles.date}>{message.date}</Text>
+                  </View>
+                  <Text style={styles.message} numberOfLines={2}>{message.message}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      </ScrollView>
 
       <TouchableOpacity activeOpacity={0.85} style={styles.fab} onPress={() => {}}>
         <MaterialIcons name="send" size={28} color={AppColors.text.white} style={{ transform: [{ rotate: "-35deg" }] }}/>
@@ -63,11 +135,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: AppColors.background.light,
+    position: 'relative',
+  },
+  scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 24,
-    paddingBottom: 80,
-    position: 'relative',
-    gap: 16,
+    paddingBottom: 100,
+    gap: 24,
+  },
+  section: {
+    gap: 12,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: AppColors.text.secondary,
   },
   list: {
     gap: 12,
@@ -92,6 +174,19 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     backgroundColor: AppColors.gray[200],
+  },
+  avatarFallback: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#9CA3AF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarFallbackText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   cardContent: {
     flex: 1,

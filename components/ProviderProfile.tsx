@@ -1,5 +1,6 @@
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -66,7 +67,17 @@ export default function ProviderProfileScreen({ data }: ProviderProfileScreenPro
         </View>
 
         {/* Contact Button */}
-        <Pressable style={styles.contactButton}>
+        <Pressable
+            style={styles.contactButton}
+            onPress={() =>
+                router.push({
+                    pathname: '/ProviderChatTab',
+                    params: {
+                        provider: JSON.stringify(data),
+                    },
+                })
+            }
+        >
             <View style={styles.contactButtonContent}>
                 <Ionicons name="chatbubble-ellipses" size={18} color="#fff" />
                 <Text style={styles.contactButtonText}>Entrar em Contato</Text>
@@ -87,7 +98,7 @@ export default function ProviderProfileScreen({ data }: ProviderProfileScreenPro
             <View style={styles.section}>
                 <View>
                     {data.reviews.length === 0 ? (
-                        <Text style={styles.sectionText}>Nenhuma avaliação ainda.</Text>
+                        <Text style={styles.text}>Nenhuma avaliação ainda.</Text>
                         ) : (
                         data.reviews.map((review, index) => (
                             <View key={`${index}-${review.author}`} style={styles.reviewItem}>
@@ -250,6 +261,13 @@ const styles = StyleSheet.create({
     sectionText: {
         marginTop: 6,
         fontSize: 16,
+        color: '#4B5563',
+        fontWeight: '400',
+    },
+    text: {
+        marginTop: 6,
+        fontSize: 16,
+        textAlign: 'center',
         color: '#4B5563',
         fontWeight: '400',
     },

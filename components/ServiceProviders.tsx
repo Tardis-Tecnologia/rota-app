@@ -283,7 +283,7 @@ export default function ServiceProviders() {
               style={styles.profileButton}
               onPress={() =>
                 router.push({
-                  pathname: '/provider-profile',
+                  pathname: '/ProfileProviderTab',
                   params: {
                     provider: JSON.stringify(provider),
                   },

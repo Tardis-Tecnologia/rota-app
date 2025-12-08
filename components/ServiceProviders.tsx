@@ -1,15 +1,15 @@
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
 import { router } from 'expo-router';
+import React, { useState } from 'react';
 
 import {
-    FlatList,
-    Image,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  FlatList,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
 type ProviderCategory = {
@@ -255,39 +255,44 @@ export default function ServiceProviders() {
       />
 
       <View style={styles.listContainer}>
-        {filteredProviders.map((provider) => (
-          <View key={provider.id} style={styles.providerCard}>
-            <Image source={{ uri: provider.image }} style={styles.avatar} />
-            <View style={styles.providerContent}>
-              <Text style={styles.providerName} numberOfLines={1}>
-                {provider.name}
-              </Text>
+        {filteredProviders.map((provider) => {
+          const categoryLabel = categories.find(c => c.id === provider.categoryId)?.label || '';
+          return (
+            <View key={provider.id} style={styles.providerCard}>
+              <Image source={{ uri: provider.image }} style={styles.avatar} />
+              <View style={styles.providerContent}>
+                <Text style={styles.providerName} numberOfLines={1}>
+                  {provider.name}
+                </Text>
 
-              <View style={styles.ratingRow}>
-                <Ionicons
-                  name="star"
-                  size={14}
-                  color={AppColors.palette.amber.base}
-                />
-                <Text style={styles.ratingValue}>{provider.rating.toFixed(1)}</Text>
+                <Text style={styles.categoryText}>{categoryLabel}</Text>
+
+                <View style={styles.ratingRow}>
+                  <Ionicons
+                    name="star"
+                    size={14}
+                    color={AppColors.palette.amber.base}
+                  />
+                  <Text style={styles.ratingValue}>{provider.rating.toFixed(1)}</Text>
+                </View>
+
+                <Pressable
+                  style={styles.profileButton}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/ProfileProviderTab',
+                      params: {
+                        provider: JSON.stringify(provider),
+                      },
+                    })
+                  }
+                >
+                  <Text style={styles.profileButtonText}>Ver Perfil</Text>
+                </Pressable>
               </View>
-
-            <Pressable
-              style={styles.profileButton}
-              onPress={() =>
-                router.push({
-                  pathname: '/ProfileProviderTab',
-                  params: {
-                    provider: JSON.stringify(provider),
-                  },
-                })
-              }
-            >
-              <Text style={styles.profileButtonText}>Ver Perfil</Text>
-            </Pressable>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </View>
     </View>
   );
@@ -298,7 +303,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: AppColors.text.secondary,
   },
@@ -370,6 +375,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: AppColors.text.secondary,
+  },
+  categoryText: {
+    fontSize: 11,
+    color: AppColors.text.tertiary,
   },
   ratingRow: {
     flexDirection: 'row',

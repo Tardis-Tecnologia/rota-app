@@ -38,15 +38,43 @@ const internships: Internship[] = [
     salary: 'Salário Mínimo-hora',
     icon: { set: 'ion', name: 'document-text-outline' },
   },
+  {
+    id: 'internship-3',
+    title: 'Estágio em TI',
+    organization: 'Prefeitura da Cidade',
+    deadline: '15/12/2025',
+    salary: 'R$ 1.000 + VT',
+    icon: { set: 'ion', name: 'code-slash-outline' },
+  },
+  {
+    id: 'internship-4',
+    title: 'Estágio em Enfermagem',
+    organization: 'Hospital Municipal',
+    deadline: '10/01/2026',
+    salary: 'R$ 1.100 + VT',
+    icon: { set: 'ion', name: 'heart-outline' },
+  },
 ];
 
+const MAX_VISIBLE = 3;
+
 export default function InternshipOpportunities() {
+  const visibleInternships = internships.slice(0, MAX_VISIBLE);
+  const hasMore = internships.length > MAX_VISIBLE;
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Estágio e Jovem Aprendiz</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>Estágio e Jovem Aprendiz</Text>
+        {hasMore && (
+          <Pressable hitSlop={8} style={styles.viewAllButton}>
+            <Text style={styles.viewAllText}>Ver todos</Text>
+          </Pressable>
+        )}
+      </View>
 
       <FlatList
-        data={internships}
+        data={visibleInternships}
         keyExtractor={(item) => item.id}
         scrollEnabled={false}
         contentContainerStyle={styles.listContent}
@@ -109,10 +137,24 @@ const styles = StyleSheet.create({
   container: {
     gap: 16,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: AppColors.text.secondary,
+  },
+  viewAllButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  viewAllText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppColors.accent,
   },
   listContent: {
     gap: 12,

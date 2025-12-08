@@ -38,15 +38,43 @@ const tenders: Tender[] = [
     salary: 'R$ 4.200',
     icon: { set: 'mci', name: 'bank-outline' },
   },
+  {
+    id: 'tender-3',
+    title: 'Professor de Educação Básica',
+    organization: 'Secretaria de Educação',
+    deadline: '20/12/2025',
+    salary: 'R$ 4.500',
+    icon: { set: 'ion', name: 'school-outline' },
+  },
+  {
+    id: 'tender-4',
+    title: 'Agente de Saúde',
+    organization: 'Secretaria de Saúde',
+    deadline: '10/01/2026',
+    salary: 'R$ 2.800',
+    icon: { set: 'ion', name: 'medkit-outline' },
+  },
 ];
 
+const MAX_VISIBLE = 3;
+
 export default function PublicTenders() {
+  const visibleTenders = tenders.slice(0, MAX_VISIBLE);
+  const hasMore = tenders.length > MAX_VISIBLE;
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Editais Públicos Abertos</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>Editais Públicos Abertos</Text>
+        {hasMore && (
+          <Pressable hitSlop={8} style={styles.viewAllButton}>
+            <Text style={styles.viewAllText}>Ver todos</Text>
+          </Pressable>
+        )}
+      </View>
 
       <FlatList
-        data={tenders}
+        data={visibleTenders}
         keyExtractor={(item) => item.id}
         scrollEnabled={false}
         contentContainerStyle={styles.listContent}
@@ -105,10 +133,24 @@ const styles = StyleSheet.create({
   container: {
     gap: 16,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: AppColors.text.secondary,
+  },
+  viewAllButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  viewAllText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppColors.accent,
   },
   listContent: {
     gap: 12,

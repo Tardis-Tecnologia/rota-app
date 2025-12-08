@@ -1,6 +1,8 @@
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
+import { router } from 'expo-router';
+
 import {
     FlatList,
     Image,
@@ -21,6 +23,16 @@ type Provider = {
   categoryId: string;
   rating: number;
   image: string;
+  review: number;
+
+  about: string;
+  priceRange: string;
+  reviews: {
+    author: string;
+    comment: string;
+    rating: number;
+  }[];
+  gallery: string[];
 };
 
 const categories: ProviderCategory[] = [
@@ -38,8 +50,32 @@ const providers: Provider[] = [
     name: 'Mário Encanamentos',
     categoryId: 'encanador',
     rating: 4.8,
-    image:
-      'https://images.unsplash.com/photo-1505455184862-554165e5f6ba?w=200&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1505455184862-554165e5f6ba?w=200&auto=format&fit=crop',
+    review: 112,
+
+    about:
+      'Especialista em reparos hidráulicos residenciais e comerciais. Mais de 15 anos de experiência com vazamentos, desentupimentos e instalações.',
+    priceRange: 'R$ 80 - R$ 200',
+
+    reviews: [
+      {
+        author: 'Carlos Silva',
+        comment: 'Serviço rápido e eficiente! Resolveu meu vazamento em menos de uma hora.',
+        rating: 5,
+        
+      },
+      {
+        author: 'Ana Beatriz',
+        comment: 'Bom profissional, mas demorou um pouco para chegar.',
+        rating: 4,
+      },
+    ],
+
+    gallery: [
+      'https://images.unsplash.com/photo-1616047006789-b7af5afb8c20',
+      'https://images.unsplash.com/photo-1581578731548-c64695cc6952',
+      'https://images.unsplash.com/photo-1600607687930-1e94c1c28a8d',
+    ],
   },
   {
     id: 'provider-2',
@@ -48,6 +84,30 @@ const providers: Provider[] = [
     rating: 4.9,
     image:
       'https://images.unsplash.com/photo-1621905251918-48415bdd7e25?w=200&auto=format&fit=crop',
+    review: 230,
+    
+    about:
+      'Soluções completas em elétrica. Instalação de quadros, reparos, iluminação e automação. Atendimento 24h para emergências.',
+    priceRange: 'R$ 80 - R$ 200',
+
+    reviews: [
+      {
+        author: 'Fernanda Lima',
+        comment: 'Excelente! O João é muito profissional e cuidadoso. Recomendo!',
+        rating: 5,
+      },
+      {
+        author: 'Ricardo Mendes',
+        comment: 'Trocou toda a fiação antiga do meu apartamento. Serviço impecável.',
+        rating: 5,
+      },
+    ],
+
+    gallery: [
+      'https://images.unsplash.com/photo-1487814542689-1326d1b721e7',
+      'https://images.unsplash.com/photo-1487814542689-1326d1b721e7',
+      'https://images.unsplash.com/photo-1487814542689-1326d1b721e7',
+    ],
   },
   {
     id: 'provider-3',
@@ -56,6 +116,24 @@ const providers: Provider[] = [
     rating: 4.7,
     image:
       'https://images.unsplash.com/photo-1600659520194-3a5c264369d8?w=200&auto=format&fit=crop',
+    review: 88,
+    about:
+      'Criação e manutenção de jardins, gramados e hortas. Transformo seu espaço em um oásis verde.',
+    priceRange: 'R$ 80 - R$ 200',
+
+    reviews: [
+      {
+        author: 'Lúcia R.',
+        comment: 'Meu jardim nunca esteve tão lindo! Trabalho maravilhoso.',
+        rating: 5,
+      },
+    ],
+
+    gallery: [
+      'https://images.unsplash.com/photo-1466611653911-95081537e5b7',
+      'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2',
+      'https://images.unsplash.com/photo-1619283516083-d1433f482d8c',
+    ],
   },
   {
     id: 'provider-4',
@@ -64,6 +142,26 @@ const providers: Provider[] = [
     rating: 4.6,
     image:
       'https://images.unsplash.com/photo-1596821307225-8a1abdd7c494?w=200&auto=format&fit=crop',
+    review: 54,
+    about:
+      'Pintura residencial e predial com acabamento de alta qualidade. Orçamento sem compromisso.',
+    priceRange: 'R$ 80 - R$ 200',
+
+    reviews: [
+      // {
+      //   author: 'Carlos Silva',
+      //   comment: 'Serviço rápido e eficiente! Resolveu meu vazamento em menos de uma hora.',
+      // },
+      // {
+      //   author: 'Ana Beatriz',
+      //   comment: 'Bom profissional, mas demorou um pouco para chegar.',
+      // },
+    ],
+
+    gallery: [
+      // 'https://images.unsplash.com/photo-1616047006789-b7af5afb8c20',
+      // 'https://images.unsplash.com/photo-1581578731548-c64695cc6952',
+    ],
   },
   {
     id: 'provider-5',
@@ -72,6 +170,24 @@ const providers: Provider[] = [
     rating: 5,
     image:
       'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=200&auto=format&fit=crop',
+    review: 150,
+    
+    about:
+      'Limpeza e organização pós-obra, faxina pesada e manutenção semanal. Deixo sua casa impecável.',
+    priceRange: 'R$ 80 - R$ 200',
+
+    reviews: [
+      {
+        author: 'Mariana C.',
+        comment: 'A melhor profissional que já contratei. Detalhista e muito caprichosa.',
+        rating: 5,
+      },
+    ],
+
+    gallery: [
+      // 'https://images.unsplash.com/photo-1616047006789-b7af5afb8c20',
+      // 'https://images.unsplash.com/photo-1581578731548-c64695cc6952',
+    ],
   },
   {
     id: 'provider-6',
@@ -80,11 +196,32 @@ const providers: Provider[] = [
     rating: 4.5,
     image:
       'https://images.unsplash.com/photo-1581092916357-6d2e39310d25?w=200&auto=format&fit=crop',
+    review: 95,
+    about:
+      'Especialista em pequenos reparos e instalações. Chuveiros, tomadas, ventiladores e mais.',
+    priceRange: 'R$ 80 - R$ 200',
+
+    reviews: [
+      // {
+      //   author: 'Carlos Silva',
+      //   comment: 'Serviço rápido e eficiente! Resolveu meu vazamento em menos de uma hora.',
+      // },
+      // {
+      //   author: 'Ana Beatriz',
+      //   comment: 'Bom profissional, mas demorou um pouco para chegar.',
+      // },
+    ],
+
+    gallery: [
+      // 'https://images.unsplash.com/photo-1616047006789-b7af5afb8c20',
+      // 'https://images.unsplash.com/photo-1581578731548-c64695cc6952',
+    ],
   },
 ];
 
 export default function ServiceProviders() {
   const [activeCategory, setActiveCategory] = useState('todos');
+  
 
   const filteredProviders =
     activeCategory === 'todos'
@@ -142,9 +279,19 @@ export default function ServiceProviders() {
                 <Text style={styles.ratingValue}>{provider.rating.toFixed(1)}</Text>
               </View>
 
-              <Pressable style={styles.profileButton}>
-                <Text style={styles.profileButtonText}>Ver Perfil</Text>
-              </Pressable>
+            <Pressable
+              style={styles.profileButton}
+              onPress={() =>
+                router.push({
+                  pathname: '/provider-profile',
+                  params: {
+                    provider: JSON.stringify(provider),
+                  },
+                })
+              }
+            >
+              <Text style={styles.profileButtonText}>Ver Perfil</Text>
+            </Pressable>
             </View>
           </View>
         ))}
@@ -187,7 +334,9 @@ const styles = StyleSheet.create({
     color: AppColors.text.white,
   },
   listContainer: {
-    flexDirection: 'column',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     gap: 12,
   },
   providerCard: {
@@ -196,8 +345,8 @@ const styles = StyleSheet.create({
     gap: 16,
     backgroundColor: AppColors.background.default,
     borderRadius: 24,
-    padding: 16,
-    width: '100%',
+    padding: 15,
+    width: '48%',
     shadowColor: AppColors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,

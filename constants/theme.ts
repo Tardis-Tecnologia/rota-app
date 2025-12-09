@@ -58,10 +58,35 @@ export const AppColors = {
       light: '#e0e7ff',
       base: '#6366f1',
     },
+    purple: {
+      base: 'rgb(147, 51, 234)',
+    },
     teal: {
       light: '#ccfbf1',
       base: '#0d9488',
     },
+    orange: {
+      base: '#f97316',
+    },
+  },
+  
+  // Cores para Poll/Enquete
+  poll: {
+    gradientStart: '#667eea',
+    gradientEnd: '#764ba2',
+    optionBg: 'rgba(255, 255, 255, 0.15)',
+    optionBgSelected: 'rgba(255, 255, 255, 1)',
+    text: '#ffffff',
+    border: 'rgba(255, 255, 255, 0.2)',
+    borderSelected: 'rgba(255, 255, 255, 0.5)',
+  },
+  
+  // Cores para Report Button
+  report: {
+    orange: '#f97316',
+    red: '#ef4444',
+    amber: '#f59e0b',
+    gray: '#6b7280',
   },
   
   // Cores Neutras (Escala de Cinza)

@@ -27,34 +27,34 @@ interface ReportOption {
   iconColor: string;
 }
 
-const reportOptions: ReportOption[] = [
+const getReportOptions = (): ReportOption[] => [
   {
     id: 'buraco',
     label: 'Buraco na via',
     iconName: 'block',
     iconFamily: 'MaterialIcons',
-    iconColor: '#f97316', // orange-500
+    iconColor: AppColors.report.orange,
   },
   {
     id: 'dengue',
     label: 'Foco de Dengue',
     iconName: 'bug',
     iconFamily: 'Ionicons',
-    iconColor: '#ef4444', // red-500
+    iconColor: AppColors.report.red,
   },
   {
     id: 'iluminacao',
     label: 'Iluminação Falha',
     iconName: 'lightbulb-outline',
     iconFamily: 'MaterialIcons',
-    iconColor: '#f59e0b', // amber-500
+    iconColor: AppColors.report.amber,
   },
   {
     id: 'lixo',
     label: 'Lixo Acumulado',
     iconName: 'trash-outline',
     iconFamily: 'Ionicons',
-    iconColor: '#6b7280', // gray-500
+    iconColor: AppColors.report.gray,
   },
 ];
 
@@ -96,7 +96,7 @@ export default function ReportButton({ onReport }: ReportButtonProps) {
       {/* Menu Dropdown */}
       {isMenuOpen && (
         <Animated.View style={[styles.menu, menuAnimatedStyle]}>
-          {reportOptions.map((option) => (
+          {getReportOptions().map((option) => (
             <TouchableOpacity
               key={option.id}
               style={styles.menuItem}
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.status.error,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: AppColors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 8,
     minWidth: 200,
-    shadowColor: '#000',
+    shadowColor: AppColors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 16,

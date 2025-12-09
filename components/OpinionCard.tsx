@@ -4,13 +4,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-// Cores do poll (do global.css)
-const POLL_GRADIENT_START = '#667eea';
-const POLL_GRADIENT_END = '#764ba2';
-const POLL_OPTION_BG = 'rgba(255, 255, 255, 0.15)';
-const POLL_OPTION_BG_SELECTED = 'rgba(255, 255, 255, 1)';
-const POLL_TEXT = '#ffffff';
-
 type PollOption = 'iluminacao' | 'asfalto' | 'seguranca';
 
 interface OpinionCardProps {
@@ -37,14 +30,14 @@ export default function OpinionCard({ onVote }: OpinionCardProps) {
     <View style={styles.section}>
         <View style={styles.pollCard}>
           <LinearGradient
-            colors={[POLL_GRADIENT_START, POLL_GRADIENT_END]}
+            colors={[AppColors.poll.gradientStart, AppColors.poll.gradientEnd]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.gradient}
           >
             {/* Header */}
             <View style={styles.header}>
-              <Ionicons name="stats-chart" size={20} color={POLL_TEXT} />
+              <Ionicons name="stats-chart" size={20} color={AppColors.poll.text} />
               <Text style={styles.headerText}>Sua opinião importa!</Text>
             </View>
 
@@ -68,7 +61,7 @@ export default function OpinionCard({ onVote }: OpinionCardProps) {
                     <MaterialIcons
                       name={option.iconName}
                       size={18}
-                      color={isSelected ? AppColors.primary : POLL_TEXT}
+                      color={isSelected ? AppColors.primary : AppColors.poll.text}
                       style={styles.optionIcon}
                     />
                     <Text
@@ -97,7 +90,7 @@ const styles = StyleSheet.create({
   pollCard: {
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: AppColors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
     shadowRadius: 12,
@@ -115,12 +108,12 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 14,
     fontWeight: '600',
-    color: POLL_TEXT,
+    color: AppColors.poll.text,
   },
   question: {
     fontSize: 18,
     fontWeight: '700',
-    color: POLL_TEXT,
+    color: AppColors.poll.text,
     marginBottom: 16,
     lineHeight: 24,
   },
@@ -134,9 +127,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderRadius: 12,
-    backgroundColor: POLL_OPTION_BG,
+    backgroundColor: AppColors.poll.optionBg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: AppColors.poll.border,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'column',
@@ -146,13 +139,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   pollOptionSelected: {
-    backgroundColor: POLL_OPTION_BG_SELECTED,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: AppColors.poll.optionBgSelected,
+    borderColor: AppColors.poll.borderSelected,
   },
   pollOptionText: {
     fontSize: 13,
     fontWeight: '500',
-    color: POLL_TEXT,
+    color: AppColors.poll.text,
     textAlign: 'center',
   },
   pollOptionTextSelected: {

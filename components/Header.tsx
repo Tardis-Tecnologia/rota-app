@@ -55,7 +55,13 @@ export default function Header({
 
             <TouchableOpacity
               style={styles.avatarButton}
-              onPress={onProfilePress}
+              onPress={() => {
+                if (onProfilePress) {
+                  onProfilePress();
+                  return;
+                }
+                router.push('/Profile');
+              }}
               activeOpacity={0.7}
             >
               <Image

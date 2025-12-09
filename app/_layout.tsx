@@ -10,7 +10,6 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
-  // Forçar sempre modo claro
   return (
     <SafeAreaProvider>
       <ConversationsProvider>
@@ -32,6 +31,7 @@ export default function RootLayout() {
           <Stack.Screen name="JobsTab" options={{ headerShown: false }} />
           <Stack.Screen name="ProfileProviderTab" options={{ headerShown: false }} />
           <Stack.Screen name="ProviderChatTab" options={{ headerShown: false }} />
+          <Stack.Screen name="Profile" options={{ headerShown: false }} />
         </Stack>
           <StatusBar style="dark" />
         </ThemeProvider>

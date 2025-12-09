@@ -10,8 +10,8 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { ModalDocuments } from './ModalDocuments';
 import { ModalCurriculum } from './ModalCurriculum';
+import { ModalDocuments } from './ModalDocuments';
 
 interface MenuItemProps {
     icon: keyof typeof Ionicons.glyphMap;
@@ -109,13 +109,13 @@ export default function ProfileComponent({
             {/* Menu Options */}
             <View style={styles.menuSection}>
                 <MenuItem
-                icon="person-outline"
+                icon="person-circle-outline"
                 label="Conta"
                 iconColor={AppColors.gray[500]}
                 onPress={() => handleMenuPress('Conta')}
                 />
                 <MenuItem
-                icon="document-text-outline"
+                icon="folder-outline"
                 label="Meus Documentos"
                 iconColor="#6366F1"
                 onPress={() => handleMenuPress('Meus Documentos')}
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
         borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 12,
+        marginRight: 8,
     },
     menuLabel: {
         fontSize: 16,

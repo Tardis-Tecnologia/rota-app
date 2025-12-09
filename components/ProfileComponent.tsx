@@ -11,6 +11,7 @@ import {
     View,
 } from 'react-native';
 import { ModalDocuments } from './ModalDocuments';
+import { ModalCurriculum } from './ModalCurriculum';
 
 interface MenuItemProps {
     icon: keyof typeof Ionicons.glyphMap;
@@ -56,13 +57,17 @@ export default function ProfileComponent({
     subtitulo = 'Cidadã engajada',
 }: ProfileComponentProps) {
     const [showDocumentosModal, setShowDocumentosModal] = useState(false);
+    const [showCurriculoModal, setShowCurriculoModal] = useState(false);
     const handleMenuPress = (item: string) => {
         if (item === 'Conta' || item === 'Ajuda') {
             Alert.alert(item, 'Esta tela ainda está em desenvolvimento.');
             return;
         }
-        if (item === 'Meus Documentos') {
+        else if (item === 'Meus Documentos') {
             setShowDocumentosModal(true);
+            return;
+        } else if (item === 'Meu Currículo') {
+            setShowCurriculoModal(true);
             return;
         }
         console.log(`Navegando para: ${item}`);
@@ -77,6 +82,10 @@ export default function ProfileComponent({
             <ModalDocuments
                 visible={showDocumentosModal}
                 onClose={() => setShowDocumentosModal(false)}
+            />
+            <ModalCurriculum
+                visible={showCurriculoModal}
+                onClose={() => setShowCurriculoModal(false)}
             />
             <ScrollView
             style={styles.content}

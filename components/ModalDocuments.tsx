@@ -4,6 +4,7 @@ import React from "react";
 import {
     Modal,
     Pressable,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -25,7 +26,7 @@ function DocItem({ label, description, icon, iconColor, iconBgColor }: DocItemPr
                 <View style={[styles.iconContainer, { backgroundColor: iconBgColor }]}>
                     <Ionicons name={icon} size={20} color={iconColor} />
                 </View>
-                <View>
+                <View style={styles.docTextContainer}>
                     <Text style={styles.docLabel}>{label}</Text>
                     <Text style={styles.docDescription}>{description}</Text>
                 </View>
@@ -48,7 +49,7 @@ export function ModalDocuments({ visible, onClose }: ModalDocumentsProps) {
         <Modal
             visible={visible}
             transparent
-            animationType="fade"
+            animationType="slide"
             onRequestClose={onClose}
         >
             <View style={styles.modalBackdrop}>
@@ -72,43 +73,52 @@ export function ModalDocuments({ visible, onClose }: ModalDocumentsProps) {
                         </TouchableOpacity>
                     </View>
 
+                    <View style={styles.divider} />
+
                     {/* Documents list */}
-                    <View style={styles.docsList}>
-                        <DocItem
-                            label="Cópia Digital do IPTU"
-                            description="Válido até 31/12/2025"
-                            icon="home-outline"
-                            iconColor="#3B82F6"
-                            iconBgColor="#DBEAFE"
-                        />
-                        <DocItem
-                            label="Certidão Negativa de Débitos"
-                            description="Emitida em 20/11/2025"
-                            icon="checkmark-circle-outline"
-                            iconColor="#22C55E"
-                            iconBgColor="#DCFCE7"
-                        />
-                        <DocItem
-                            label="Comprovante de Residência Digital"
-                            description="Gerado via GPS • Válido por 90 dias"
-                            icon="location-outline"
-                            iconColor="#F59E0B"
-                            iconBgColor="#FEF3C7"
-                        />
-                        <DocItem
-                            label="Cartão SUS Digital"
-                            description="Atualizado"
-                            icon="medkit-outline"
-                            iconColor="#06B6D4"
-                            iconBgColor="#CFFAFE"
-                        />
-                        <DocItem
-                            label="Histórico Escolar - Sofia"
-                            description="Ano letivo 2025"
-                            icon="school-outline"
-                            iconColor="#8B5CF6"
-                            iconBgColor="#EDE9FE"
-                        />
+                    <View style={{ maxHeight: 410 }}>
+                        <ScrollView
+                            showsVerticalScrollIndicator={true}
+                            contentContainerStyle={{ paddingBottom: 40 }}
+                        >
+                            <View style={styles.docsList}>
+                                <DocItem
+                                    label="Cópia Digital do IPTU"
+                                    description="Válido até 31/12/2025"
+                                    icon="home-outline"
+                                    iconColor="#3B82F6"
+                                    iconBgColor="#DBEAFE"
+                                />
+                                <DocItem
+                                    label="Certidão Negativa de Débitos"
+                                    description="Emitida em 20/11/2025"
+                                    icon="checkmark-circle-outline"
+                                    iconColor="#22C55E"
+                                    iconBgColor="#DCFCE7"
+                                />
+                                <DocItem
+                                    label="Comprovante de Residência Digital"
+                                    description="Gerado via GPS • Válido por 90 dias"
+                                    icon="location-outline"
+                                    iconColor="#F59E0B"
+                                    iconBgColor="#FEF3C7"
+                                />
+                                <DocItem
+                                    label="Cartão SUS Digital"
+                                    description="Atualizado"
+                                    icon="medkit-outline"
+                                    iconColor="#06B6D4"
+                                    iconBgColor="#CFFAFE"
+                                />
+                                <DocItem
+                                    label="Histórico Escolar - Sofia"
+                                    description="Ano letivo 2025"
+                                    icon="school-outline"
+                                    iconColor="#8B5CF6"
+                                    iconBgColor="#EDE9FE"
+                                />
+                            </View>
+                        </ScrollView>
                     </View>
                 </View>
             </View>
@@ -126,7 +136,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     bottomSheet: {
-        backgroundColor: "#fff",
+        backgroundColor: "#F9FAFB",
         paddingTop: 24,
         paddingBottom: 40,
         paddingHorizontal: 24,
@@ -135,12 +145,15 @@ const styles = StyleSheet.create({
         elevation: 10,
     },
     sheetHeader: {
-        marginBottom: 24,
+        marginBottom: 1,
         position: "relative",
+        backgroundColor: "#F9FAFB",
+        paddingBottom: 16,
     },
     sheetTitle: {
         fontSize: 18,
         fontWeight: "700",
+        marginBottom: 6,
         color: "#1F2937",
     },
     sheetSubtitle: {
@@ -154,22 +167,39 @@ const styles = StyleSheet.create({
         top: 0,
         padding: 8,
     },
+    divider: {
+        height: 1,
+        backgroundColor: "#E5E7EB",
+        marginBottom: 16,
+    },
     docsList: {
-        gap: 16,
+        gap: 12,
     },
     docItem: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderColor: AppColors.gray[200],
+        padding: 16,
+        backgroundColor: "#FFFFFF",
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "#F3F4F6",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
     },
     docItemLeft: {
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
         flex: 1,
+        marginRight: 12,
+    },
+    docTextContainer: {
+        flex: 1,
+        flexShrink: 1,
     },
     iconContainer: {
         width: 40,

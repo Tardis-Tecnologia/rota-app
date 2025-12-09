@@ -3,6 +3,8 @@ import EventCarousel from '@/components/EventCarousel';
 import Header from '@/components/Header';
 import NewsCarousel from '@/components/NewsCarousel';
 import NewsPosts from '@/components/NewsPosts';
+import OpinionCard from '@/components/OpinionCard';
+import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
 import React, { useState } from 'react';
 import {
@@ -13,12 +15,24 @@ import {
 
 export default function NoticiasScreen() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastKey, setToastKey] = useState(0);
 
   const onRefresh = async (): Promise<void> => {
     setRefreshing(true);
     setTimeout(() => {
       setRefreshing(false);
     }, 1000);
+  };
+
+  const handleVote = () => {
+    // Sempre reinicia o toast com nova key para reiniciar a animação
+    setShowToast(false);
+    setToastKey((prev) => prev + 1);
+    // Aguarda um frame para garantir que o estado foi atualizado
+    setTimeout(() => {
+      setShowToast(true);
+    }, 50);
   };
 
   const ListHeader = () => (
@@ -30,6 +44,7 @@ export default function NoticiasScreen() {
       {/* Componente Alertas da Cidade */}
       <CityAlerts />
       {/* Componente de Eventos (Carrossel) */}
+      <OpinionCard onVote={handleVote} />
       <EventCarousel />
       <View>
       <Text style={styles.title}>Últimas Notícias</Text>
@@ -40,7 +55,6 @@ export default function NoticiasScreen() {
   );
 
   return (
-    
     <View style={styles.container}>
       <FlatList
         data={[]}
@@ -52,6 +66,14 @@ export default function NoticiasScreen() {
         }
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
+      />
+      <Toast
+        key={toastKey}
+        message="+25 pontos por participar!"
+        visible={showToast}
+        type="success"
+        duration={3000}
+        onHide={() => setShowToast(false)}
       />
     </View>
   );

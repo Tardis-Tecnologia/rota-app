@@ -1,7 +1,9 @@
+import PointsBadge from '@/components/PointsBadge';
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React from 'react';
+
 import {
   Image,
   StyleSheet,
@@ -39,29 +41,28 @@ export default function Header({
       <View style={styles.card}>
         <View style={styles.content}>
           <View style={styles.greetingContainer}>
-            <Text style={styles.greeting}>Bem-vindo(a) de volta,</Text>
-            <Text style={styles.nome}>{nomeUsuario}</Text>
+            <Text style={styles.greeting} numberOfLines={1} ellipsizeMode="tail">
+              Bem-vindo(a) de volta,
+            </Text>
+            <Text style={styles.nome} numberOfLines={1} ellipsizeMode="tail">
+              {nomeUsuario}
+            </Text>
           </View>
 
-          <View style={styles.actionsContainer}>
-            <TouchableOpacity
-              style={styles.notificationButton}
-              onPress={handleNotificationPress}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="notifications-outline" size={20} color={AppColors.text.tertiary} />
-              {temNotificacao && <View style={styles.notificationDot} />}
-            </TouchableOpacity>
+          <View style={styles.rightSection}>
+            <View style={styles.actionsRow}>
+              <TouchableOpacity
+                style={styles.notificationButton}
+                onPress={handleNotificationPress}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="notifications-outline" size={20} color={AppColors.text.tertiary} />
+                {temNotificacao && <View style={styles.notificationDot} />}
+              </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.avatarButton}
-              onPress={() => {
-                if (onProfilePress) {
-                  onProfilePress();
-                  return;
-                }
-                router.push('/Profile');
-              }}
+              onPress={onProfilePress}
               activeOpacity={0.7}
             >
               <Image
@@ -95,10 +96,12 @@ const styles = StyleSheet.create({
   content: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   greetingContainer: {
     flex: 1,
+    marginRight: 12,
+    minWidth: 0,
   },
   greeting: {
     fontSize: 14,
@@ -112,10 +115,20 @@ const styles = StyleSheet.create({
     color: AppColors.text.secondary,
     letterSpacing: -0.5,
   },
-  actionsContainer: {
+  rightSection: {
+    alignItems: 'flex-end',
+    gap: 8,
+    flexShrink: 0,
+  },
+  actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
+  },
+  badgeContainer: {
+    alignItems: 'flex-end',
+    width: '100%',
   },
   notificationButton: {
     width: 36,

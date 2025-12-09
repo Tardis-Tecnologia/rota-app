@@ -1,7 +1,8 @@
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useState } from 'react';
 import {
+    Alert,
     Image,
     ScrollView,
     StyleSheet,
@@ -9,6 +10,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { ModalDocuments } from './ModalDocuments';
 
 interface MenuItemProps {
     icon: keyof typeof Ionicons.glyphMap;
@@ -53,7 +55,16 @@ export default function ProfileComponent({
     avatarUrl = 'https://i.pravatar.cc/150?u=a042581f4e29026704d',
     subtitulo = 'Cidadã engajada',
 }: ProfileComponentProps) {
+    const [showDocumentosModal, setShowDocumentosModal] = useState(false);
     const handleMenuPress = (item: string) => {
+        if (item === 'Conta' || item === 'Ajuda') {
+            Alert.alert(item, 'Esta tela ainda está em desenvolvimento.');
+            return;
+        }
+        if (item === 'Meus Documentos') {
+            setShowDocumentosModal(true);
+            return;
+        }
         console.log(`Navegando para: ${item}`);
     };
 
@@ -62,63 +73,69 @@ export default function ProfileComponent({
     };
 
     return (
-        <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-        >
-        {/* Profile Picture */}
-        <View style={styles.profileSection}>
-            <View style={styles.avatarContainer}>
-                <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-                <TouchableOpacity style={styles.cameraButton} activeOpacity={0.8}>
-                    <Ionicons name="camera" size={14} color={AppColors.text.white} />
-                </TouchableOpacity>
+        <>
+            <ModalDocuments
+                visible={showDocumentosModal}
+                onClose={() => setShowDocumentosModal(false)}
+            />
+            <ScrollView
+            style={styles.content}
+            contentContainerStyle={styles.contentContainer}
+            showsVerticalScrollIndicator={false}
+            >
+            {/* Profile Picture */}
+            <View style={styles.profileSection}>
+                <View style={styles.avatarContainer}>
+                    <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+                    <TouchableOpacity style={styles.cameraButton} activeOpacity={0.8}>
+                        <Ionicons name="camera" size={14} color={AppColors.text.white} />
+                    </TouchableOpacity>
+                </View>
+
+                {/* Name and Subtitle */}
+                <Text style={styles.userName}>{nomeUsuario}</Text>
+                <Text style={styles.userSubtitle}>{subtitulo}</Text>
             </View>
 
-            {/* Name and Subtitle */}
-            <Text style={styles.userName}>{nomeUsuario}</Text>
-            <Text style={styles.userSubtitle}>{subtitulo}</Text>
-        </View>
+            {/* Menu Options */}
+            <View style={styles.menuSection}>
+                <MenuItem
+                icon="person-outline"
+                label="Conta"
+                iconColor={AppColors.gray[500]}
+                onPress={() => handleMenuPress('Conta')}
+                />
+                <MenuItem
+                icon="document-text-outline"
+                label="Meus Documentos"
+                iconColor="#6366F1"
+                onPress={() => handleMenuPress('Meus Documentos')}
+                />
+                <MenuItem
+                icon="ribbon-outline"
+                label="Meu Currículo"
+                iconColor="#14B8A6"
+                onPress={() => handleMenuPress('Meu Currículo')}
+                />
+                <MenuItem
+                icon="help-circle-outline"
+                label="Ajuda"
+                iconColor={AppColors.gray[500]}
+                onPress={() => handleMenuPress('Ajuda')}
+                />
+            </View>
 
-        {/* Menu Options */}
-        <View style={styles.menuSection}>
-            <MenuItem
-            icon="person-outline"
-            label="Conta"
-            iconColor={AppColors.gray[500]}
-            onPress={() => handleMenuPress('Conta')}
-            />
-            <MenuItem
-            icon="document-text-outline"
-            label="Meus Documentos"
-            iconColor="#6366F1"
-            onPress={() => handleMenuPress('Meus Documentos')}
-            />
-            <MenuItem
-            icon="ribbon-outline"
-            label="Meu Currículo"
-            iconColor="#14B8A6"
-            onPress={() => handleMenuPress('Meu Currículo')}
-            />
-            <MenuItem
-            icon="help-circle-outline"
-            label="Ajuda"
-            iconColor={AppColors.gray[500]}
-            onPress={() => handleMenuPress('Ajuda')}
-            />
-        </View>
-
-        {/* Close Button */}
-        <View style={styles.logoutSection}>
-            <MenuItem
-            icon="log-out-outline"
-            label="Sair da Conta"
-            onPress={handleSair}
-            variant="danger"
-            />
-        </View>
-        </ScrollView>
+            {/* Close Button */}
+            <View style={styles.logoutSection}>
+                <MenuItem
+                icon="log-out-outline"
+                label="Sair da Conta"
+                onPress={handleSair}
+                variant="danger"
+                />
+            </View>
+            </ScrollView>
+        </>
     );
 }
 

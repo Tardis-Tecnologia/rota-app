@@ -1,5 +1,7 @@
 import ExploreFloatingCard from '@/components/ExploreFloatingCard';
 import MapaView from '@/components/MapaView';
+import ReportButton from '@/components/ReportButton';
+import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
 import { Localizacao, PontoInteresse } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,6 +35,9 @@ export default function ExplorarScreen() {
   const [tipoMapa, setTipoMapa] = useState<'standard' | 'satellite' | 'hybrid'>('standard');
   const [pontos, setPontos] = useState<PontoInteresse[]>([]);
   const [categoriaSelecionada, setCategoriaSelecionada] = useState<string | undefined>(undefined);
+  const [showToast, setShowToast] = useState(false);
+  const [toastKey, setToastKey] = useState(0);
+  const [toastMessage, setToastMessage] = useState('');
   const { category } = useLocalSearchParams<{ category?: string }>();
 
   useEffect(() => {
@@ -161,6 +166,22 @@ export default function ExplorarScreen() {
     setTipoMapa(tipos[proximoIndice]);
   };
 
+  const handleReport = (type: 'buraco' | 'dengue' | 'iluminacao' | 'lixo') => {
+    const messages = {
+      buraco: 'Buraco na via reportado! +30 pontos',
+      dengue: 'Foco de Dengue reportado! +30 pontos',
+      iluminacao: 'Iluminação Falha reportado! +30 pontos',
+      lixo: 'Lixo Acumulado reportado! +30 pontos',
+    };
+
+    setShowToast(false);
+    setToastKey((prev) => prev + 1);
+    setToastMessage(messages[type]);
+    setTimeout(() => {
+      setShowToast(true);
+    }, 50);
+  };
+
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -219,6 +240,15 @@ export default function ExplorarScreen() {
           onSelectQuickAccess={setCategoriaSelecionada}
         />
       </View>
+      <ReportButton onReport={handleReport} />
+      <Toast
+        key={toastKey}
+        message={toastMessage}
+        visible={showToast}
+        type="success"
+        duration={3000}
+        onHide={() => setShowToast(false)}
+      />
     </View>
   );
 }

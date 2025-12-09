@@ -99,7 +99,7 @@ const Toast: React.FC<ToastProps> = ({
       {visible && (
         <View style={[styles.toast, { backgroundColor: typeStyles.backgroundColor }]}>
           <View style={[styles.iconContainer, { backgroundColor: typeStyles.iconColor }]}>
-            <Ionicons name="checkmark" size={16} color={AppColors.text.white} />
+            <Ionicons name="checkmark-outline" size={16} color={AppColors.text.white} />
           </View>
           <Text style={[styles.message, { color: typeStyles.textColor }]}>{message}</Text>
         </View>
@@ -120,7 +120,6 @@ const styles = StyleSheet.create({
   },
   toast: {
     flexDirection: 'row',
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
@@ -132,6 +131,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
     maxWidth: '90%',
+    minWidth: 200,
     gap: 12,
   },
   iconContainer: {
@@ -144,6 +144,9 @@ const styles = StyleSheet.create({
   message: {
     fontSize: 14,
     fontWeight: '600',
+    textAlign: 'center',
+    flexShrink: 1,
+    lineHeight: 20,
   },
 });
 

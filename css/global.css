@@ -7,7 +7,7 @@
 :root {
   /* Cores Primárias - Prefeitura de Maricá */
   --color-primary: #0066CC;
-  --color-primary-dark: #4DA6FF;
+  --color-primary-dark: #004499; /* Azul escuro para bordas */
   --color-primary-light: #0891b2; /* cyan-600 */
   --color-cyan-500: #06b6d4;
   --color-cyan-600: #0891b2;
@@ -107,6 +107,9 @@
   --color-icon-default: #687076;
   --color-icon-selected: #0066CC;
   --color-icon-dark: #9BA1A6;
+  
+  /* Cores do WhatsApp */
+  --color-whatsapp: #25D366;
 }
 
 /* Classes utilitárias para cores de texto */
@@ -143,6 +146,9 @@
 .bg-error { background-color: var(--color-error); }
 .bg-warning { background-color: var(--color-warning); }
 .bg-info { background-color: var(--color-info); }
+
+/* Classes utilitárias para WhatsApp */
+.bg-whatsapp { background-color: var(--color-whatsapp); }
 
 /* Classes utilitárias para cores de tab */
 .tab-active { color: var(--color-tab-active); }

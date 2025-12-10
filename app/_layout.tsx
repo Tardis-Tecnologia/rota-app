@@ -30,7 +30,7 @@ export default function RootLayout() {
           <Stack.Screen name="EducationTab" options={{ headerShown: false }} />
           <Stack.Screen name="JobsTab" options={{ headerShown: false }} />
           <Stack.Screen name="ProfileProviderTab" options={{ headerShown: false }} />
-          <Stack.Screen name="ProviderChatTab" options={{ headerShown: false }} />
+          <Stack.Screen name="ChatTab" options={{ headerShown: false }} />
           <Stack.Screen name="Profile" options={{ headerShown: false }} />
         </Stack>
           <StatusBar style="dark" />

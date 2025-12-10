@@ -71,7 +71,7 @@ export default function ProviderProfileScreen({ data }: ProviderProfileScreenPro
             style={styles.contactButton}
             onPress={() =>
                 router.push({
-                    pathname: '/ProviderChatTab',
+                    pathname: '/ChatTab',
                     params: {
                         provider: JSON.stringify(data),
                     },

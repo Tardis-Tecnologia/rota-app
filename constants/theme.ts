@@ -18,7 +18,7 @@ const tintColorDark = '#4DA6FF';
 export const AppColors = {
   // Cores Primárias
   primary: '#0066CC',
-  primaryDark: '#4DA6FF',
+  primaryDark: '#004499', // Azul escuro para bordas
   primaryLight: '#0891b2', // cyan-600
   accent: '#06b6d4', // corresponde à var(--color-cyan-500) em css/global.css
   
@@ -143,6 +143,9 @@ export const AppColors = {
     selected: '#0066CC',
     dark: '#9BA1A6',
   },
+  
+  // Cores do WhatsApp
+  whatsapp: '#25D366',
 
   // Cores de Borda
   border: {

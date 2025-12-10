@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { mockFixedConversations, mockSystemConversations } from '@/data/mockConversations';
+import React, { createContext, ReactNode, useContext, useState } from 'react';
 
 export type Conversation = {
   id: string;
@@ -8,10 +9,12 @@ export type Conversation = {
   lastMessage: string;
   date: string;
   providerData: any;
+  unreadCount?: number;
 };
 
 type ConversationsContextType = {
   conversations: Conversation[];
+  fixedConversations: Conversation[];
   addOrUpdateConversation: (provider: any, lastMessage: string) => void;
   getConversation: (providerId: string) => Conversation | undefined;
 };
@@ -19,17 +22,25 @@ type ConversationsContextType = {
 const ConversationsContext = createContext<ConversationsContextType | undefined>(undefined);
 
 export function ConversationsProvider({ children }: { children: ReactNode }) {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>(mockSystemConversations);
+  const fixedConversations = mockFixedConversations;
 
   const addOrUpdateConversation = (provider: any, lastMessage: string) => {
+    // Verifica se é uma conversa fixa - não adiciona ao array de conversas comuns
+    const isFixedConversation = fixedConversations.some(fc => fc.providerId === provider.id);
+    if (isFixedConversation) {
+      // Conversas fixas não são adicionadas ao array de conversas comuns
+      return;
+    }
+
     setConversations((prev) => {
       const existingIndex = prev.findIndex((c) => c.providerId === provider.id);
       
       const newConversation: Conversation = {
-        id: `conv-${provider.id}`,
+        id: existingIndex >= 0 ? prev[existingIndex].id : `conv-${provider.id}`,
         providerId: provider.id,
         providerName: provider.name,
-        providerImage: provider.image,
+        providerImage: provider.image || '',
         lastMessage,
         date: 'agora',
         providerData: provider,
@@ -38,8 +49,9 @@ export function ConversationsProvider({ children }: { children: ReactNode }) {
       if (existingIndex >= 0) {
         // Update existing conversation and move to top
         const updated = [...prev];
+        const updatedConversation = { ...updated[existingIndex], ...newConversation };
         updated.splice(existingIndex, 1);
-        return [newConversation, ...updated];
+        return [updatedConversation, ...updated];
       } else {
         // Add new conversation at top
         return [newConversation, ...prev];
@@ -55,6 +67,7 @@ export function ConversationsProvider({ children }: { children: ReactNode }) {
     <ConversationsContext.Provider
       value={{
         conversations,
+        fixedConversations,
         addOrUpdateConversation,
         getConversation,
       }}

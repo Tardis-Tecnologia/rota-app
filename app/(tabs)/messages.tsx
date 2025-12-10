@@ -1,6 +1,6 @@
 import { AppColors } from '@/constants/theme';
 import { useConversations } from '@/contexts/ConversationsContext';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -13,32 +13,8 @@ import {
   View,
 } from 'react-native';
 
-const messages = [
-  {
-    id: 1,
-    name: 'Ouvidoria',
-    message: 'Sua solicitação (Protocolo #2025-A4B8) foi recebida com sucesso!',
-    date: 'ontem',
-    imgUrl: 'https://i.pravatar.cc/150?u=ouvidoria'
-  },
-  {
-    id: 2,
-    name: 'Secretaria de Saúde',
-    message: 'Campanha de vacinação contra a gripe começa na próxima semana. Veja os postos.',
-    date: '2d atrás',
-    imgUrl: 'https://i.pravatar.cc/150?u=saude'
-  },
-  {
-    id: 3,
-    name: 'Defesa Civil',
-    message: 'Alerta de chuvas fortes para os próximos dias. Evite áreas de risco.',
-    date: '5d atrás',
-    imgUrl: 'https://i.pravatar.cc/150?u=defesa-civil'
-  }
-];
-
 export default function MensagensScreen() {
-  const { conversations } = useConversations();
+  const { conversations, fixedConversations } = useConversations();
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
   const getInitials = (name?: string) => {
@@ -50,82 +26,115 @@ export default function MensagensScreen() {
 
   const handleOpenChat = (conversation: typeof conversations[0]) => {
     router.push({
-      pathname: '/ProviderChatTab',
+      pathname: '/ChatTab',
       params: {
         provider: JSON.stringify(conversation.providerData),
       },
     });
   };
 
+  const renderConversationCard = (conversation: typeof conversations[0], isFixed = false) => {
+    const showFallback = !conversation.providerImage || imageErrors[conversation.id] || conversation.providerImage === '';
+    const isOfficial = conversation.providerId === 'comunicados-oficiais';
+    const isIPTU = conversation.providerId === 'iptu';
+    
+    // Layout especial para Comunicados Oficiais
+    if (isOfficial) {
+      return (
+        <Pressable
+          key={conversation.id}
+          style={styles.officialCard}
+          onPress={() => handleOpenChat(conversation)}
+        >
+          <View style={styles.officialIconContainer}>
+            <Ionicons name="shield-checkmark" size={24} color={AppColors.text.white} />
+          </View>
+          
+          <View style={styles.cardContent}>
+            <View style={styles.cardHeader}>
+              <View style={styles.nameWithBadgeContainer}>
+                <Text style={styles.name}>{conversation.providerName}</Text>
+                <Ionicons name="checkmark-circle" size={14} color={AppColors.primary} style={styles.verifyIcon} />
+              </View>
+              <Text style={styles.date}>{conversation.date}</Text>
+            </View>
+            <Text style={styles.message} numberOfLines={1} ellipsizeMode="tail">
+              {conversation.lastMessage}
+            </Text>
+          </View>
+          
+          {conversation.unreadCount && conversation.unreadCount > 0 && (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadBadgeText}>{conversation.unreadCount}</Text>
+            </View>
+          )}
+        </Pressable>
+      );
+    }
+
+    // IPTU e chats comuns - layout normal
+    return (
+      <Pressable
+        key={conversation.id}
+        style={styles.card}
+        onPress={() => handleOpenChat(conversation)}
+      >
+        {isIPTU ? (
+          <View style={styles.iptuIconContainer}>
+            <Ionicons name="receipt" size={24} color={AppColors.primary} />
+          </View>
+        ) : showFallback ? (
+          <View style={styles.avatarFallback}>
+            <Text style={styles.avatarFallbackText}>
+              {getInitials(conversation.providerName)}
+            </Text>
+          </View>
+        ) : (
+          <Image
+            source={{ uri: conversation.providerImage }}
+            style={styles.avatar}
+            onError={() => setImageErrors(prev => ({ ...prev, [conversation.id]: true }))}
+          />
+        )}
+
+        <View style={styles.cardContent}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.name}>{conversation.providerName}</Text>
+            <Text style={styles.date}>{conversation.date}</Text>
+          </View>
+          <Text style={styles.message} numberOfLines={1} ellipsizeMode="tail">
+            {conversation.lastMessage}
+          </Text>
+        </View>
+      </Pressable>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Provider Conversations */}
-        {conversations.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Prestadores de Serviço</Text>
-            <View style={styles.list}>
-              {conversations.map((conversation) => {
-                const showFallback = !conversation.providerImage || imageErrors[conversation.id] || conversation.providerImage === '';
-                return (
-                  <Pressable
-                    key={conversation.id}
-                    style={styles.card}
-                    onPress={() => handleOpenChat(conversation)}
-                  >
-                    {showFallback ? (
-                      <View style={styles.avatarFallback}>
-                        <Text style={styles.avatarFallbackText}>
-                          {getInitials(conversation.providerName)}
-                        </Text>
-                      </View>
-                    ) : (
-                      <Image
-                        source={{ uri: conversation.providerImage }}
-                        style={styles.avatar}
-                        onError={() => setImageErrors(prev => ({ ...prev, [conversation.id]: true }))}
-                      />
-                    )}
-
-                    <View style={styles.cardContent}>
-                      <View style={styles.cardHeader}>
-                        <Text style={styles.name}>{conversation.providerName}</Text>
-                        <Text style={styles.date}>{conversation.date}</Text>
-                      </View>
-                      <Text style={styles.message} numberOfLines={2}>
-                        {conversation.lastMessage}
-                      </Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
+        {/* Chats Fixos */}
+        {fixedConversations.length > 0 && (
+          <View style={styles.list}>
+            {fixedConversations.map((conversation) => renderConversationCard(conversation, true))}
           </View>
         )}
 
-        {/* System Messages */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notificações</Text>
-          <View style={styles.list}>
-            {messages.map((message) => (
-              <View key={message.id} style={styles.card}>
-                <Image source={{ uri: message.imgUrl }} style={styles.avatar} />
-
-                <View style={styles.cardContent}>
-                  <View style={styles.cardHeader}>
-                    <Text style={styles.name}>{message.name}</Text>
-                    <Text style={styles.date}>{message.date}</Text>
-                  </View>
-                  <Text style={styles.message} numberOfLines={2}>{message.message}</Text>
-                </View>
-              </View>
-            ))}
+        {/* Chats Comuns */}
+        {conversations.length > 0 ? (
+          <View style={[styles.list, fixedConversations.length > 0 && styles.commonList]}>
+            {conversations.map((conversation) => renderConversationCard(conversation, false))}
           </View>
-        </View>
+        ) : fixedConversations.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>Nenhuma conversa ainda</Text>
+            <Text style={styles.emptyStateSubtext}>Suas conversas aparecerão aqui</Text>
+          </View>
+        ) : null}
       </ScrollView>
 
       <TouchableOpacity activeOpacity={0.85} style={styles.fab} onPress={() => {}}>
-        <MaterialIcons name="send" size={28} color={AppColors.text.white} style={{ transform: [{ rotate: "-35deg" }] }}/>
+        <MaterialCommunityIcons name="whatsapp" size={28} color={AppColors.text.white} />
       </TouchableOpacity>
     </View>
   );
@@ -141,18 +150,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 24,
     paddingBottom: 100,
-    gap: 24,
-  },
-  section: {
-    gap: 12,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: AppColors.text.secondary,
   },
   list: {
     gap: 12,
+  },
+  commonList: {
+    marginTop: 24,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: AppColors.text.secondary,
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: AppColors.text.tertiary,
   },
   card: {
     flexDirection: 'row',
@@ -169,6 +188,43 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: AppColors.border.muted,
   },
+  // Card especial para Comunicados Oficiais
+  officialCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: 'transparent',
+    shadowColor: AppColors.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 4,
+    borderWidth: 2,
+    borderColor: AppColors.primaryDark,
+  },
+  officialIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: AppColors.primary,
+    shadowColor: AppColors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  iptuIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: AppColors.palette.sky.light,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   avatar: {
     width: 48,
     height: 48,
@@ -179,13 +235,13 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#9CA3AF',
+    backgroundColor: AppColors.gray[500],
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarFallbackText: {
     fontSize: 16,
-    color: '#FFFFFF',
+    color: AppColors.text.white,
     fontWeight: '700',
   },
   cardContent: {
@@ -196,11 +252,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 4,
+  },
+  nameWithBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
   },
   name: {
     fontSize: 16,
     fontWeight: '600',
     color: AppColors.text.secondary,
+  },
+  verifyIcon: {
+    marginLeft: 4,
+  },
+  unreadBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: AppColors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  unreadBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: AppColors.text.white,
   },
   date: {
     fontSize: 12,
@@ -218,10 +298,10 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: AppColors.primaryLight,
+    backgroundColor: AppColors.whatsapp,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: AppColors.primary,
+    shadowColor: AppColors.whatsapp,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
     shadowRadius: 12,

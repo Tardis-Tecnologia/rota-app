@@ -1,6 +1,7 @@
 import CityAlerts from '@/components/CityAlerts';
 import EventCarousel from '@/components/EventCarousel';
 import Header from '@/components/Header';
+import JobSuggestionCard from '@/components/JobSuggestionCard';
 import NewsCarousel from '@/components/NewsCarousel';
 import NewsPosts from '@/components/NewsPosts';
 import OpinionCard from '@/components/OpinionCard';
@@ -45,6 +46,8 @@ export default function NoticiasScreen() {
       <CityAlerts />
       {/* Componente de Eventos (Carrossel) */}
       <OpinionCard onVote={handleVote} />
+      {/* Jobs and Opportunities Card */}
+      <JobSuggestionCard />
       <EventCarousel />
       <View>
       <Text style={styles.title}>Últimas Notícias</Text>

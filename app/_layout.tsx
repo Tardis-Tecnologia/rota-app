@@ -27,6 +27,10 @@ export default function RootLayout() {
           <Stack.Screen name="SearchTab" options={{ headerShown: false }} />
 
           <Stack.Screen name="PublicTransportation" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="ServicesAndProfessionals"
+            options={{ title: 'Serviços e Profissionais' }}
+          />
           <Stack.Screen name="EducationTab" options={{ headerShown: false }} />
           <Stack.Screen name="JobsTab" options={{ headerShown: false }} />
           <Stack.Screen name="ProfileProviderTab" options={{ headerShown: false }} />

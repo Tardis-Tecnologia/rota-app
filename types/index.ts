@@ -55,3 +55,44 @@ export interface Localizacao {
   longitudeDelta: number;
 }
 
+// Tipos de perfis de Serviços e Profissionais
+export type ProfileType = 'PROVIDER' | 'COMPANY';
+
+export type Service = {
+  name: string;
+  description: string;
+  price: string;
+};
+
+export type Review = {
+  author: string;
+  comment: string;
+  rating: number;
+};
+
+export type MuralPost = {
+  id: string;
+  timeAgo: string;
+  text: string;
+  imageUri?: string;
+  likes: number;
+};
+
+export type Profile = {
+  id: string;
+  type: ProfileType;
+  name: string;
+  categoryId: string;
+  rating: number;
+  image: string;
+  review: number;
+  about: string;
+  serviceArea?: string;
+  hours?: string;
+  phone?: string;
+  email?: string;
+  services?: Service[];
+  reviews: Review[];
+  gallery: string[];
+  muralPosts?: MuralPost[];
+};

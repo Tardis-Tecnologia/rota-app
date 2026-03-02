@@ -126,7 +126,6 @@ export default function TabLayout() {
               color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
             />
           ),
-          tabBarStyle: { display: 'none' },       
         })}
       />
       <Tabs.Screen
@@ -161,7 +160,6 @@ export default function TabLayout() {
               color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
             />
           ),
-          tabBarStyle: { display: 'none' },       
         })}
       />
       <Tabs.Screen
@@ -196,7 +194,6 @@ export default function TabLayout() {
               color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
             />
           ),
-          tabBarStyle: { display: 'none' },       
         })}
       />
     </Tabs>

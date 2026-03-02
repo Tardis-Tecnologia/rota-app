@@ -1,343 +1,701 @@
+import {
+  CATEGORIES_WITH_ALL,
+  CATEGORIAS_EMPRESAS,
+} from '@/constants/providerCategories';
 import { AppColors } from '@/constants/theme';
-import { Ionicons } from '@expo/vector-icons';
+import type { Profile } from '@/types';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-type ProviderProfileScreenProps = {
-    data: {
-        id: string;
-        name: string;
-        image: string;
-        review: number;
-        rating: number;
-        about: string;
+type TabId = 'mural' | 'fotos' | 'precos' | 'info';
 
-        reviews: {
-            author: string;
-            comment: string;
-            rating: number;
-        }[];
-        gallery: string[];
-    };
-};
+const MOCK_MURAL_PROVIDER = [
+  {
+    id: '1',
+    timeAgo: 'HÁ 4H',
+    text: 'Finalizei agora uma manutenção preventiva em um condomínio no Leblon. Vazamento oculto resolvido!',
+    imageUri: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop',
+    likes: 45,
+  },
+  {
+    id: '2',
+    timeAgo: 'HÁ 1 SEMANA',
+    text: 'Novo equipamento de geofone digital chegou. Precisão máxima para encontrar vazamentos ocultos.',
+    likes: 112,
+  },
+];
 
-export default function ProviderProfileScreen({ data }: ProviderProfileScreenProps) {
-    const [imageError, setImageError] = useState(false);
-    const [failedGallery, setFailedGallery] = useState<number[]>([]);
+export default function ProviderProfile({ data }: { data: Profile }) {
+  const [activeTab, setActiveTab] = useState<TabId>('mural');
+  const [imageError, setImageError] = useState(false);
 
-    const getInitials = (name?: string) => {
-        if (!name) return '';
-        const parts = name.trim().split(/\s+/);
-        if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-        return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-    };
+  const isCompany = data.type === 'COMPANY';
+  const professionLabel = isCompany
+    ? (CATEGORIAS_EMPRESAS.find((c) => c.id === data.categoryId)?.label ?? '')
+    : (CATEGORIES_WITH_ALL.find((c) => c.id === data.categoryId)?.label ?? '');
+  const professionPill = professionLabel
+    ? (isCompany ? data.categoryId.toUpperCase() : professionLabel.toUpperCase())
+    : '';
 
-    const showFallback = !data?.image || imageError || data.image === '';
+  const showFallback = !data?.image || imageError;
 
-    return (
-        <ScrollView contentContainerStyle={styles.container}>
+  const tabs: { id: TabId; label: string; icon: string; iconColor: string }[] = [
+    { id: 'mural', label: 'MURAL SOCIAL', icon: 'people', iconColor: '#1E3A8A' },
+    { id: 'fotos', label: 'FOTOS & VÍDEOS', icon: 'images', iconColor: '#DC2626' },
+    { id: 'precos', label: 'TABELA PREÇOS', icon: 'pricetag', iconColor: '#16A34A' },
+    { id: 'info', label: 'INFORMAÇÕES', icon: 'information-circle', iconColor: '#EA580C' },
+  ];
 
-        {/* Profile */}
-        {showFallback ? (
-            <View style={styles.avatarFallback} accessible accessibilityLabel={data.name}>
-                <Text style={styles.avatarFallbackText}>
-                    {getInitials(data.name)}
-                </Text>
-            </View>
-        ) : (
-            <Image
+  return (
+    <View style={styles.container}>
+      {/* Header: back, heart, share */}
+      <View style={styles.topBar}>
+        <Pressable onPress={() => router.back()} style={styles.iconButton}>
+          <Ionicons name="arrow-back" size={24} color={AppColors.text.secondary} />
+        </Pressable>
+        <View style={styles.topBarRight}>
+          <Pressable style={styles.iconButton}>
+            <Ionicons name="heart-outline" size={24} color={AppColors.text.secondary} />
+          </Pressable>
+          <Pressable style={styles.iconButton}>
+            <Ionicons name="share-outline" size={24} color={AppColors.text.secondary} />
+          </Pressable>
+        </View>
+      </View>
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Profile card */}
+        <View style={styles.profileCard}>
+          <View style={styles.avatarWrap}>
+            {showFallback ? (
+              <View style={styles.avatarFallback}>
+                <Text style={styles.avatarFallbackText}>{data.name.charAt(0)}</Text>
+              </View>
+            ) : (
+              <Image
                 source={{ uri: data.image }}
                 style={styles.avatar}
                 onError={() => setImageError(true)}
-                onLoad={() => setImageError(false)}
-                accessibilityLabel={data.name}
-                {...(Platform.OS === 'web' ? ({ alt: data.name } as any) : {})}
-            />
-        )}
-
-        {/* Name */}
-        <Text style={styles.name}>{data.name}</Text>
-
-        {/* Rating */}
-        <View style={styles.ratingRow}>
-            <Ionicons name="star" size={16} color={AppColors.palette.amber.base} />
-            <Text style={styles.ratingValue}>{data.rating.toFixed(1)}</Text>
-            <Text style={styles.reviewsText}>({data.review} avaliações)</Text>
+              />
+            )}
+            {!isCompany && (
+              <View style={styles.cameraBadge}>
+                <Ionicons name="camera-outline" size={14} color="#fff" />
+              </View>
+            )}
+          </View>
+          <Text style={styles.name}>{data.name}</Text>
+          <View style={styles.pillRow}>
+            {professionPill ? (
+              <View style={styles.professionPill}>
+                <Text style={styles.professionPillText}>{professionPill}</Text>
+              </View>
+            ) : null}
+            <View style={styles.ratingBadge}>
+              <Ionicons name="star" size={16} color="#EAB308" />
+              <Text style={styles.ratingText}>{data.rating.toFixed(1)}</Text>
+            </View>
+          </View>
         </View>
 
-        {/* Contact Button */}
-        <Pressable
-            style={styles.contactButton}
-            onPress={() =>
-                router.push({
-                    pathname: '/ChatTab',
-                    params: {
-                        provider: JSON.stringify(data),
-                    },
-                })
-            }
+        {/* Tabs */}
+        <View style={styles.tabsContainer}>
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <TouchableOpacity
+                key={tab.id}
+                style={[styles.tab, isActive && styles.tabActive]}
+                onPress={() => setActiveTab(tab.id)}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={tab.icon as any}
+                  size={18}
+                  color={isActive ? '#fff' : tab.iconColor}
+                />
+                <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]} numberOfLines={1}>
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Content by tab */}
+        {activeTab === 'mural' && (
+          <View style={styles.muralList}>
+            {(data.muralPosts ?? MOCK_MURAL_PROVIDER).map((post) => (
+              <View key={post.id} style={styles.postCard}>
+                <View style={styles.postHeader}>
+                  {showFallback ? (
+                    <View style={styles.postAvatar}>
+                      <Text style={styles.postAvatarText}>{data.name.charAt(0)}</Text>
+                    </View>
+                  ) : (
+                    <Image source={{ uri: data.image }} style={styles.postAvatarImg} />
+                  )}
+                  <View style={styles.postMeta}>
+                    <Text style={styles.postAuthor}>{data.name}</Text>
+                    <Text style={styles.postTime}>{post.timeAgo}</Text>
+                  </View>
+                </View>
+                <Text style={styles.postText}>{post.text}</Text>
+                {post.imageUri && (
+                  <Image source={{ uri: post.imageUri }} style={styles.postImage} />
+                )}
+                <View style={styles.postActions}>
+                  <View style={styles.postActionItem}>
+                    <Feather name="heart" size={18} color={AppColors.text.tertiary} />
+                    <Text style={styles.postActionText}>{post.likes}</Text>
+                  </View>
+                  <View style={styles.postActionItem}>
+                    <Feather name="share-2" size={18} color={AppColors.text.tertiary} />
+                    <Text style={styles.postActionText}>Compartilhar</Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {activeTab === 'fotos' && (
+          <View style={styles.tabContent}>
+            <Text style={styles.galleryTitle}>GALERIA</Text>
+            {data.gallery && data.gallery.length > 0 ? (
+              <View style={styles.galleryGrid}>
+                {data.gallery.map((uri, i) => (
+                  <View key={i} style={styles.galleryGridItem}>
+                    <Image source={{ uri }} style={styles.galleryGridImage} />
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.emptyTabText}>Nenhuma foto ou vídeo ainda.</Text>
+            )}
+          </View>
+        )}
+
+        {activeTab === 'precos' && (
+          <View style={styles.tabContent}>
+            <View style={styles.sectionRow}>
+              <Ionicons name="pricetag" size={20} color="#16A34A" />
+              <Text style={styles.sectionTitle}>SERVIÇOS E VALORES</Text>
+            </View>
+            {data.services && data.services.length > 0 ? (
+              <>
+                {data.services.map((srv, i) => (
+                  <View key={i} style={styles.serviceItem}>
+                    <View style={styles.serviceHeader}>
+                      <Text style={styles.serviceName}>{srv.name}</Text>
+                      <Text style={styles.servicePrice}>{srv.price}</Text>
+                    </View>
+                    <Text style={styles.serviceDesc}>{srv.description}</Text>
+                  </View>
+                ))}
+                <Text style={styles.priceDisclaimer}>
+                  Orçamento sem compromisso. Valores sujeitos a alteração conforme o serviço.
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.emptyTabText}>Tabela de preços em breve.</Text>
+            )}
+          </View>
+        )}
+
+        {activeTab === 'info' && (
+          <View style={styles.tabContent}>
+            <View style={styles.infoRow}>
+              <Ionicons name="information-circle" size={22} color="#EA580C" />
+              <Text style={styles.infoLabel}>SOBRE</Text>
+            </View>
+            <Text style={styles.aboutText}>{data.about}</Text>
+
+            {data.serviceArea ? (
+              <>
+                <View style={styles.infoRow}>
+                  <Ionicons name="location" size={22} color="#6D28D9" />
+                  <Text style={styles.infoLabel}>ATENDIMENTO</Text>
+                </View>
+                <Text style={styles.infoValue}>{data.serviceArea}</Text>
+              </>
+            ) : null}
+
+            {data.hours ? (
+              <>
+                <View style={styles.infoRow}>
+                  <Ionicons name="time" size={22} color="#6D28D9" />
+                  <Text style={styles.infoLabel}>HORÁRIO</Text>
+                </View>
+                <Text style={styles.infoValue}>{data.hours}</Text>
+              </>
+            ) : null}
+
+            {data.phone ? (
+              <>
+                <View style={styles.infoRow}>
+                  <Ionicons name="call" size={22} color="#6D28D9" />
+                  <Text style={styles.infoLabel}>TELEFONE</Text>
+                </View>
+                <Text style={styles.infoValue}>{data.phone}</Text>
+              </>
+            ) : null}
+
+            {data.email ? (
+              <>
+                <View style={styles.infoRow}>
+                  <Ionicons name="mail" size={22} color="#6D28D9" />
+                  <Text style={styles.infoLabel}>E-MAIL</Text>
+                </View>
+                <Text style={styles.infoValue}>{data.email}</Text>
+              </>
+            ) : null}
+
+            <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Avaliações</Text>
+            <Text style={styles.reviewsCount}>({data.review} avaliações)</Text>
+            {data.reviews.length > 0 &&
+              data.reviews.map((r, i) => (
+                <View key={i} style={styles.reviewItem}>
+                  <Text style={styles.reviewAuthor}>{r.author}</Text>
+                  <Text style={styles.reviewComment}>{r.comment}</Text>
+                </View>
+              ))}
+          </View>
+        )}
+
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
+
+      {/* Bottom buttons */}
+      <View style={styles.bottomBar}>
+        <TouchableOpacity
+          style={styles.btnLigar}
+          activeOpacity={0.85}
+          onPress={() => {
+            const tel = data.phone?.replace(/\D/g, '');
+            if (tel) Linking.openURL(`tel:${tel}`);
+          }}
         >
-            <View style={styles.contactButtonContent}>
-                <Ionicons name="chatbubble-ellipses" size={18} color="#fff" />
-                <Text style={styles.contactButtonText}>Entrar em Contato</Text>
-            </View>
-        </Pressable>
-
-        {/* About Section */}
-        <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Sobre</Text>
-            <Text style={styles.sectionText}>
-                {data.about}
-            </Text>
-        </View>
-
-        {/* Reviews Session */}
-        <View style={{ marginTop: 20 }}>
-            <Text style={styles.sectionTitle}>Avaliações de Clientes</Text>
-            <View style={styles.section}>
-                <View>
-                    {data.reviews.length === 0 ? (
-                        <Text style={styles.text}>Nenhuma avaliação ainda.</Text>
-                        ) : (
-                        data.reviews.map((review, index) => (
-                            <View key={`${index}-${review.author}`} style={styles.reviewItem}>
-                            <View style={styles.reviewHeader}>
-                                <Text style={styles.reviewName}>{review.author}</Text>
-                                <View style={styles.starsRow}>
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                        <Ionicons
-                                        key={star}
-                                        name={star <= review.rating ? "star" : "star-outline"}
-                                        size={14}
-                                        color={AppColors.palette.amber.base}
-                                        style={styles.starIcon}
-                                        />
-                                    ))}
-                                </View>
-                            </View>
-
-                            <Text style={styles.reviewText}>{review.comment}</Text>
-                            <View style={styles.separator} />
-                            </View>
-                        ))
-                        )}
-
-                </View>
-            </View>
-        </View>
-        {/* Galery */}
-        {data.gallery && data.gallery.length > 0 && (
-            <View style={{ marginTop: 20 }}>
-                <Text style={styles.sectionTitle}>Galeria de Serviços</Text>
-
-                <View style={styles.section}>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        style={{ marginTop: 10 }}
-                    >
-                        {data.gallery.map((imageUri, index) => {
-                        const failed = failedGallery.includes(index) || !imageUri || imageUri === '';
-                        return failed ? (
-                            <View
-                                key={index}
-                                style={styles.galleryFallback}
-                                accessible
-                                accessibilityLabel={`${data.name} - foto indisponível ${index + 1}`}>
-                                <View style={styles.galleryFallbackContent}>
-                                    <Ionicons name="image" size={18} color="#6B7280" />
-                                    <Text style={styles.galleryFallbackText}>Foto do serviço de {data.name}</Text>
-                                </View>
-                            </View>
-                        ) : (
-                            <Image
-                                key={index}
-                                source={{ uri: imageUri }}
-                                style={styles.galleryImage}
-                                onError={() => setFailedGallery(prev => (prev.includes(index) ? prev : [...prev, index]))}
-                                accessibilityLabel={`${data.name} - foto ${index + 1}`}
-                                {...(Platform.OS === 'web' ? ({ alt: `${data.name} - foto ${index + 1}` } as any) : {})}
-                            />
-                        );
-                        })}
-                    </ScrollView>
-                </View>
-            </View>
-        )}
-        </ScrollView>
-    );
+          <Ionicons name="call-outline" size={22} color="#7C3AED" />
+          <Text style={styles.btnLigarText}>LIGAR</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.btnChat}
+          activeOpacity={0.85}
+          onPress={() =>
+            router.push({
+              pathname: '/ChatTab',
+              params: { provider: JSON.stringify(data) },
+            })
+          }
+        >
+          <Ionicons name="chatbubble-ellipses" size={22} color="#EAB308" />
+          <Text style={styles.btnChatText}>INICIAR CHAT</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        padding: 20,
-        paddingBottom: 80,
-    },
-
-    avatar: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        alignSelf: 'center',
-        marginBottom: 16,
-    },
-    avatarFallback: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        alignSelf: 'center',
-        marginBottom: 16,
-        backgroundColor: '#9CA3AF',  
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 8,
-    },
-
-    avatarFallbackText: {
-        textAlign: 'center',
-        fontSize: 32,
-        color: '#FFFFFF',  
-        fontWeight: '700',
-    },
-
-    name: {
-        fontSize: 20,
-        fontWeight: '700',
-        textAlign: 'center',
-        color: AppColors.text.secondary,
-    },
-
-    ratingRow: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginTop: 6,
-        gap: 6,
-    },
-
-    ratingValue: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: AppColors.palette.amber.base,
-    },
-
-    reviewsText: {
-        fontSize: 13,
-    },
-    contactButtonContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    contactButton: {
-        backgroundColor: '#14B8A6',
-        paddingVertical: 16,
-        borderRadius: 12,
-        alignItems: 'center',
-        marginTop: 16,
-    },
-    contactButtonText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-
-    section: {
-        backgroundColor: AppColors.background.default,
-        padding: 16,
-        borderRadius: 16,
-        marginTop: 20,
-        gap: 8,
-    },
-
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: AppColors.text.secondary,
-    },
-
-    sectionText: {
-        marginTop: 6,
-        fontSize: 16,
-        color: '#4B5563',
-        fontWeight: '400',
-    },
-    text: {
-        marginTop: 6,
-        fontSize: 16,
-        textAlign: 'center',
-        color: '#4B5563',
-        fontWeight: '400',
-    },
-
-    review: {
-        marginTop: 12,
-    },
-
-    reviewName: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#1F2937'
-    },
-
-    reviewText: {
-        fontSize: 14,
-        color: '#4B5563',
-        marginTop: 7,
-    },
-
-    galleryImage: {
-        width: 120,
-        height: 90,
-        borderRadius: 10,
-        marginRight: 12,
-    },
-    galleryFallback: {
-        width: 120,
-        height: 90,
-        borderRadius: 10,
-        marginRight: 12,
-        backgroundColor: '#F3F4F6',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 8,
-    },
-    galleryFallbackContent: {
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    galleryFallbackText: {
-        fontSize: 14,
-        color: '#6B7280',
-        marginLeft: 0,
-        marginTop: 6,
-        textAlign: 'center',
-    },
-    reviewItem: {
-        marginBottom: 16,
-    },
-
-    reviewHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-
-    starsRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 2,
-    },
-    starIcon: {
-        marginRight: 4, 
-    },
-
-    separator: {
-        height: 1,
-        backgroundColor: '#E5E7EB',
-        marginTop: 12,
-    },
-
+  container: {
+    flex: 1,
+    backgroundColor: AppColors.background.light,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: AppColors.gray[300],
+  },
+  iconButton: {
+    padding: 8,
+  },
+  topBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 24,
+  },
+  profileCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  avatarWrap: {
+    position: 'relative',
+    marginBottom: 12,
+  },
+  avatar: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+  },
+  avatarFallback: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: AppColors.palette.indigo.light,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarFallbackText: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: AppColors.palette.indigo.base,
+  },
+  cameraBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#7C3AED',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  name: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 10,
+  },
+  pillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  professionPill: {
+    backgroundColor: '#EDE9FE',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  professionPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6D28D9',
+  },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  ratingText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 16,
+  },
+  tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: AppColors.background.light,
+    borderWidth: 1,
+    borderColor: AppColors.gray[300],
+    minWidth: '47%',
+  },
+  tabActive: {
+    backgroundColor: '#1E3A8A',
+    borderColor: '#1E3A8A',
+  },
+  tabLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: AppColors.gray[700],
+  },
+  tabLabelActive: {
+    color: '#fff',
+  },
+  muralList: {
+    gap: 16,
+  },
+  postCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  postHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  postAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: AppColors.palette.indigo.light,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  postAvatarText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: AppColors.palette.indigo.base,
+  },
+  postAvatarImg: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  postMeta: {
+    flex: 1,
+  },
+  postAuthor: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  postTime: {
+    fontSize: 12,
+    color: AppColors.gray[500],
+    marginTop: 2,
+  },
+  postText: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  postImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 10,
+    backgroundColor: AppColors.gray[200],
+  },
+  postActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  postActionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  postActionText: {
+    fontSize: 13,
+    color: AppColors.text.tertiary,
+  },
+  tabContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    minHeight: 120,
+  },
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  serviceItem: {
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: AppColors.gray[300],
+  },
+  serviceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
+  serviceName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1F2937',
+    flex: 1,
+  },
+  servicePrice: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#16A34A',
+    marginLeft: 8,
+  },
+  serviceDesc: {
+    fontSize: 13,
+    color: AppColors.gray[600],
+    lineHeight: 18,
+  },
+  priceDisclaimer: {
+    fontSize: 12,
+    color: AppColors.gray[500],
+    fontStyle: 'italic',
+    marginTop: 8,
+    lineHeight: 18,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  infoLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  infoValue: {
+    fontSize: 15,
+    color: '#4B5563',
+    lineHeight: 22,
+    marginBottom: 4,
+  },
+  emptyTabText: {
+    fontSize: 15,
+    color: AppColors.gray[500],
+  },
+  galleryTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E3A8A',
+    marginBottom: 12,
+    letterSpacing: 0.5,
+  },
+  galleryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  galleryGridItem: {
+    width: '47%',
+    aspectRatio: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: AppColors.gray[200],
+  },
+  galleryGridImage: {
+    width: '100%',
+    height: '100%',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  aboutText: {
+    fontSize: 15,
+    color: '#4B5563',
+    lineHeight: 22,
+  },
+  reviewsCount: {
+    fontSize: 13,
+    color: AppColors.gray[500],
+    marginBottom: 12,
+  },
+  reviewItem: {
+    marginBottom: 12,
+  },
+  reviewAuthor: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  reviewComment: {
+    fontSize: 14,
+    color: '#4B5563',
+    marginTop: 4,
+  },
+  bottomSpacer: {
+    height: 80,
+  },
+  bottomBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    padding: 16,
+    paddingBottom: 24,
+    gap: 12,
+    backgroundColor: '#fff',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: AppColors.gray[300],
+  },
+  btnLigar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#7C3AED',
+    backgroundColor: '#fff',
+  },
+  btnLigarText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#7C3AED',
+  },
+  btnChat: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#1E3A8A',
+  },
+  btnChatText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+  },
 });

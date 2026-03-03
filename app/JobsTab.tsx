@@ -1,65 +1,31 @@
-import InternshipOpportunities from '@/components/InternshipOpportunities';
 import JobsOpportunities from '@/components/JobsOpportunities';
-import PublicTenders from '@/components/PublicTenders';
-import ServiceProviders from '@/components/ServiceProviders';
+import type { JobCategoryId } from '@/constants/jobCategories';
+import { JOB_CATEGORIES } from '@/constants/jobCategories';
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
-    Dimensions,
-    FlatList,
-    Image,
-    NativeScrollEvent,
-    NativeSyntheticEvent,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ImageBackground,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SLIDE_WIDTH = SCREEN_WIDTH - 32;
-
-const carouselItems = [
-  {
-    id: 'slide-1',
-    title: 'Sua Carreira Decola Aqui',
-    description: 'Encontre vagas em empresas de tecnologia.',
-    image:
-      'https://images.unsplash.com/photo-1521791136064-7986c2920216?q=80&w=2070&auto=format&fit=crop',
-  },
-  {
-    id: 'slide-2',
-    title: 'Concursos Públicos 2025',
-    description: 'Estabilidade e carreira para você.',
-    image:
-      'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=2232&auto=format&fit=crop',
-  },
-  {
-    id: 'slide-3',
-    title: 'Programa Jovem Aprendiz',
-    description: 'O primeiro passo para um futuro brilhante.',
-    image:
-      'https://images.unsplash.com/photo-1611242320536-f12d3541249b?q=80&w=2070&auto=format&fit=crop',
-  },
-];
+const heroBanner = {
+  title: 'Carreira Pública RJ 2024',
+  description: 'Editais abertos com salários de até R$ 22.000 mensais.',
+  image:
+    'https://images.unsplash.com/photo-1521791136064-7986c2920216?q=80&w=2070&auto=format&fit=crop',
+  tag: 'URGENTE: CONCURSO PÚBLICO',
+};
 
 export default function JobsTab() {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const carouselRef = useRef<FlatList<typeof carouselItems[number]>>(null);
-
-  const handleMomentumScrollEnd = (
-    event: NativeSyntheticEvent<NativeScrollEvent>
-  ) => {
-    const index = Math.round(event.nativeEvent.contentOffset.x / SLIDE_WIDTH);
-    if (index !== activeIndex) {
-      setActiveIndex(index);
-    }
-  };
+  const [activeCategory, setActiveCategory] = useState<JobCategoryId>('todos');
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -80,7 +46,21 @@ export default function JobsTab() {
             />
           </Pressable>
 
-          <Text style={styles.headerTitle}>Empregos e Oportunidades</Text>
+          <Text style={styles.headerTitle}>Oportunidades</Text>
+
+          <Pressable
+            hitSlop={12}
+            style={({ pressed }) => [
+              styles.filterButton,
+              pressed && styles.backButtonPressed,
+            ]}
+          >
+            <Ionicons
+              name="filter-outline"
+              size={24}
+              color={AppColors.text.tertiary}
+            />
+          </Pressable>
         </View>
       </View>
 
@@ -89,55 +69,73 @@ export default function JobsTab() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.carouselContainer}>
-          <FlatList
-            ref={carouselRef}
-            data={carouselItems}
-            keyExtractor={(item) => item.id}
-            horizontal
-            pagingEnabled
-            snapToInterval={SLIDE_WIDTH}
-            decelerationRate="fast"
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.carouselListContent}
-            onMomentumScrollEnd={handleMomentumScrollEnd}
-            renderItem={({ item }) => (
-              <View style={[styles.carouselItem, { width: SLIDE_WIDTH }]}>
-                <Image source={{ uri: item.image }} style={styles.carouselImage} />
-                <LinearGradient
-                  colors={[AppColors.background.overlayStrong, 'transparent']}
-                  start={{ x: 0.5, y: 1 }}
-                  end={{ x: 0.5, y: 0 }}
-                  style={styles.carouselGradient}
-                />
-                <View style={styles.carouselTextContainer}>
-                  <Text style={styles.carouselTitle}>{item.title}</Text>
-                  <Text style={styles.carouselSubtitle}>{item.description}</Text>
-                </View>
+        <View style={styles.heroContainer}>
+          <ImageBackground
+            source={{ uri: heroBanner.image }}
+            style={styles.heroImage}
+            imageStyle={styles.heroImageStyle}
+          >
+            <LinearGradient
+              colors={['#3C3895', '#312E82']}
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={styles.heroContent}>
+              <View style={styles.heroTag}>
+                <Text style={styles.heroTagText}>{heroBanner.tag}</Text>
               </View>
-            )}
-          />
+              <Text style={styles.heroTitle}>{heroBanner.title}</Text>
+              <Text style={styles.heroSubtitle}>{heroBanner.description}</Text>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.heroCta,
+                  pressed && styles.heroCtaPressed,
+                ]}
+              >
+                <Text style={styles.heroCtaText}>ACESSAR EDITAIS</Text>
+                <Ionicons name="arrow-forward" size={18} color={AppColors.text.secondary} />
+              </Pressable>
+            </View>
+          </ImageBackground>
+        </View>
 
-          <View style={styles.dotsContainer}>
-            {carouselItems.map((item, index) => (
-              <View
+        <View style={styles.filtersContainer}>
+          {JOB_CATEGORIES.map((item) => {
+            const isActive = activeCategory === item.id;
+            return (
+              <Pressable
                 key={item.id}
-                style={[styles.dot, activeIndex === index && styles.dotActive]}
-              />
-            ))}
-          </View>
+                onPress={() => setActiveCategory(item.id as JobCategoryId)}
+                style={[
+                  styles.filterChip,
+                  isActive && styles.filterChipActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    isActive && styles.filterChipTextActive,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
+
         <View style={styles.jobsOpportunitiesContainer}>
-            <JobsOpportunities />
+          <JobsOpportunities variant="list" activeCategory={activeCategory} />
         </View>
-        <View style={styles.serviceProvidersContainer}>
-            <ServiceProviders />
-        </View>
-        <View style={styles.publicTendersContainer}>
-          <PublicTenders />
-        </View>
-        <View style={styles.internshipContainer}>
-          <InternshipOpportunities />
+
+        <View style={styles.bottomCtaContainer}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.bottomCta,
+              pressed && styles.bottomCtaPressed,
+            ]}
+          >
+            <Text style={styles.bottomCtaText}>PAINEL DO EMPREGADOR</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -160,20 +158,20 @@ const styles = StyleSheet.create({
   headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
+    justifyContent: 'space-between',
   },
   backButton: {
-    position: 'absolute',
-    left: 0,
     padding: 8,
     borderRadius: 20,
   },
   backButtonPressed: {
     backgroundColor: AppColors.background.overlayPressed,
   },
+  filterButton: {
+    padding: 8,
+    borderRadius: 20,
+  },
   headerTitle: {
-    marginLeft: 40,
     fontSize: 18,
     fontWeight: '600',
     color: AppColors.text.secondary,
@@ -185,82 +183,115 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 32,
   },
-  carouselContainer: {
-    height: 208,
+  heroContainer: {
     marginHorizontal: 16,
-    position: 'relative',
-  },
-  carouselListContent: {
-    gap: 16,
-  },
-  carouselItem: {
-    height: 208,
+    marginBottom: 20,
     borderRadius: 24,
     overflow: 'hidden',
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 10 },
-
-    elevation: 6,
+    minHeight: 200,
   },
-  carouselImage: {
-    ...StyleSheet.absoluteFillObject,
+  heroImage: {
     width: '100%',
-    height: '100%',
+    minHeight: 200,
+    justifyContent: 'flex-end',
   },
-  carouselGradient: {
-    ...StyleSheet.absoluteFillObject,
+  heroImageStyle: {
+    borderRadius: 24,
   },
-  carouselTextContainer: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    bottom: 20,
-    gap: 6,
+  heroContent: {
+    padding: 20,
+    gap: 10,
   },
-  carouselTitle: {
-    fontSize: 18,
+  heroTag: {
+    alignSelf: 'flex-start',
+    backgroundColor: AppColors.background.purple,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  heroTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: AppColors.text.yellow,
+  },
+  heroTitle: {
+    fontSize: 26,
     fontWeight: '700',
     color: AppColors.text.white,
   },
-  carouselSubtitle: {
+  heroSubtitle: {
     fontSize: 13,
     color: AppColors.text.white,
-    opacity: 0.85,
+    opacity: 0.9,
   },
-  dotsContainer: {
-    position: 'absolute',
-    right: 28,
-    bottom: 28,
+  heroCta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: AppColors.translucent.white40,
-  },
-  dotActive: {
+    justifyContent: 'flex-start',
+    alignSelf: 'flex-start',
     backgroundColor: AppColors.text.white,
-    width: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    gap: 8,
+    marginTop: 4,
+  },
+  heroCtaPressed: {
+    opacity: 0.9,
+  },
+  heroCtaText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: AppColors.background.darkBlue,
+  },
+  filtersContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: AppColors.background.muted,
+    borderWidth: 1,
+    borderColor: AppColors.border.muted,
+  },
+  filterChipActive: {
+    backgroundColor: AppColors.palette.indigo.light,
+    borderColor: AppColors.palette.purple.base,
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: AppColors.text.secondary,
+  },
+  filterChipTextActive: {
+    color: AppColors.palette.purple.base,
   },
   jobsOpportunitiesContainer: {
     marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 24,
-    overflow: 'hidden',
   },
-  serviceProvidersContainer: {
+  bottomCtaContainer: {
     marginHorizontal: 16,
-    marginTop: 16,
+    marginTop: 24,
+    paddingBottom: 16,
   },
-  publicTendersContainer: {
-    marginHorizontal: 16,
-    marginTop: 16,
+  bottomCta: {
+    backgroundColor: AppColors.background.darkBlue,
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  internshipContainer: {
-    marginHorizontal: 16,
-    marginTop: 16,
+  bottomCtaPressed: {
+    opacity: 0.9,
+  },
+  bottomCtaText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: AppColors.text.white,
   },
 });

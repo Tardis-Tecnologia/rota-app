@@ -1,6 +1,6 @@
-import { PROVIDERS } from '@/data/providers';
 import { CATEGORIES_WITH_ALL } from '@/constants/providerCategories';
 import { AppColors } from '@/constants/theme';
+import { PROVIDERS } from '@/data/providers';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';

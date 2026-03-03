@@ -30,6 +30,7 @@ export const AppColors = {
     quaternary: '#999',
     white: '#fff',
     dark: '#ECEDEE',
+    yellow: '#F7BC26',
   },
   
   // Cores de Fundo
@@ -43,6 +44,11 @@ export const AppColors = {
     glass: 'rgba(255, 255, 255, 0.94)',
     input: '#e2e8f0',
     muted: '#F8FAFC',
+    blue: '#3C3895',
+    lightBlue: '#4F46E5',
+    darkBlue: '#0F172A',
+    purple: '#584569',
+
   },
 
   palette: {

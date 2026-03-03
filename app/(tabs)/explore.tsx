@@ -74,11 +74,9 @@ export default function ExplorarScreen() {
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
       });
-      setLoading(false);
-    } catch (error) {
-      console.error('Erro ao obter localização:', error);
-      // Usar localização padrão de Maricá
+    } catch {
       setLocalizacao(MARICA_CENTER);
+    } finally {
       setLoading(false);
     }
   };

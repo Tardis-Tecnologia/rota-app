@@ -31,6 +31,7 @@ export const AppColors = {
     white: '#fff',
     dark: '#ECEDEE',
     yellow: '#F7BC26',
+    gray: '#A5ACB7'
   },
   
   // Cores de Fundo

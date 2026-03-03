@@ -12,12 +12,12 @@ import {
     View,
 } from "react-native";
 
-interface ModalDocumentsProps {
+interface ModalSecurityProps {
     visible: boolean;
     onClose: () => void;
 }
 
-export function ModalDocuments({ visible, onClose }: ModalDocumentsProps) {
+export function ModalSecurity({ visible, onClose }: ModalSecurityProps) {
     const [subject, setSubject] = useState("");
     const [description, setDescription] = useState("");
 

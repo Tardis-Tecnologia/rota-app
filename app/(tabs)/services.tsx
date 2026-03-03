@@ -1,4 +1,5 @@
-import { ModalDocuments } from '@/components/ModalSecurity';
+import { ModalMarketplace } from '@/components/ModalMarketplace';
+import { ModalSecurity } from '@/components/ModalSecurity';
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -97,7 +98,8 @@ const servicesCards: ServiceCard[] = [
 
 export default function ServicosScreen() {
   const [securityModalVisible, setSecurityModalVisible] = useState(false);
-
+  const [marketplaceModalVisible, setMarketplaceModalVisible] = useState(false);
+  
   const handleCardPress = (serviceId: string, title: string) => {
     if (serviceId === 'health') {
       router.push('/HealthService');
@@ -124,6 +126,11 @@ export default function ServicosScreen() {
       return;
     }
 
+    if (serviceId === 'marketplace') {
+      setMarketplaceModalVisible(true);
+      return;
+    }
+
     if (serviceId === 'servicesPro') {
       router.push('/ServicesAndProfessionals');
       return;
@@ -136,9 +143,13 @@ export default function ServicosScreen() {
 
   return (
     <View style={styles.container}>
-      <ModalDocuments
+      <ModalSecurity
         visible={securityModalVisible}
         onClose={() => setSecurityModalVisible(false)}
+      />
+      <ModalMarketplace
+        visible={marketplaceModalVisible}
+        onClose={() => setMarketplaceModalVisible(false)}
       />
       <Text style={styles.sectionTitle}>Serviços Públicos</Text>
       <FlatList

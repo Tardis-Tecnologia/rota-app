@@ -1,5 +1,7 @@
+import { useAuth } from '@/contexts/AuthContext';
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
     Alert,
@@ -56,8 +58,12 @@ export default function ProfileComponent({
     avatarUrl = 'https://i.pravatar.cc/150?u=a042581f4e29026704d',
     subtitulo = 'Cidadã engajada',
 }: ProfileComponentProps) {
+    const { user, logout } = useAuth();
     const [showDocumentosModal, setShowDocumentosModal] = useState(false);
     const [showCurriculoModal, setShowCurriculoModal] = useState(false);
+    const displayName = user?.name ?? nomeUsuario;
+    const displaySubtitle = user?.role === 'admin' ? 'Administrador' : (user?.role === 'client' ? 'Cidadão' : subtitulo);
+
     const handleMenuPress = (item: string) => {
         if (item === 'Conta' || item === 'Ajuda') {
             Alert.alert(item, 'Esta tela ainda está em desenvolvimento.');
@@ -74,7 +80,8 @@ export default function ProfileComponent({
     };
 
     const handleSair = () => {
-        console.log('Sair da conta');
+        logout();
+        router.replace('/login');
     };
 
     return (
@@ -102,8 +109,8 @@ export default function ProfileComponent({
                 </View>
 
                 {/* Name and Subtitle */}
-                <Text style={styles.userName}>{nomeUsuario}</Text>
-                <Text style={styles.userSubtitle}>{subtitulo}</Text>
+                <Text style={styles.userName}>{displayName}</Text>
+                <Text style={styles.userSubtitle}>{displaySubtitle}</Text>
             </View>
 
             {/* Menu Options */}

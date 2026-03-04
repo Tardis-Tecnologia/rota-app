@@ -1,3 +1,4 @@
+import { AuthProvider } from '@/contexts/AuthContext';
 import { ConversationsProvider } from '@/contexts/ConversationsContext';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
@@ -12,9 +13,11 @@ export const unstable_settings = {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <ConversationsProvider>
-        <ThemeProvider value={DefaultTheme}>
-          <Stack>
+      <AuthProvider>
+        <ConversationsProvider>
+          <ThemeProvider value={DefaultTheme}>
+            <Stack>
+            <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen
             name="notifications"
@@ -38,9 +41,10 @@ export default function RootLayout() {
           <Stack.Screen name="ChatTab" options={{ headerShown: false }} />
           <Stack.Screen name="Profile" options={{ headerShown: false }} />
         </Stack>
-          <StatusBar style="dark" />
-        </ThemeProvider>
-      </ConversationsProvider>
+            <StatusBar style="dark" />
+          </ThemeProvider>
+        </ConversationsProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

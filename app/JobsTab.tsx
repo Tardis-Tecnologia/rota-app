@@ -126,18 +126,18 @@ export default function JobsTab() {
         <View style={styles.jobsOpportunitiesContainer}>
           <JobsOpportunities variant="list" activeCategory={activeCategory} />
         </View>
-
-        <View style={styles.bottomCtaContainer}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.bottomCta,
-              pressed && styles.bottomCtaPressed,
-            ]}
-          >
-            <Text style={styles.bottomCtaText}>PAINEL DO EMPREGADOR</Text>
-          </Pressable>
-        </View>
       </ScrollView>
+
+      <View style={styles.bottomCtaFixed}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.bottomCta,
+            pressed && styles.bottomCtaPressed,
+          ]}
+        >
+          <Text style={styles.bottomCtaText}>PAINEL DO EMPREGADOR</Text>
+        </Pressable>
+      </View>
     </SafeAreaView>
   );
 }
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   scrollContent: {
-    paddingBottom: 32,
+    paddingBottom: 100,
   },
   heroContainer: {
     marginHorizontal: 16,
@@ -274,10 +274,17 @@ const styles = StyleSheet.create({
   jobsOpportunitiesContainer: {
     marginHorizontal: 16,
   },
-  bottomCtaContainer: {
-    marginHorizontal: 16,
-    marginTop: 24,
-    paddingBottom: 16,
+  bottomCtaFixed: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+    paddingTop: 12,
+    backgroundColor: AppColors.background.default,
+    borderTopWidth: 1,
+    borderTopColor: AppColors.border.muted,
   },
   bottomCta: {
     backgroundColor: AppColors.background.darkBlue,

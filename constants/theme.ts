@@ -49,6 +49,8 @@ export const AppColors = {
     lightBlue: '#4F46E5',
     darkBlue: '#0F172A',
     purple: '#584569',
+    backgroundDanger: 'rgba(231, 76, 60, 0.08)',
+    borderDanger: 'rgba(231, 76, 60, 0.2)',
 
   },
 

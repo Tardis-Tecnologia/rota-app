@@ -142,14 +142,14 @@ export default function ProfileComponent({
             </View>
 
             {/* Close Button */}
-            <View style={styles.logoutSection}>
-                <MenuItem
-                icon="log-out-outline"
-                label="Sair da Conta"
-                onPress={handleSair}
-                variant="danger"
-                />
-            </View>
+            <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleSair}
+            activeOpacity={0.7}
+            >
+                <Ionicons name="log-out-outline" size={20} color={AppColors.status.error} />
+                <Text style={styles.logoutText}>Sair da Conta</Text>
+            </TouchableOpacity>
             </ScrollView>
         </>
     );
@@ -219,7 +219,6 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     menuItemDanger: {
-        backgroundColor: 'rgba(231, 76, 60, 0.08)',
         justifyContent: 'center',
     },
     menuIconContainer: {
@@ -243,5 +242,25 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
         marginTop: 24,
     },
+    logoutButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        marginTop: 32,
+        marginHorizontal: 24,
+        paddingVertical: 16,
+        borderRadius: 12,
+
+        backgroundColor: AppColors.background.backgroundDanger,
+        borderWidth: 1,
+        borderColor: AppColors.background.borderDanger,
+    },
+
+    logoutText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: AppColors.status.error,
+    }
 });
 

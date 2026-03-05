@@ -45,7 +45,11 @@ export default function JobDetailTab() {
         </Pressable>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <ImageBackground
           source={{ uri: job.image }}
           style={styles.heroImage}
@@ -107,7 +111,9 @@ export default function JobDetailTab() {
             </View>
           </View>
         </View>
+      </ScrollView>
 
+      <View style={[styles.ctaFixed, { paddingBottom: insets.bottom + 16 }]}>
         <Pressable
           style={({ pressed }) => [styles.ctaButton, pressed && styles.ctaButtonPressed]}
         >
@@ -115,7 +121,7 @@ export default function JobDetailTab() {
           <Text style={styles.ctaButtonText}>CANDIDATAR-SE À VAGA</Text>
           <Ionicons name="arrow-forward" size={20} color={AppColors.text.white} />
         </Pressable>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -150,6 +156,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   heroImage: {
     height: 220,
@@ -303,14 +312,22 @@ const styles = StyleSheet.create({
     color: AppColors.text.secondary,
     flex: 1,
   },
+  ctaFixed: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    backgroundColor: AppColors.background.default,
+    borderTopWidth: 1,
+    borderTopColor: AppColors.border.muted,
+  },
   ctaButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: AppColors.text.primary,
-    marginHorizontal: 16,
-    marginTop: 24,
-    marginBottom: 32,
     paddingVertical: 16,
     borderRadius: 16,
     gap: 10,

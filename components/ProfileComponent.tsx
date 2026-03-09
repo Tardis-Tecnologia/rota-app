@@ -62,7 +62,7 @@ export default function ProfileComponent({
     const [showDocumentosModal, setShowDocumentosModal] = useState(false);
     const [showCurriculoModal, setShowCurriculoModal] = useState(false);
     const displayName = user?.name ?? nomeUsuario;
-    const displaySubtitle = user?.role === 'admin' ? 'Administrador' : (user?.role === 'client' ? 'Cidadão' : subtitulo);
+    const displaySubtitle = user ? 'Cidadão' : subtitulo;
 
     const handleMenuPress = (item: string) => {
         if (item === 'Conta' || item === 'Ajuda') {
@@ -81,7 +81,7 @@ export default function ProfileComponent({
 
     const handleSair = () => {
         logout();
-        router.replace('/login');
+        router.replace('/(auth)/login');
     };
 
     return (

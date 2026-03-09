@@ -1,7 +1,7 @@
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { Link, router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -75,7 +75,7 @@ export default function LoginScreen() {
               <Text style={styles.label}>E-mail</Text>
               <TextInput
                 style={styles.input}
-                placeholder="ex: cliente@email.com"
+                placeholder="ex: cliente@gmail.com"
                 placeholderTextColor={AppColors.gray[500]}
                 value={email}
                 onChangeText={(t) => {
@@ -102,6 +102,15 @@ export default function LoginScreen() {
                 editable={!loading}
               />
 
+              <TouchableOpacity
+                style={styles.linkWrap}
+                onPress={() => router.push('/(auth)/forgot-password')}
+                activeOpacity={0.7}
+                disabled={loading}
+              >
+                <Text style={styles.link}>Esqueceu sua senha?</Text>
+              </TouchableOpacity>
+
               {error ? (
                 <View style={styles.errorWrap}>
                   <Ionicons name="alert-circle" size={18} color={AppColors.status.error} />
@@ -124,6 +133,15 @@ export default function LoginScreen() {
                   </>
                 )}
               </TouchableOpacity>
+
+              <View style={styles.footer}>
+                <Text style={styles.footerText}>Não tem uma conta? </Text>
+                <Link href="/(auth)/register" asChild>
+                  <TouchableOpacity activeOpacity={0.7} disabled={loading}>
+                    <Text style={styles.linkBold}>Cadastre-se</Text>
+                  </TouchableOpacity>
+                </Link>
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -216,6 +234,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: AppColors.text.secondary,
   },
+  linkWrap: {
+    marginTop: 12,
+    alignSelf: 'flex-end',
+  },
+  link: {
+    fontSize: 14,
+    color: AppColors.primary,
+    fontWeight: '500',
+  },
   errorWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -258,24 +285,20 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.3,
   },
-  hint: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: AppColors.background.muted,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: AppColors.border.muted,
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 24,
+    flexWrap: 'wrap',
   },
-  hintTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: AppColors.gray[600],
-    marginBottom: 6,
-  },
-  hintLine: {
-    fontSize: 12,
+  footerText: {
+    fontSize: 15,
     color: AppColors.gray[500],
-    marginBottom: 4,
-    lineHeight: 18,
+  },
+  linkBold: {
+    fontSize: 15,
+    color: AppColors.primary,
+    fontWeight: '600',
   },
 });

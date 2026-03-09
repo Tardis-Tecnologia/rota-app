@@ -101,7 +101,7 @@ export const PROVIDERS: Profile[] = [
     serviceArea: 'Atendimento em toda Maricá',
     hours: 'Seg a Sáb: 8h às 18h',
     phone: '(21) 96543-2109',
-    email: 'renovacores@email.com',
+    email: 'renovacores@gmail.com',
     services: [
       { name: 'Orçamento', description: 'Visita e medição', price: 'Grátis' },
       { name: 'Pintura residencial', description: 'Por m² (material à parte)', price: 'A partir de R$ 25,00/m²' },
@@ -122,7 +122,7 @@ export const PROVIDERS: Profile[] = [
     serviceArea: 'Zona Sul, Barra e Maricá',
     hours: 'Seg a Sáb: 7h às 18h',
     phone: '(21) 95432-1098',
-    email: 'casabrilhando@email.com',
+    email: 'casabrilhando@gmail.com',
     services: [
       { name: 'Faxina completa', description: 'Até 80m²', price: 'R$ 180,00' },
       { name: 'Limpeza pós-obra', description: 'Remoção de pó e resíduos', price: 'A partir de R$ 250,00' },
@@ -145,7 +145,7 @@ export const PROVIDERS: Profile[] = [
     serviceArea: 'Maricá e Itaboraí',
     hours: 'Seg a Sáb: 8h às 17h',
     phone: '(21) 94321-0987',
-    email: 'sosreparos@email.com',
+    email: 'sosreparos@gmail.com',
     services: [
       { name: 'Diagnóstico', description: 'Avaliação do problema', price: 'R$ 50,00' },
       { name: 'Troca de chuveiro', description: 'Instalação completa', price: 'R$ 80,00' },

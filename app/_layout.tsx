@@ -17,7 +17,7 @@ export default function RootLayout() {
         <ConversationsProvider>
           <ThemeProvider value={DefaultTheme}>
             <Stack>
-            <Stack.Screen name="login" options={{ headerShown: false }} />
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen
             name="notifications"

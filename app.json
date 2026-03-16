@@ -13,6 +13,7 @@
       "bundleIdentifier": "com.prefeituramarica.conecta"
     },
     "android": {
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#0066CC",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

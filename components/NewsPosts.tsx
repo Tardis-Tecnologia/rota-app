@@ -1,8 +1,9 @@
 import { AppColors } from '@/constants/theme';
 import { FeedFilter, Post } from '@/types';
+import { getNoticias, resolveMediaUrl } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,75 +18,82 @@ interface NewsPostsProps {
   filter?: FeedFilter;
 }
 
+
+function formatDataRelativa(isoDate: string): string {
+  const date = new Date(isoDate);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffH = Math.floor(diffMin / 60);
+  const diffD = Math.floor(diffH / 24);
+  if (diffMin < 60) return diffMin <= 1 ? 'Agora' : `Há ${diffMin} min`;
+  if (diffH < 24) return `Há ${diffH}h`;
+  if (diffD < 7) return `Há ${diffD} dia${diffD > 1 ? 's' : ''}`;
+  return date.toLocaleDateString('pt-BR');
+}
+
+/** Mapeia categoria do back para o tipo do feed. */
+function toCategoria(category: string | null): Exclude<FeedFilter, 'todos'> {
+  const c = (category ?? 'noticias').toLowerCase();
+  if (c === 'obras' || c === 'lazer') return c;
+  return 'noticias';
+}
+
+
+function newsToPost(item: {
+  id: string;
+  title: string;
+  content?: string | null;
+  summary?: string | null;
+  category?: string | null;
+  createdAt: string;
+  image?: { publicUrl?: string | null } | null;
+  author?: { name?: string | null } | null;
+}): Post {
+  return {
+    id: item.id,
+    autor: item.author?.name ?? 'Prefeitura',
+    avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=500&auto=format&fit=crop&q=60',
+    data: formatDataRelativa(item.createdAt),
+    conteudo: item.content ?? item.summary ?? item.title ?? '',
+    imagem: resolveMediaUrl(item.image?.publicUrl),
+    curtidas: 0,
+    comentarios: 0,
+    compartilhamentos: 0,
+    curtido: false,
+    username: undefined,
+    tipo: 'post',
+    categoria: toCategoria(item.category ?? null),
+  };
+}
+
 export default function NewsPosts({ filter = 'todos' }: NewsPostsProps) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const carregarPosts = useCallback(async (): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getNoticias('published');
+      const list = Array.isArray(data) ? data : [];
+      setPosts(list.map(newsToPost));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Erro ao carregar notícias';
+      setError(msg);
+      setPosts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     carregarPosts();
-  }, []);
-
-  const carregarPosts = async (): Promise<void> => {
-    setLoading(true);
-    // Dados simulados com o novo formato
-    const postsSimulados: Post[] = [
-      {
-        id: '1',
-        autor: 'Prefeitura',
-        avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=500&auto=format&fit=crop&q=60',
-        data: '2h',
-        conteudo: 'É com grande alegria que inauguramos hoje o novo Parque da Cidade! Um espaço verde para o lazer de toda a família. Venham conhecer!',
-        imagem: 'https://prefeitura.rio/wp-content/uploads/2024/09/53978222053_204a5d2291_k.jpg',
-        curtidas: 45,
-        comentarios: 12,
-        compartilhamentos: 8,
-        curtido: false,
-        username: '@pref_cidade',
-        tipo: 'post',
-        categoria: 'noticias',
-      },
-      {
-        id: '2',
-        autor: 'Prefeitura',
-        avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=500&auto=format&fit=crop&q=60',
-        data: '35 minutos',
-        conteudo: '',
-        imagem: 'https://s2-oglobo.glbimg.com/9AKpFWDtfebBsuW-yAl6AYQSA6s=/1200x/smart/filters:cover():strip_icc()/i.s3.glbimg.com/v1/AUTH_da025474c0c44edd99332dddb09cabe8/internal_photos/bs/2024/w/R/Yz1pkhSAe5DDiYjfM12A/whatsapp-image-2024-01-14-at-09.52.51.jpeg',
-        curtidas: 0,
-        comentarios: 0,
-        compartilhamentos: 0,
-        curtido: false,
-        tipo: 'alerta',
-        titulo: 'Alerta de Alagamento na Av. Brasil: Fortes chuvas causam pontos de alagamento.',
-        categoria: 'obras',
-      },
-      {
-        id: '3',
-        autor: 'Prefeitura',
-        avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=500&auto=format&fit=crop&q=60',
-        data: '8h',
-        conteudo: '🚧 Obras de recapeamento na Rua das Flores começarão na próxima segunda-feira. Planeje seu trajeto com antecedência para evitar transtornos.',
-        imagem: null,
-        curtidas: 89,
-        comentarios: 23,
-        compartilhamentos: 15,
-        curtido: true,
-        username: '@pref_cidade',
-        tipo: 'post',
-        categoria: 'lazer',
-      },
-    ];
-
-    setTimeout(() => {
-      setPosts(postsSimulados);
-      setLoading(false);
-    }, 1000);
-  };
+  }, [carregarPosts]);
 
   const filteredPosts = useMemo(() => {
-    if (filter === 'todos') {
-      return posts;
-    }
+    if (filter === 'todos') return posts;
     return posts.filter((post) => post.categoria === filter);
   }, [filter, posts]);
 
@@ -93,6 +101,17 @@ export default function NewsPosts({ filter = 'todos' }: NewsPostsProps) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="small" color={AppColors.primary} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={carregarPosts} activeOpacity={0.7}>
+          <Text style={styles.retryButtonText}>Tentar novamente</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -111,8 +130,8 @@ export default function NewsPosts({ filter = 'todos' }: NewsPostsProps) {
           onPress={() => Alert.alert('Alertas', 'Detalhes disponíveis em breve.')}
         >
           {post.imagem && (
-            <Image 
-              source={{ uri: post.imagem }} 
+            <Image
+              source={{ uri: post.imagem }}
               style={styles.alertImage}
               resizeMode="cover"
             />
@@ -130,7 +149,6 @@ export default function NewsPosts({ filter = 'todos' }: NewsPostsProps) {
       );
     }
 
-    // Card tipo post normal
     return (
       <View key={post.id} style={styles.postCard}>
         <View style={styles.postHeader}>
@@ -149,8 +167,8 @@ export default function NewsPosts({ filter = 'todos' }: NewsPostsProps) {
 
         {post.imagem && (
           <View style={styles.imagemContainer}>
-            <Image 
-              source={{ uri: post.imagem }} 
+            <Image
+              source={{ uri: post.imagem }}
               style={styles.imagem}
               resizeMode="cover"
             />
@@ -183,7 +201,7 @@ export default function NewsPosts({ filter = 'todos' }: NewsPostsProps) {
               color={AppColors.text.tertiary}
             />
           </View>
-        </View> 
+        </View>
       </View>
     );
   };
@@ -207,6 +225,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  errorContainer: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorText: {
+    color: AppColors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  retryButton: {
+    backgroundColor: AppColors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -216,7 +254,6 @@ const styles = StyleSheet.create({
   postsContainer: {
     gap: 16,
   },
-  // Card tipo post normal
   postCard: {
     backgroundColor: AppColors.background.default,
     borderRadius: 16,
@@ -259,7 +296,7 @@ const styles = StyleSheet.create({
   },
   imagemContainer: {
     width: '100%',
-    aspectRatio: 16 / 9, // aspect-video
+    aspectRatio: 16 / 9,
     borderRadius: 16,
     overflow: 'hidden',
     marginTop: 12,
@@ -270,7 +307,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  // Card tipo alerta
   alertCard: {
     backgroundColor: AppColors.background.default,
     borderRadius: 16,
@@ -283,7 +319,7 @@ const styles = StyleSheet.create({
   },
   alertImage: {
     width: '100%',
-    height: 160, // h-40 = 160px
+    height: 160,
     backgroundColor: AppColors.gray[300],
   },
   alertContent: {
@@ -292,7 +328,7 @@ const styles = StyleSheet.create({
   alertBadge: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: AppColors.tab.active, // cyan-600
+    color: AppColors.tab.active,
     marginBottom: 4,
   },
   alertTitulo: {
@@ -307,18 +343,16 @@ const styles = StyleSheet.create({
     color: AppColors.text.tertiary,
   },
   postActions: {
-  flexDirection: 'row',
-  justifyContent: 'space-around',
-  marginTop: 14,
-  paddingHorizontal: 4,
-},
-
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 14,
+    paddingHorizontal: 4,
+  },
   actionItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-
   actionText: {
     fontSize: 13,
     color: AppColors.text.tertiary,
@@ -330,6 +364,4 @@ const styles = StyleSheet.create({
     marginBottom: 7,
     width: '100%',
   },
-
 });
-

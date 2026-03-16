@@ -3,6 +3,7 @@ import NewsPosts from '@/components/NewsPosts';
 import { AppColors } from '@/constants/theme';
 import { FeedFilter } from '@/types';
 import { MaterialIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
@@ -22,12 +23,17 @@ export default function FeedScreen() {
 
   return (
     <>
-      <View style={styles.container}>
-        <ScrollView showsVerticalScrollIndicator={false}>
+      <LinearGradient
+        colors={AppColors.feed.backgroundGradient}
+        style={styles.gradient}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+      >
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <FilterTabs filters={FILTERS} active={activeFilter} onSelect={handleSelectFilter} />
           <NewsPosts filter={activeFilter} />
         </ScrollView>
-      </View>
+      </LinearGradient>
       <TouchableOpacity activeOpacity={0.85} style={styles.fab} onPress={() => {}}>
         <MaterialIcons name="add" size={28} color={AppColors.text.white} />
       </TouchableOpacity>
@@ -36,9 +42,12 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  gradient: {
     flex: 1,
-    backgroundColor: AppColors.background.light,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 100,
   },
 
   fab: {

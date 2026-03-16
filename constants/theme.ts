@@ -167,6 +167,7 @@ export const AppColors = {
     filterButton: '#F8FAFC',
     filterActive: '#0891b2',
     filterText: '#1F2937',
+    backgroundGradient: ['#F0F9FF', '#FFFFFF'] as [string, string],
   },
 
   alerts: {

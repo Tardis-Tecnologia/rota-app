@@ -1,3 +1,4 @@
+import * as authApi from '@/services/authApi';
 import React, { createContext, useCallback, useContext, useState } from 'react';
 
 export type UserRole = 'client';
@@ -7,61 +8,48 @@ export interface AuthUser {
   email: string;
   name: string;
   role: UserRole;
+  profile: string;
+  themeSlug: string | null;
 }
 
 interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (email: string, password: string) => boolean;
+  login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => boolean;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-
-let MOCK_CREDENTIALS: Array<{
-  email: string;
-  password: string;
-  name: string;
-  role: UserRole;
-}> = [
-  { email: 'cliente@rota.com', password: 'cliente123', name: 'Cliente', role: 'client' },
-];
+function profileToRole(profile: string): UserRole {
+  if (profile === 'CIDADAO') return 'client';
+  return 'client';
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading] = useState(false);
 
-  const login = useCallback((email: string, password: string): boolean => {
-    const trimmedEmail = email.trim().toLowerCase();
-    const found = MOCK_CREDENTIALS.find(
-      (c) => c.email === trimmedEmail && c.password === password
-    );
-    if (found) {
-      setUser({
-        id: 'client-1',
-        email: found.email,
-        name: found.name,
-        role: 'client',
-      });
-      return true;
-    }
-    return false;
+  const login = useCallback(async (email: string, password: string): Promise<void> => {
+    const data = await authApi.login(email, password);
+    authApi.setAuthToken(data.token);
+    setUser({
+      id: data.userId,
+      email: email.trim().toLowerCase(),
+      name: '', 
+      role: profileToRole(data.profile),
+      profile: data.profile,
+      themeSlug: data.themeSlug ?? null,
+    });
   }, []);
 
   const register = useCallback((name: string, email: string, password: string): boolean => {
-    const trimmedEmail = email.trim().toLowerCase();
-    const exists = MOCK_CREDENTIALS.some((c) => c.email === trimmedEmail);
-    if (exists) return false;
-    MOCK_CREDENTIALS = [
-      ...MOCK_CREDENTIALS,
-      { email: trimmedEmail, password, name: name.trim(), role: 'client' },
-    ];
-    return true;
+    return false;
   }, []);
 
   const logout = useCallback(() => {
+    authApi.setAuthToken(null);
     setUser(null);
   }, []);
 

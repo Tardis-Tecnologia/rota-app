@@ -1,7 +1,7 @@
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -29,7 +29,7 @@ export default function LoginScreen() {
     }
   }, [user]);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError('');
     if (!email.trim()) {
       setError('Digite seu e-mail.');
@@ -40,12 +40,19 @@ export default function LoginScreen() {
       return;
     }
     setLoading(true);
-    const success = login(email.trim(), password);
-    setLoading(false);
-    if (success) {
+    try {
+      await login(email.trim(), password);
       router.replace('/(tabs)/home');
-    } else {
-      setError('E-mail ou senha inválidos. Tente novamente.');
+    } catch (e) {
+      const message =
+        e instanceof Error && e.message === 'EMAIL_OU_SENHA_INCORRETOS'
+          ? 'Email ou senha incorretos.'
+          : e instanceof Error
+            ? e.message
+            : 'Não foi possível entrar. Tente novamente.';
+      setError(message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -102,14 +109,14 @@ export default function LoginScreen() {
                 editable={!loading}
               />
 
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 style={styles.linkWrap}
                 onPress={() => router.push('/(auth)/forgot-password')}
                 activeOpacity={0.7}
                 disabled={loading}
               >
                 <Text style={styles.link}>Esqueceu sua senha?</Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
 
               {error ? (
                 <View style={styles.errorWrap}>
@@ -134,14 +141,14 @@ export default function LoginScreen() {
                 )}
               </TouchableOpacity>
 
-              <View style={styles.footer}>
+              {/* <View style={styles.footer}>
                 <Text style={styles.footerText}>Não tem uma conta? </Text>
                 <Link href="/(auth)/register" asChild>
                   <TouchableOpacity activeOpacity={0.7} disabled={loading}>
                     <Text style={styles.linkBold}>Cadastre-se</Text>
                   </TouchableOpacity>
                 </Link>
-              </View>
+              </View> */}
             </View>
           </View>
         </ScrollView>

@@ -2,9 +2,8 @@ import FilterTabs, { FilterOption } from '@/components/FilterTabs';
 import NewsPosts from '@/components/NewsPosts';
 import { AppColors } from '@/constants/theme';
 import { FeedFilter } from '@/types';
-import { MaterialIcons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 const FILTERS: Array<FilterOption> = [
   { key: 'todos', label: 'Todos' },
@@ -28,9 +27,9 @@ export default function FeedScreen() {
           <NewsPosts filter={activeFilter} />
         </ScrollView>
       </View>
-      <TouchableOpacity activeOpacity={0.85} style={styles.fab} onPress={() => {}}>
+      {/* <TouchableOpacity activeOpacity={0.85} style={styles.fab} onPress={() => {}}>
         <MaterialIcons name="add" size={28} color={AppColors.text.white} />
-      </TouchableOpacity>
+      </TouchableOpacity> */}
     </>
   );
 }

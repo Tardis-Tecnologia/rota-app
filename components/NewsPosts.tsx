@@ -1,8 +1,7 @@
 import { AppColors } from '@/constants/theme';
 import { FeedFilter, Post } from '@/types';
 import { Feather } from '@expo/vector-icons';
-
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,8 +9,9 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
+import { getNews, newsItemToPost } from '@/services/newsApi';
 
 interface NewsPostsProps {
   filter?: FeedFilter;
@@ -20,67 +20,27 @@ interface NewsPostsProps {
 export default function NewsPosts({ filter = 'todos' }: NewsPostsProps) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const carregarPosts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const list = await getNews();
+      const mapped: Post[] = list.map(newsItemToPost);
+      setPosts(mapped);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Não foi possível carregar as notícias.';
+      setError(message);
+      setPosts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     carregarPosts();
-  }, []);
-
-  const carregarPosts = async (): Promise<void> => {
-    setLoading(true);
-    // Dados simulados com o novo formato
-    const postsSimulados: Post[] = [
-      {
-        id: '1',
-        autor: 'Prefeitura',
-        avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=500&auto=format&fit=crop&q=60',
-        data: '2h',
-        conteudo: 'É com grande alegria que inauguramos hoje o novo Parque da Cidade! Um espaço verde para o lazer de toda a família. Venham conhecer!',
-        imagem: 'https://prefeitura.rio/wp-content/uploads/2024/09/53978222053_204a5d2291_k.jpg',
-        curtidas: 45,
-        comentarios: 12,
-        compartilhamentos: 8,
-        curtido: false,
-        username: '@pref_cidade',
-        tipo: 'post',
-        categoria: 'noticias',
-      },
-      {
-        id: '2',
-        autor: 'Prefeitura',
-        avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=500&auto=format&fit=crop&q=60',
-        data: '35 minutos',
-        conteudo: '',
-        imagem: 'https://s2-oglobo.glbimg.com/9AKpFWDtfebBsuW-yAl6AYQSA6s=/1200x/smart/filters:cover():strip_icc()/i.s3.glbimg.com/v1/AUTH_da025474c0c44edd99332dddb09cabe8/internal_photos/bs/2024/w/R/Yz1pkhSAe5DDiYjfM12A/whatsapp-image-2024-01-14-at-09.52.51.jpeg',
-        curtidas: 0,
-        comentarios: 0,
-        compartilhamentos: 0,
-        curtido: false,
-        tipo: 'alerta',
-        titulo: 'Alerta de Alagamento na Av. Brasil: Fortes chuvas causam pontos de alagamento.',
-        categoria: 'obras',
-      },
-      {
-        id: '3',
-        autor: 'Prefeitura',
-        avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=500&auto=format&fit=crop&q=60',
-        data: '8h',
-        conteudo: '🚧 Obras de recapeamento na Rua das Flores começarão na próxima segunda-feira. Planeje seu trajeto com antecedência para evitar transtornos.',
-        imagem: null,
-        curtidas: 89,
-        comentarios: 23,
-        compartilhamentos: 15,
-        curtido: true,
-        username: '@pref_cidade',
-        tipo: 'post',
-        categoria: 'lazer',
-      },
-    ];
-
-    setTimeout(() => {
-      setPosts(postsSimulados);
-      setLoading(false);
-    }, 1000);
-  };
+  }, [carregarPosts]);
 
   const filteredPosts = useMemo(() => {
     if (filter === 'todos') {
@@ -97,8 +57,23 @@ export default function NewsPosts({ filter = 'todos' }: NewsPostsProps) {
     );
   }
 
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => carregarPosts()} activeOpacity={0.8}>
+          <Text style={styles.retryButtonText}>Tentar novamente</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   if (filteredPosts.length === 0) {
-    return null;
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>Nenhuma notícia no momento.</Text>
+      </View>
+    );
   }
 
   const renderPostCard = (post: Post) => {
@@ -206,6 +181,36 @@ const styles = StyleSheet.create({
     height: 150,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  errorContainer: {
+    padding: 24,
+    alignItems: 'center',
+    minHeight: 120,
+  },
+  errorText: {
+    fontSize: 14,
+    color: AppColors.status.error,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  retryButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: AppColors.primary,
+    borderRadius: 12,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  emptyContainer: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 15,
+    color: AppColors.gray[500],
   },
   title: {
     fontSize: 20,

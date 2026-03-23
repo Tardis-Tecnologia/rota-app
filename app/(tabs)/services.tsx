@@ -1,5 +1,10 @@
+import { EmergencyPhones } from '@/components/EmergencyPhones';
+import { ModalAnimals } from '@/components/ModalAnimals';
 import { ModalMarketplace } from '@/components/ModalMarketplace';
+import { ModalReportPrefeitura } from '@/components/ModalReportPrefeitura';
+import { ModalResolvedProblems } from '@/components/ModalResolvedProblems';
 import { ModalSecurity } from '@/components/ModalSecurity';
+import { ModalWorksInProgress } from '@/components/ModalWorksInProgress';
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,40 +29,68 @@ type ServiceCard = {
 };
 
 const servicesCards: ServiceCard[] = [
+  // {
+  //   id: 'transport',
+  //   title: 'Transporte',
+  //   colors: AppColors.gradients.services.transport,
+  //   icon: 'bus-outline',
+  //   gradientClass: 'service-card--transport',
+  // },
+  // {
+  //   id: 'health',
+  //   title: 'Saúde',
+  //   colors: AppColors.gradients.services.health,
+  //   icon: 'heart-circle-outline',
+  //   gradientClass: 'service-card--health',
+  // },
+  // {
+  //   id: 'education',
+  //   title: 'Educação',
+  //   colors: AppColors.gradients.services.education,
+  //   icon: 'school-outline',
+  //   gradientClass: 'service-card--education',
+  // },
+  // {
+  //   id: 'jobs',
+  //   title: 'Carreiras & Concursos',
+  //   colors: AppColors.gradients.services.jobs,
+  //   icon: 'briefcase-outline',
+  //   gradientClass: 'service-card--jobs',
+  // },
+  // {
+  //   id: 'security',
+  //   title: 'Segurança',
+  //   colors: AppColors.gradients.services.security,
+  //   icon: 'shield-outline',
+  //   gradientClass: 'service-card--security',
+  // },
   {
-    id: 'transport',
-    title: 'Transporte',
-    colors: AppColors.gradients.services.transport,
-    icon: 'bus-outline',
-    gradientClass: 'service-card--transport',
+    id: 'workInProgess',
+    title: 'Obras em andamento',
+    colors: AppColors.gradients.services.workInProgess,
+    icon: 'business-outline',
+    gradientClass: 'service-card--workInProgess',
   },
   {
-    id: 'health',
-    title: 'Saúde',
-    colors: AppColors.gradients.services.health,
-    icon: 'heart-circle-outline',
-    gradientClass: 'service-card--health',
+    id: 'resolvedProblems',
+    title: 'Demandas Resolvidas',
+    colors: AppColors.gradients.services.resolvedProblems,
+    icon: 'checkmark-circle-outline',
+    gradientClass: 'service-card--resolvedProblems',
   },
   {
-    id: 'education',
-    title: 'Educação',
-    colors: AppColors.gradients.services.education,
-    icon: 'school-outline',
-    gradientClass: 'service-card--education',
+    id: 'municipalContact',
+    title: 'Contato com Prefeitura',
+    colors: AppColors.gradients.services.municipalContact,
+    icon: 'call-outline',
+    gradientClass: 'service-card--municipalContact',
   },
   {
-    id: 'jobs',
-    title: 'Carreiras & Concursos',
-    colors: AppColors.gradients.services.jobs,
-    icon: 'briefcase-outline',
-    gradientClass: 'service-card--jobs',
-  },
-  {
-    id: 'security',
-    title: 'Segurança',
-    colors: AppColors.gradients.services.security,
-    icon: 'shield-outline',
-    gradientClass: 'service-card--security',
+    id: 'animals',
+    title: 'Animais - Meio Ambiente / ONG',
+    colors: AppColors.gradients.services.animals,
+    icon: 'paw-outline',
+    gradientClass: 'service-card--animals',
   },
   {
     id: 'servicesPro',
@@ -73,69 +106,53 @@ const servicesCards: ServiceCard[] = [
     icon: 'bag-outline',
     gradientClass: 'service-card--marketplace',
   },
-  {
-    id: 'culture',
-    title: 'Cultura e Lazer',
-    colors: AppColors.gradients.services.culture,
-    icon: 'color-palette-outline',
-    gradientClass: 'service-card--culture',
-  },
-  {
-    id: 'tourism',
-    title: 'Turismo',
-    colors: AppColors.gradients.services.tourism,
-    icon: 'camera-outline',
-    gradientClass: 'service-card--tourism',
-  },
-  {
-    id: 'animals',
-    title: 'Animais',
-    colors: AppColors.gradients.services.animals,
-    icon: 'paw-outline',
-    gradientClass: 'service-card--animals',
-  },
+  // {
+  //   id: 'culture',
+  //   title: 'Cultura e Lazer',
+  //   colors: AppColors.gradients.services.culture,
+  //   icon: 'color-palette-outline',
+  //   gradientClass: 'service-card--culture',
+  // },
+  // {
+  //   id: 'tourism',
+  //   title: 'Turismo',
+  //   colors: AppColors.gradients.services.tourism,
+  //   icon: 'camera-outline',
+  //   gradientClass: 'service-card--tourism',
+  // },
 ];
 
 export default function ServicosScreen() {
-  const [securityModalVisible, setSecurityModalVisible] = useState(false);
-  const [marketplaceModalVisible, setMarketplaceModalVisible] = useState(false);
-  
+  const [activeModal, setActiveModal] = useState<string | null>(null);
+
   const handleCardPress = (serviceId: string, title: string) => {
-    if (serviceId === 'health') {
-      router.push('/HealthService');
+    const routes = {
+      health: '/HealthService',
+      transport: '/PublicTransportation',
+      education: '/EducationTab',
+      jobs: '/JobsTab',
+      servicesPro: '/ServicesAndProfessionals',
+    } as const;
+
+    if (serviceId in routes) {
+      router.push(routes[serviceId as keyof typeof routes]);
       return;
     }
-
-    if (serviceId === 'transport') {
-      router.push('/PublicTransportation');
+  
+    const modals = [
+      'security',
+      'workInProgess',
+      'resolvedProblems',
+      'marketplace',
+      'animals',
+      'municipalContact',
+    ];
+  
+    if (modals.includes(serviceId)) {
+      setActiveModal(serviceId);
       return;
     }
-
-    if (serviceId === 'education') {
-      router.push('/EducationTab');
-      return;
-    }
-
-    if (serviceId === 'jobs') {
-      router.push('/JobsTab');
-      return;
-    }
-
-    if (serviceId === 'security') {
-      setSecurityModalVisible(true);
-      return;
-    }
-
-    if (serviceId === 'marketplace') {
-      setMarketplaceModalVisible(true);
-      return;
-    }
-
-    if (serviceId === 'servicesPro') {
-      router.push('/ServicesAndProfessionals');
-      return;
-    }
-
+  
     Alert.alert(title, 'Serviço disponível em breve.');
   };
 
@@ -144,20 +161,37 @@ export default function ServicosScreen() {
   return (
     <View style={styles.container}>
       <ModalSecurity
-        visible={securityModalVisible}
-        onClose={() => setSecurityModalVisible(false)}
+        visible={activeModal === 'security'}
+        onClose={() => setActiveModal(null)}
       />
       <ModalMarketplace
-        visible={marketplaceModalVisible}
-        onClose={() => setMarketplaceModalVisible(false)}
+        visible={activeModal === 'marketplace'}
+        onClose={() => setActiveModal(null)}
       />
-      <Text style={styles.sectionTitle}>Serviços Públicos</Text>
+      <ModalWorksInProgress
+        visible={activeModal === 'workInProgess'}
+        onClose={() => setActiveModal(null)}
+      />
+      <ModalResolvedProblems
+        visible={activeModal === 'resolvedProblems'}
+        onClose={() => setActiveModal(null)}
+      />
+      <ModalAnimals
+        visible={activeModal === 'animals'}
+        onClose={() => setActiveModal(null)}
+      />
+      <ModalReportPrefeitura
+        visible={activeModal === 'municipalContact'}
+        onClose={() => setActiveModal(null)}
+      />
+      <Text style={styles.sectionTitle}>Serviços</Text>
       <FlatList
         data={servicesCards}
         numColumns={2}
         keyExtractor={(item) => item.id}
         columnWrapperStyle={styles.columnWrapper}
         contentContainerStyle={styles.listContent}
+        ListFooterComponent={<EmergencyPhones />}
         renderItem={({ item }) => {
           const webCardProps = isWeb
             ? ({ className: `service-card ${item.gradientClass}` } as any)
@@ -167,7 +201,7 @@ export default function ServicosScreen() {
           const cardContent = (
             <>
               <View style={styles.iconContainer} {...webIconProps}>
-                <Ionicons name={item.icon as any} size={28} color={AppColors.text.white} />
+                <Ionicons name={item.icon as any} size={26} color={AppColors.text.white} />
               </View>
               <Text style={styles.cardTitle}>{item.title}</Text>
             </>
@@ -219,7 +253,7 @@ const styles = StyleSheet.create({
     paddingTop: 24,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '600',
     color: AppColors.text.secondary,
     marginBottom: 16,
@@ -233,34 +267,36 @@ const styles = StyleSheet.create({
   },
   cardWrapper: {
     flex: 1,
-    height: 160,
+    height: 140,
     marginHorizontal: 4,
     borderRadius: 16,
     overflow: 'hidden',
     elevation: 0,
   },
   webCardWrapper: {
-    height: 160,
-    paddingVertical: 24,
-    paddingHorizontal: 16,
+    height: 140,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     borderRadius: 16,
   },
   gradient: {
     flex: 1,
-    paddingVertical: 24,
-    paddingHorizontal: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     borderRadius: 16,
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
   },
   iconContainer: {
     borderRadius: 999,
-    padding: 12,
-    marginBottom: 16,
+    padding: 8,
+    marginBottom: 8,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 18,
+    lineHeight: 20,
     fontWeight: '700',
     color: AppColors.text.white,
+    flexShrink: 0,
   },
 });

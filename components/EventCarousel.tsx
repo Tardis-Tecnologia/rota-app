@@ -5,8 +5,8 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
-  Pressable,
   Image,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -178,6 +178,7 @@ const styles = StyleSheet.create({
   carousel: {
     paddingHorizontal: 24,
     gap: 16,
+    paddingBottom: 8
   },
   card: {
     backgroundColor: AppColors.background.default,

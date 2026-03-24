@@ -7,6 +7,7 @@ import NewsPosts from '@/components/NewsPosts';
 import OpinionCard from '@/components/OpinionCard';
 import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
+import { useAppTheme } from '@/contexts/AppThemeContext';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -20,6 +21,7 @@ import {
 } from 'react-native';
 
 export default function NoticiasScreen() {
+  const { backgroundColor } = useAppTheme();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [showToast, setShowToast] = useState(false);
@@ -77,7 +79,7 @@ export default function NoticiasScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor }]}>
       <FlatList
         data={[]}
         renderItem={() => null}
@@ -104,7 +106,6 @@ export default function NoticiasScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: AppColors.background.light,
   },
   contentContainer: {
     flexGrow: 1,

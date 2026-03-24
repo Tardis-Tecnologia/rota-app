@@ -6,11 +6,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { AppColors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
+import { useAppTheme } from '@/contexts/AppThemeContext';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const { backgroundColor: sceneBackgroundColor } = useAppTheme();
   const insets = useSafeAreaInsets();
 
   const tabBarStyle = useMemo(() => {
@@ -52,6 +51,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: AppColors.tab.inactive,
         headerShown: false, // Remover header padrão
         tabBarButton: HapticTab,
+        sceneContainerStyle: { backgroundColor: sceneBackgroundColor },
         tabBarStyle,
         tabBarLabelStyle: {
           fontSize: 12,

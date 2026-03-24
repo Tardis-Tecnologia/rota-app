@@ -1,3 +1,5 @@
+import { ThemeSyncOnNavigation } from '@/components/ThemeSyncOnNavigation';
+import { AppThemeProvider } from '@/contexts/AppThemeContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ConversationsProvider } from '@/contexts/ConversationsContext';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
@@ -14,6 +16,8 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
+        <AppThemeProvider>
+        <ThemeSyncOnNavigation />
         <ConversationsProvider>
           <ThemeProvider value={DefaultTheme}>
             <Stack>
@@ -44,6 +48,7 @@ export default function RootLayout() {
             <StatusBar style="dark" />
           </ThemeProvider>
         </ConversationsProvider>
+        </AppThemeProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

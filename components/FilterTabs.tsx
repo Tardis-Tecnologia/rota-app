@@ -46,12 +46,16 @@ export default function FilterTabs({ filters, active, onSelect, containerStyle }
 
 const styles = StyleSheet.create({
   filtersWrapper: {
+    width: '100%',
+    alignSelf: 'stretch',
     paddingBottom: 12,
   },
   filtersContainerBg: {
+    width: '100%',
+    alignSelf: 'stretch',
     backgroundColor: AppColors.feed.filterBackground,
     paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
     shadowColor: AppColors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12,
@@ -59,7 +63,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   filtersContent: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     gap: 8,
   },
   filterButton: {

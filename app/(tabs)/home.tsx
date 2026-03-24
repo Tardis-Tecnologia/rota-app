@@ -7,14 +7,20 @@ import NewsPosts from '@/components/NewsPosts';
 import OpinionCard from '@/components/OpinionCard';
 import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
+import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   FlatList,
   RefreshControl,
-  StyleSheet, Text, View
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 export default function NoticiasScreen() {
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [showToast, setShowToast] = useState(false);
   const [toastKey, setToastKey] = useState(0);
@@ -50,9 +56,22 @@ export default function NoticiasScreen() {
       <JobSuggestionCard />
       <EventCarousel />
       <View>
-      <Text style={styles.title}>Últimas Notícias</Text>
-        {/* Componente de Posts (Alerta) */}
-        <NewsPosts />
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle} numberOfLines={1}>
+            Últimas Notícias
+          </Text>
+          <TouchableOpacity
+            style={styles.seeMoreRow}
+            onPress={() => router.push('/(tabs)/feed')}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel="Ver mais notícias no feed"
+          >
+            <Text style={styles.seeMoreLabel}>Ver mais</Text>
+            <Feather name="chevron-right" size={18} color={AppColors.primary} />
+          </TouchableOpacity>
+        </View>
+        <NewsPosts maxItems={2} />
       </View>
     </View>
   );
@@ -90,12 +109,29 @@ const styles = StyleSheet.create({
   contentContainer: {
     flexGrow: 1,
   },
-  title: {
-    marginLeft: 24,
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    flex: 1,
+    marginRight: 12,
     fontSize: 20,
     fontWeight: 'bold',
     color: AppColors.text.secondary,
-    marginBottom: 16,
+  },
+  seeMoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  seeMoreLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: AppColors.primary,
   },
 });
 

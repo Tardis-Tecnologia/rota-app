@@ -3,7 +3,7 @@ import NewsPosts from '@/components/NewsPosts';
 import { AppColors } from '@/constants/theme';
 import { FeedFilter } from '@/types';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 const FILTERS: Array<FilterOption> = [
   { key: 'todos', label: 'Todos' },
@@ -22,10 +22,13 @@ export default function FeedScreen() {
   return (
     <>
       <View style={styles.container}>
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <FilterTabs filters={FILTERS} active={activeFilter} onSelect={handleSelectFilter} />
-          <NewsPosts filter={activeFilter} />
-        </ScrollView>
+        <NewsPosts
+          key={activeFilter}
+          filter={activeFilter}
+          listHeader={
+            <FilterTabs filters={FILTERS} active={activeFilter} onSelect={handleSelectFilter} />
+          }
+        />
       </View>
       {/* <TouchableOpacity activeOpacity={0.85} style={styles.fab} onPress={() => {}}>
         <MaterialIcons name="add" size={28} color={AppColors.text.white} />

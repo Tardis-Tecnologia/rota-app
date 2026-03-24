@@ -37,10 +37,16 @@ async function fetchApi<T>(endpoint: string): Promise<T> {
 export async function getNews(options?: {
   status?: string;
   category?: string;
+  tag?: string;
+  init?: number;
+  end?: number;
 }): Promise<NewsItem[]> {
   const params = new URLSearchParams();
   if (options?.status) params.set('status', options.status);
   if (options?.category) params.set('category', options.category);
+  if (options?.tag) params.set('tag', options.tag);
+  if (typeof options?.init === 'number') params.set('init', String(options.init));
+  if (typeof options?.end === 'number') params.set('end', String(options.end));
   const qs = params.toString();
   const endpoint = qs ? `/news?${qs}` : '/news';
   const data = await fetchApi<NewsItem[]>(endpoint);
@@ -72,13 +78,30 @@ function formatTimeAgo(dateStr: string): string {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 }
 
+export const NEWS_FEED_TAG = {
+  noticias: 'news',
+  obras: 'works',
+  lazer: 'leisure',
+} as const;
 
-function mapCategory(category: string | null): 'noticias' | 'obras' | 'lazer' {
+function mapCategoryFromTags(tags: string[] | undefined | null): 'noticias' | 'obras' | 'lazer' | null {
+  const set = new Set((tags ?? []).map((t) => t.toLowerCase()));
+  if (set.has('works')) return 'obras';
+  if (set.has('leisure')) return 'lazer';
+  if (set.has('news')) return 'noticias';
+  return null;
+}
+
+function mapCategoryFromField(category: string | null): 'noticias' | 'obras' | 'lazer' {
   if (!category) return 'noticias';
   const c = category.toLowerCase();
   if (c === 'obras' || c === 'obra') return 'obras';
   if (c === 'lazer') return 'lazer';
   return 'noticias';
+}
+
+export function mapNewsItemFeedCategory(item: NewsItem): 'noticias' | 'obras' | 'lazer' {
+  return mapCategoryFromTags(item.tags) ?? mapCategoryFromField(item.category);
 }
 
 
@@ -112,6 +135,6 @@ export function newsItemToPost(item: NewsItem): {
     curtido: false,
     username: '@pref_cidade',
     tipo: 'post',
-    categoria: mapCategory(item.category),
+    categoria: mapNewsItemFeedCategory(item),
   };
 }

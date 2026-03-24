@@ -1,93 +1,110 @@
 import { AppColors } from '@/constants/theme';
 import { FeedFilter, Post } from '@/types';
 import { Feather } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Image,
+  ListRenderItem,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { getNews, newsItemToPost } from '@/services/newsApi';
+import { getNews, NEWS_FEED_TAG, newsItemToPost } from '@/services/newsApi';
 
 interface NewsPostsProps {
   filter?: FeedFilter;
+  maxItems?: number;
+  listHeader?: React.ReactNode;
 }
 
-export default function NewsPosts({ filter = 'todos' }: NewsPostsProps) {
+export default function NewsPosts({ filter = 'todos', maxItems, listHeader }: NewsPostsProps) {
+  const PAGE_SIZE = 10;
+  const pageSize = maxItems ?? PAGE_SIZE;
+  const isPreview = maxItems != null;
   const [posts, setPosts] = useState<Post[]>([]);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const postsLengthRef = useRef(0);
+  postsLengthRef.current = posts.length;
 
-  const carregarPosts = useCallback(async () => {
+  const feedTag = useMemo(() => {
+    if (filter === 'todos') return undefined;
+    return NEWS_FEED_TAG[filter];
+  }, [filter]);
+
+  const fetchPage = useCallback(
+    async (offset: number) => {
+      return getNews({
+        status: 'published',
+        tag: feedTag,
+        init: offset,
+        end: offset + pageSize,
+      });
+    },
+    [feedTag, pageSize],
+  );
+
+  const loadPosts = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const list = await getNews();
+      const list = await fetchPage(0);
       const mapped: Post[] = list.map(newsItemToPost);
       setPosts(mapped);
+      setHasMore(!isPreview && list.length === pageSize);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Não foi possível carregar as notícias.';
       setError(message);
       setPosts([]);
+      setHasMore(false);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchPage, isPreview, pageSize]);
+
+  const loadMorePosts = useCallback(async () => {
+    if (isPreview || loadingMore || !hasMore || loading) return;
+    setLoadingMore(true);
+    try {
+      const offset = postsLengthRef.current;
+      const list = await fetchPage(offset);
+      const mapped: Post[] = list.map(newsItemToPost);
+      setPosts((prev) => [...prev, ...mapped]);
+      setHasMore(list.length === pageSize);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Não foi possível carregar mais notícias.';
+      Alert.alert('Erro', message);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [fetchPage, hasMore, isPreview, loading, loadingMore, pageSize]);
+
+  const handleEndReached = useCallback(() => {
+    if (isPreview || loadingMore || !hasMore || loading) return;
+    void loadMorePosts();
+  }, [isPreview, loadingMore, hasMore, loading, loadMorePosts]);
 
   useEffect(() => {
-    carregarPosts();
-  }, [carregarPosts]);
+    loadPosts();
+  }, [loadPosts]);
 
-  const filteredPosts = useMemo(() => {
-    if (filter === 'todos') {
-      return posts;
-    }
-    return posts.filter((post) => post.categoria === filter);
-  }, [filter, posts]);
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color={AppColors.primary} />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => carregarPosts()} activeOpacity={0.8}>
-          <Text style={styles.retryButtonText}>Tentar novamente</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (filteredPosts.length === 0) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>Nenhuma notícia no momento.</Text>
-      </View>
-    );
-  }
-
-  const renderPostCard = (post: Post) => {
+  const renderPostCard = useCallback((post: Post) => {
     if (post.tipo === 'alerta') {
       return (
         <TouchableOpacity
-          key={post.id}
           style={styles.alertCard}
           activeOpacity={0.7}
           onPress={() => Alert.alert('Alertas', 'Detalhes disponíveis em breve.')}
         >
           {post.imagem && (
-            <Image 
-              source={{ uri: post.imagem }} 
+            <Image
+              source={{ uri: post.imagem }}
               style={styles.alertImage}
               resizeMode="cover"
             />
@@ -105,9 +122,8 @@ export default function NewsPosts({ filter = 'todos' }: NewsPostsProps) {
       );
     }
 
-    // Card tipo post normal
     return (
-      <View key={post.id} style={styles.postCard}>
+      <View style={styles.postCard}>
         <View style={styles.postHeader}>
           <Image source={{ uri: post.avatar }} style={styles.avatar} />
           <View style={styles.postHeaderInfo}>
@@ -124,8 +140,8 @@ export default function NewsPosts({ filter = 'todos' }: NewsPostsProps) {
 
         {post.imagem && (
           <View style={styles.imagemContainer}>
-            <Image 
-              source={{ uri: post.imagem }} 
+            <Image
+              source={{ uri: post.imagem }}
               style={styles.imagem}
               resizeMode="cover"
             />
@@ -158,21 +174,158 @@ export default function NewsPosts({ filter = 'todos' }: NewsPostsProps) {
               color={AppColors.text.tertiary}
             />
           </View>
-        </View> 
+        </View>
       </View>
     );
-  };
+  }, []);
+
+  const renderItem: ListRenderItem<Post> = useCallback(
+    ({ item }) => <View style={styles.feedItemWrap}>{renderPostCard(item)}</View>,
+    [renderPostCard],
+  );
+
+  const keyExtractor = useCallback((item: Post) => item.id, []);
+
+  const renderListHeader = useCallback(() => {
+    if (listHeader == null) return null;
+    return <View style={styles.feedListHeaderOuter}>{listHeader}</View>;
+  }, [listHeader]);
+
+  const feedFooter = useMemo(() => {
+    if (!loadingMore) return null;
+    return (
+      <View style={styles.feedFooterLoading}>
+        <ActivityIndicator size="small" color={AppColors.primary} />
+        <Text style={styles.feedFooterText}>Carregando…</Text>
+      </View>
+    );
+  }, [loadingMore]);
+
+  const feedEmpty = useMemo(() => {
+    if (loading && !loadingMore) {
+      return (
+        <View style={styles.feedEmptyBlock}>
+          <ActivityIndicator size="small" color={AppColors.primary} />
+        </View>
+      );
+    }
+    if (error) {
+      return (
+        <View style={styles.feedEmptyBlock}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadPosts} activeOpacity={0.8}>
+            <Text style={styles.retryButtonText}>Tentar novamente</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.feedEmptyBlock}>
+        <Text style={styles.emptyText}>Nenhuma notícia no momento.</Text>
+      </View>
+    );
+  }, [loading, loadingMore, error, loadPosts]);
+
+  if (isPreview) {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={AppColors.primary} />
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadPosts} activeOpacity={0.8}>
+            <Text style={styles.retryButtonText}>Tentar novamente</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (posts.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>Nenhuma notícia no momento.</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.container}>
+        <View style={styles.postsContainer}>
+          {posts.map((post) => (
+            <View key={post.id}>{renderPostCard(post)}</View>
+          ))}
+        </View>
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.postsContainer}>
-        {filteredPosts.map((post) => renderPostCard(post))}
-      </View>
+    <View style={styles.feedRoot}>
+      <FlatList
+        data={posts}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        ListHeaderComponent={renderListHeader}
+        ListEmptyComponent={feedEmpty}
+        ListFooterComponent={feedFooter}
+        contentContainerStyle={styles.feedListContent}
+        style={styles.feedList}
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.35}
+        showsVerticalScrollIndicator={false}
+        ItemSeparatorComponent={ItemSeparator}
+      />
     </View>
   );
 }
 
+function ItemSeparator() {
+  return <View style={{ height: 16 }} />;
+}
+
 const styles = StyleSheet.create({
+  feedRoot: {
+    flex: 1,
+  },
+  feedList: {
+    flex: 1,
+  },
+  feedListContent: {
+    paddingBottom: 32,
+    flexGrow: 1,
+  },
+  feedListHeaderOuter: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  feedItemWrap: {
+    paddingHorizontal: 24,
+  },
+  feedFooterLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+  },
+  feedFooterText: {
+    fontSize: 14,
+    color: AppColors.text.tertiary,
+  },
+  feedEmptyBlock: {
+    minHeight: 160,
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     marginBottom: 24,
     paddingHorizontal: 24,
@@ -212,16 +365,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: AppColors.gray[500],
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: AppColors.text.secondary,
-    marginBottom: 16,
-  },
   postsContainer: {
     gap: 16,
   },
-  // Card tipo post normal
   postCard: {
     backgroundColor: AppColors.background.default,
     borderRadius: 16,
@@ -264,7 +410,7 @@ const styles = StyleSheet.create({
   },
   imagemContainer: {
     width: '100%',
-    aspectRatio: 16 / 9, // aspect-video
+    aspectRatio: 16 / 9,
     borderRadius: 16,
     overflow: 'hidden',
     marginTop: 12,
@@ -275,7 +421,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  // Card tipo alerta
   alertCard: {
     backgroundColor: AppColors.background.default,
     borderRadius: 16,
@@ -288,7 +433,7 @@ const styles = StyleSheet.create({
   },
   alertImage: {
     width: '100%',
-    height: 160, // h-40 = 160px
+    height: 160,
     backgroundColor: AppColors.gray[300],
   },
   alertContent: {
@@ -297,7 +442,7 @@ const styles = StyleSheet.create({
   alertBadge: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: AppColors.tab.active, // cyan-600
+    color: AppColors.tab.active,
     marginBottom: 4,
   },
   alertTitulo: {
@@ -312,18 +457,16 @@ const styles = StyleSheet.create({
     color: AppColors.text.tertiary,
   },
   postActions: {
-  flexDirection: 'row',
-  justifyContent: 'space-around',
-  marginTop: 14,
-  paddingHorizontal: 4,
-},
-
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 14,
+    paddingHorizontal: 4,
+  },
   actionItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-
   actionText: {
     fontSize: 13,
     color: AppColors.text.tertiary,
@@ -335,6 +478,4 @@ const styles = StyleSheet.create({
     marginBottom: 7,
     width: '100%',
   },
-
 });
-

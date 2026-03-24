@@ -6,6 +6,7 @@ import { ModalResolvedProblems } from '@/components/ModalResolvedProblems';
 import { ModalSecurity } from '@/components/ModalSecurity';
 import { ModalWorksInProgress } from '@/components/ModalWorksInProgress';
 import { AppColors } from '@/constants/theme';
+import { useAppTheme } from '@/contexts/AppThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -123,6 +124,7 @@ const servicesCards: ServiceCard[] = [
 ];
 
 export default function ServicosScreen() {
+  const { backgroundColor } = useAppTheme();
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
   const handleCardPress = (serviceId: string, title: string) => {
@@ -159,7 +161,7 @@ export default function ServicosScreen() {
   const isWeb = Platform.OS === 'web';
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor }]}>
       <ModalSecurity
         visible={activeModal === 'security'}
         onClose={() => setActiveModal(null)}
@@ -248,7 +250,6 @@ export default function ServicosScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: AppColors.background.light,
     paddingHorizontal: 16,
     paddingTop: 24,
   },

@@ -3,6 +3,7 @@ import MapaView from '@/components/MapaView';
 import ReportButton from '@/components/ReportButton';
 import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
+import { useAppTheme } from '@/contexts/AppThemeContext';
 import { Localizacao, PontoInteresse } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -30,6 +31,7 @@ const MARICA_CENTER = {
 };
 
 export default function ExplorarScreen() {
+  const { backgroundColor } = useAppTheme();
   const [localizacao, setLocalizacao] = useState<Localizacao>(MARICA_CENTER);
   const [loading, setLoading] = useState<boolean>(true);
   const [tipoMapa, setTipoMapa] = useState<'standard' | 'satellite' | 'hybrid'>('standard');
@@ -182,7 +184,7 @@ export default function ExplorarScreen() {
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={[styles.centerContainer, { backgroundColor }]}>
         <ActivityIndicator size="large" color={AppColors.primary} />
         <Text style={styles.loadingText}>Carregando mapa de Maricá...</Text>
       </View>
@@ -192,8 +194,8 @@ export default function ExplorarScreen() {
   // Na web, mostrar uma lista de pontos de interesse
   if (Platform.OS === 'web') {
     return (
-      <View style={styles.container}>
-        <ScrollView style={styles.webContainer}>
+      <View style={[styles.container, { backgroundColor }]}>
+        <ScrollView style={[styles.webContainer, { backgroundColor }]}>
           <View style={styles.webHeader}>
             <Ionicons name="compass-outline" size={32} color={AppColors.primary} />
             <Text style={styles.webTitle}>Pontos de Interesse - Maricá</Text>
@@ -225,7 +227,7 @@ export default function ExplorarScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor }]}>
       <MapaView
         localizacao={localizacao}
         tipoMapa={tipoMapa}
@@ -254,7 +256,6 @@ export default function ExplorarScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: AppColors.background.default,
   },
   overlay: {
     position: 'absolute',
@@ -267,7 +268,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: AppColors.background.light,
   },
   loadingText: {
     marginTop: 16,
@@ -280,7 +280,6 @@ const styles = StyleSheet.create({
   },
   webContainer: {
     flex: 1,
-    backgroundColor: AppColors.background.light,
   },
   webHeader: {
     backgroundColor: AppColors.background.default,

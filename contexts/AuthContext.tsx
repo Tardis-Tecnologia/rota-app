@@ -1,3 +1,4 @@
+import { refreshAppThemeAfterLogin } from '@/services/appThemeBridge';
 import * as authApi from '@/services/authApi';
 import React, { createContext, useCallback, useContext, useState } from 'react';
 
@@ -42,6 +43,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile: data.profile,
       themeSlug: data.themeSlug ?? null,
     });
+    try {
+      await refreshAppThemeAfterLogin();
+    } catch {
+    }
   }, []);
 
   const register = useCallback((name: string, email: string, password: string): boolean => {

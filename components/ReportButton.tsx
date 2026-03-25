@@ -17,6 +17,8 @@ type ReportType = 'buraco' | 'dengue' | 'iluminacao' | 'lixo';
 
 interface ReportButtonProps {
   onReport?: (type: ReportType) => void;
+  /** Distância da borda inferior (ex.: acima da tab bar). Padrão 24. */
+  bottomOffset?: number;
 }
 
 interface ReportOption {
@@ -58,7 +60,7 @@ const getReportOptions = (): ReportOption[] => [
   },
 ];
 
-export default function ReportButton({ onReport }: ReportButtonProps) {
+export default function ReportButton({ onReport, bottomOffset = 24 }: ReportButtonProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuAnimation = useSharedValue(0);
   const menuOpacity = useSharedValue(0);
@@ -92,7 +94,7 @@ export default function ReportButton({ onReport }: ReportButtonProps) {
   });
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { bottom: bottomOffset }]}>
       {/* Menu Dropdown */}
       {isMenuOpen && (
         <Animated.View style={[styles.menu, menuAnimatedStyle]}>
@@ -122,14 +124,23 @@ export default function ReportButton({ onReport }: ReportButtonProps) {
         </Animated.View>
       )}
 
-      {/* FAB Button */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={toggleMenu}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="megaphone-outline" size={24} color={AppColors.text.white} />
-      </TouchableOpacity>
+      <View style={styles.row}>
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={toggleMenu}
+          activeOpacity={0.8}
+          accessibilityLabel="Reportar à Prefeitura"
+        >
+          <Ionicons name="megaphone-outline" size={24} color={AppColors.text.white} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.pill}
+          onPress={toggleMenu}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.pillText}>Reportar à Prefeitura</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -137,9 +148,13 @@ export default function ReportButton({ onReport }: ReportButtonProps) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 24,
-    left: 24,
+    left: 16,
     zIndex: 1000,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   fab: {
     width: 56,
@@ -153,6 +168,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  pill: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: AppColors.background.default,
+    shadowColor: AppColors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
+    maxWidth: 220,
+  },
+  pillText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppColors.text.secondary,
   },
   menu: {
     position: 'absolute',

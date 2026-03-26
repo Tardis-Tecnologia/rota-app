@@ -46,6 +46,13 @@ export interface PontoInteresse {
   latitude: number;
   longitude: number;
   tipo: 'governo' | 'saude' | 'lazer' | 'educacao' | 'cultura' | 'turismo';
+  rating?: number;
+  userRatingsTotal?: number;
+  openNow?: boolean;
+  photoUrl?: string;
+  formattedAddress?: string;
+  telefone?: string;
+  placeType?: string;
 }
 
 export interface Localizacao {

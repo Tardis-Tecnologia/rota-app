@@ -1,26 +1,30 @@
 import ExploreFloatingCard from '@/components/ExploreFloatingCard';
+import ExploreMapControls from '@/components/ExploreMapControls';
 import MapaView from '@/components/MapaView';
+import PlaceDetailsSheet from '@/components/PlaceDetailsSheet';
 import ReportButton from '@/components/ReportButton';
 import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
 import { useAppTheme } from '@/contexts/AppThemeContext';
+import { placeToPonto } from '@/services/mapPlaceToPonto';
+import { searchNearbyPlaces } from '@/services/placesService';
 import { Localizacao, PontoInteresse } from '@/types';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   View
 } from 'react-native';
-
-const { width, height } = Dimensions.get('window');
+import MapView, { Region } from 'react-native-maps';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Coordenadas de Maricá, RJ
 const MARICA_CENTER = {
@@ -30,17 +34,120 @@ const MARICA_CENTER = {
   longitudeDelta: 0.05,
 };
 
+/** Chip da UI → tipo Places (mock igual ao protótipo ROTA / MainScreen) */
+const FILTER_CHIP_TO_PLACE_TYPE: Record<string, string> = {
+  restaurant: 'restaurant',
+  prestador: 'gas_station',
+  hospital: 'hospital',
+  shopping_mall: 'shopping_mall',
+  bank: 'bank',
+};
+
+const CHIP_LABELS: Record<string, string> = {
+  restaurant: 'Restaurantes',
+  prestador: 'Prestadores',
+  hospital: 'Hospital',
+  shopping_mall: 'Shopping',
+  bank: 'Bancos',
+};
+
+/** Deep link: ?category=gas_station → chip prestador */
+function routeParamToChipId(raw: string): string | undefined {
+  const alias: Record<string, string> = {
+    gas_station: 'prestador',
+  };
+  const chip = alias[raw] ?? raw;
+  return FILTER_CHIP_TO_PLACE_TYPE[chip] ? chip : undefined;
+}
+
+const PONTOS_PADRAO_MARICA: PontoInteresse[] = [
+  {
+    id: '1',
+    titulo: 'Prefeitura Municipal de Maricá',
+    descricao: 'Sede da administração municipal',
+    latitude: -22.9189,
+    longitude: -42.8186,
+    tipo: 'governo',
+  },
+  {
+    id: '2',
+    titulo: 'Hospital Municipal de Maricá',
+    descricao: 'Hospital público da cidade',
+    latitude: -22.915,
+    longitude: -42.815,
+    tipo: 'saude',
+  },
+  {
+    id: '3',
+    titulo: 'Praia de Itaipuaçu',
+    descricao: 'Uma das praias mais famosas de Maricá',
+    latitude: -22.93,
+    longitude: -42.83,
+    tipo: 'turismo',
+  },
+  {
+    id: '4',
+    titulo: 'Lagoa de Araçatiba',
+    descricao: 'Lagoa para atividades de lazer e esportes',
+    latitude: -22.91,
+    longitude: -42.81,
+    tipo: 'lazer',
+  },
+  {
+    id: '5',
+    titulo: 'Centro Cultural de Maricá',
+    descricao: 'Espaço para eventos e exposições culturais',
+    latitude: -22.92,
+    longitude: -42.82,
+    tipo: 'cultura',
+  },
+  {
+    id: '6',
+    titulo: 'Escola Municipal',
+    descricao: 'Escola pública de ensino fundamental',
+    latitude: -22.918,
+    longitude: -42.818,
+    tipo: 'educacao',
+  },
+  {
+    id: '7',
+    titulo: 'Lagoa da Barra',
+    descricao: 'Lagoa com área de lazer e pesca',
+    latitude: -22.925,
+    longitude: -42.825,
+    tipo: 'turismo',
+  },
+  {
+    id: '8',
+    titulo: 'Praia de Ponta Negra',
+    descricao: 'Praia paradisíaca de Maricá',
+    latitude: -22.935,
+    longitude: -42.835,
+    tipo: 'turismo',
+  },
+];
+
 export default function ExplorarScreen() {
   const { backgroundColor } = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  const mapRef = useRef<MapView | null>(null);
   const [localizacao, setLocalizacao] = useState<Localizacao>(MARICA_CENTER);
+  const [mapRegion, setMapRegion] = useState<Region>(() => ({
+    ...MARICA_CENTER,
+  }));
   const [loading, setLoading] = useState<boolean>(true);
-  const [tipoMapa, setTipoMapa] = useState<'standard' | 'satellite' | 'hybrid'>('standard');
+  const tipoMapa: 'standard' | 'satellite' | 'hybrid' = 'standard';
   const [pontos, setPontos] = useState<PontoInteresse[]>([]);
   const [categoriaSelecionada, setCategoriaSelecionada] = useState<string | undefined>(undefined);
+  const [filterLoading, setFilterLoading] = useState(false);
+  const [selectedPontoDetail, setSelectedPontoDetail] = useState<PontoInteresse | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [toastKey, setToastKey] = useState(0);
   const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'info' | 'error' | 'warning'>('success');
   const { category } = useLocalSearchParams<{ category?: string }>();
+  const appliedCategoryFromRoute = useRef(false);
 
   useEffect(() => {
     carregarPontos();
@@ -50,12 +157,6 @@ export default function ExplorarScreen() {
       setLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    if (typeof category === 'string' && category.length > 0) {
-      setCategoriaSelecionada(category);
-    }
-  }, [category]);
 
   const solicitarPermissaoLocalizacao = async (): Promise<void> => {
     try {
@@ -70,101 +171,130 @@ export default function ExplorarScreen() {
       }
 
       const location = await Location.getCurrentPositionAsync({});
-      setLocalizacao({
+      const next: Localizacao = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
-      });
+      };
+      setLocalizacao(next);
+      setMapRegion(next);
     } catch {
       setLocalizacao(MARICA_CENTER);
+      setMapRegion({ ...MARICA_CENTER });
     } finally {
       setLoading(false);
     }
   };
 
   const carregarPontos = (): void => {
-    // Pontos de interesse de Maricá
-    const pontosSimulados: PontoInteresse[] = [
-      {
-        id: '1',
-        titulo: 'Prefeitura Municipal de Maricá',
-        descricao: 'Sede da administração municipal',
-        latitude: -22.9189,
-        longitude: -42.8186,
-        tipo: 'governo',
-      },
-      {
-        id: '2',
-        titulo: 'Hospital Municipal de Maricá',
-        descricao: 'Hospital público da cidade',
-        latitude: -22.9150,
-        longitude: -42.8150,
-        tipo: 'saude',
-      },
-      {
-        id: '3',
-        titulo: 'Praia de Itaipuaçu',
-        descricao: 'Uma das praias mais famosas de Maricá',
-        latitude: -22.9300,
-        longitude: -42.8300,
-        tipo: 'turismo',
-      },
-      {
-        id: '4',
-        titulo: 'Lagoa de Araçatiba',
-        descricao: 'Lagoa para atividades de lazer e esportes',
-        latitude: -22.9100,
-        longitude: -42.8100,
-        tipo: 'lazer',
-      },
-      {
-        id: '5',
-        titulo: 'Centro Cultural de Maricá',
-        descricao: 'Espaço para eventos e exposições culturais',
-        latitude: -22.9200,
-        longitude: -42.8200,
-        tipo: 'cultura',
-      },
-      {
-        id: '6',
-        titulo: 'Escola Municipal',
-        descricao: 'Escola pública de ensino fundamental',
-        latitude: -22.9180,
-        longitude: -42.8180,
-        tipo: 'educacao',
-      },
-      {
-        id: '7',
-        titulo: 'Lagoa da Barra',
-        descricao: 'Lagoa com área de lazer e pesca',
-        latitude: -22.9250,
-        longitude: -42.8250,
-        tipo: 'turismo',
-      },
-      {
-        id: '8',
-        titulo: 'Praia de Ponta Negra',
-        descricao: 'Praia paradisíaca de Maricá',
-        latitude: -22.9350,
-        longitude: -42.8350,
-        tipo: 'turismo',
-      },
-    ];
-
-    setPontos(pontosSimulados);
+    setPontos([...PONTOS_PADRAO_MARICA]);
   };
+
+  const applyFilterChip = useCallback(
+    async (chipId: string) => {
+      if (chipId === categoriaSelecionada) {
+        setCategoriaSelecionada(undefined);
+        setPontos([...PONTOS_PADRAO_MARICA]);
+        setSelectedPontoDetail(null);
+        return;
+      }
+      const placeType = FILTER_CHIP_TO_PLACE_TYPE[chipId];
+      if (!placeType) return;
+
+      setFilterLoading(true);
+      try {
+        const pos: [number, number] = [localizacao.longitude, localizacao.latitude];
+        const places = await searchNearbyPlaces(placeType, pos);
+        setPontos(places.map((p) => placeToPonto(p, placeType)));
+        setCategoriaSelecionada(chipId);
+        setSelectedPontoDetail(null);
+        const label = CHIP_LABELS[chipId] ?? chipId;
+        setToastType(places.length > 0 ? 'success' : 'info');
+        setToastMessage(
+          places.length > 0
+            ? `${places.length} ${label.toLowerCase()} encontrados.`
+            : `Nenhum ${label.toLowerCase()} encontrado por perto.`,
+        );
+        setToastKey((k) => k + 1);
+        setShowToast(true);
+      } catch {
+        Alert.alert('Erro', 'Não foi possível buscar locais.');
+      } finally {
+        setFilterLoading(false);
+      }
+    },
+    [categoriaSelecionada, localizacao.latitude, localizacao.longitude],
+  );
+
+  useEffect(() => {
+    if (loading || Platform.OS === 'web') return;
+    if (!category || typeof category !== 'string') return;
+    const chip = routeParamToChipId(category);
+    if (!chip || appliedCategoryFromRoute.current) return;
+    appliedCategoryFromRoute.current = true;
+    void applyFilterChip(chip);
+  }, [loading, category, applyFilterChip]);
 
   const getMarkerColor = (tipo: PontoInteresse['tipo']): string => {
     return AppColors.categoria[tipo] || AppColors.primary;
   };
 
-  const alternarTipoMapa = (): void => {
-    const tipos: Array<'standard' | 'satellite' | 'hybrid'> = ['standard', 'satellite', 'hybrid'];
-    const indiceAtual = tipos.indexOf(tipoMapa);
-    const proximoIndice = (indiceAtual + 1) % tipos.length;
-    setTipoMapa(tipos[proximoIndice]);
-  };
+  const handleMarkerPress = useCallback((ponto: PontoInteresse) => {
+    setSelectedPontoDetail(ponto);
+  }, []);
+
+  const handleRegionComplete = useCallback((region: Region) => {
+    setMapRegion(region);
+  }, []);
+
+  const handleCenterUser = useCallback(async () => {
+    try {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        const req = await Location.requestForegroundPermissionsAsync();
+        if (req.status !== 'granted') {
+          Alert.alert('Localização', 'Permita o acesso à localização para centralizar o mapa.');
+          return;
+        }
+      }
+      const pos = await Location.getCurrentPositionAsync({});
+      const region: Region = {
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        latitudeDelta: mapRegion.latitudeDelta,
+        longitudeDelta: mapRegion.longitudeDelta,
+      };
+      mapRef.current?.animateToRegion(region, 500);
+    } catch {
+      Alert.alert('Mapa', 'Não foi possível obter sua localização.');
+    }
+  }, [mapRegion.latitudeDelta, mapRegion.longitudeDelta]);
+
+  const handleZoomIn = useCallback(() => {
+    const next: Region = {
+      ...mapRegion,
+      latitudeDelta: Math.max(mapRegion.latitudeDelta * 0.55, 0.0004),
+      longitudeDelta: Math.max(mapRegion.longitudeDelta * 0.55, 0.0004),
+    };
+    mapRef.current?.animateToRegion(next, 220);
+  }, [mapRegion]);
+
+  const handleZoomOut = useCallback(() => {
+    const next: Region = {
+      ...mapRegion,
+      latitudeDelta: Math.min(mapRegion.latitudeDelta * 1.85, 0.35),
+      longitudeDelta: Math.min(mapRegion.longitudeDelta * 1.85, 0.35),
+    };
+    mapRef.current?.animateToRegion(next, 220);
+  }, [mapRegion]);
+
+  const handleAccessibility = useCallback(() => {
+    Alert.alert(
+      'Acessibilidade',
+      'Em breve você poderá ajustar contraste, tamanho de texto e outras opções por aqui.',
+    );
+  }, []);
 
   const handleReport = (type: 'buraco' | 'dengue' | 'iluminacao' | 'lixo') => {
     const messages = {
@@ -177,6 +307,7 @@ export default function ExplorarScreen() {
     setShowToast(false);
     setToastKey((prev) => prev + 1);
     setToastMessage(messages[type]);
+    setToastType('success');
     setTimeout(() => {
       setShowToast(true);
     }, 50);
@@ -226,6 +357,8 @@ export default function ExplorarScreen() {
     );
   }
 
+  const mapControlsBottom = tabBarHeight + 12;
+
   return (
     <View style={[styles.container, { backgroundColor }]}>
       <MapaView
@@ -233,19 +366,40 @@ export default function ExplorarScreen() {
         tipoMapa={tipoMapa}
         pontos={pontos}
         getMarkerColor={getMarkerColor}
+        mapRef={mapRef}
+        onRegionChangeComplete={handleRegionComplete}
+        onMarkerPress={handleMarkerPress}
       />
-      <View pointerEvents="box-none" style={styles.overlay}>
+      <View
+        pointerEvents="box-none"
+        style={[styles.overlay, { paddingTop: insets.top + 8 }]}
+      >
         <ExploreFloatingCard
           activeItemId={categoriaSelecionada}
-          onSelectQuickAccess={setCategoriaSelecionada}
+          onSelectQuickAccess={(id) => void applyFilterChip(id)}
+          filterLoading={filterLoading}
         />
       </View>
-      <ReportButton onReport={handleReport} />
+      <ExploreMapControls
+        bottomOffset={mapControlsBottom}
+        onCenterUser={handleCenterUser}
+        onAccessibility={handleAccessibility}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+      />
+      <ReportButton onReport={handleReport} bottomOffset={mapControlsBottom} />
+      <PlaceDetailsSheet
+        visible={selectedPontoDetail != null}
+        ponto={selectedPontoDetail}
+        userLng={localizacao.longitude}
+        userLat={localizacao.latitude}
+        onClose={() => setSelectedPontoDetail(null)}
+      />
       <Toast
         key={toastKey}
         message={toastMessage}
         visible={showToast}
-        type="success"
+        type={toastType}
         duration={3000}
         onHide={() => setShowToast(false)}
       />
@@ -259,7 +413,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     position: 'absolute',
-    top: 24,
+    top: 0,
     left: 0,
     right: 0,
     paddingHorizontal: 16,
@@ -273,10 +427,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: AppColors.text.tertiary,
-  },
-  map: {
-    width: width,
-    height: height,
   },
   webContainer: {
     flex: 1,

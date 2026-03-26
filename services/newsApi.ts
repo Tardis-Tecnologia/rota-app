@@ -16,6 +16,8 @@ export interface NewsItem {
   status: string;
   publishedAt: string | null;
   imageId: string | null;
+  createdBy?: string | null;
+  updatedBy?: string | null;
   createdAt: string;
   updatedAt: string;
   tags: string[];
@@ -104,6 +106,20 @@ export function mapNewsItemFeedCategory(item: NewsItem): 'noticias' | 'obras' | 
   return mapCategoryFromTags(item.tags) ?? mapCategoryFromField(item.category);
 }
 
+function parseCreatedBy(createdBy: string | null | undefined): { autor: string; username?: string } {
+  const raw = (createdBy ?? '').trim();
+  if (!raw) return { autor: 'Prefeitura' };
+
+  const [namePartRaw, userPartRaw] = raw.split('|', 2);
+  const autor = (namePartRaw ?? '').trim() || 'Prefeitura';
+
+  const userPart = (userPartRaw ?? '').trim();
+  if (!userPart) return { autor };
+
+  const username = userPart.startsWith('@') ? userPart : `@${userPart}`;
+  return { autor, username };
+}
+
 
 export function newsItemToPost(item: NewsItem): {
   id: string;
@@ -122,9 +138,10 @@ export function newsItemToPost(item: NewsItem): {
 } {
   const dateStr = item.publishedAt || item.createdAt;
   const conteudo = [item.title, item.content].filter(Boolean).join('\n\n') || item.title;
+  const createdByParsed = parseCreatedBy(item.createdBy);
   return {
     id: item.id,
-    autor: 'Prefeitura',
+    autor: createdByParsed.autor,
     avatar: AVATAR_PLACEHOLDER,
     data: formatTimeAgo(dateStr),
     conteudo,
@@ -133,7 +150,7 @@ export function newsItemToPost(item: NewsItem): {
     comentarios: 0,
     compartilhamentos: 0,
     curtido: false,
-    username: '@pref_cidade',
+    ...(createdByParsed.username ? { username: createdByParsed.username } : {}),
     tipo: 'post',
     categoria: mapNewsItemFeedCategory(item),
   };

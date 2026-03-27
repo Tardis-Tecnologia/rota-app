@@ -35,6 +35,10 @@ export default function LoginScreen() {
       setError('Digite seu e-mail.');
       return;
     }
+    if (!email.includes('@')) {
+      setError('O e-mail deve conter @.');
+      return;
+    }
     if (!password) {
       setError('Digite sua senha.');
       return;
@@ -109,14 +113,14 @@ export default function LoginScreen() {
                 editable={!loading}
               />
 
-              {/* <TouchableOpacity
+              <TouchableOpacity
                 style={styles.linkWrap}
                 onPress={() => router.push('/(auth)/forgot-password')}
                 activeOpacity={0.7}
                 disabled={loading}
               >
-                <Text style={styles.link}>Esqueceu sua senha?</Text>
-              </TouchableOpacity> */}
+                <Text style={styles.link}>Esqueci minha senha</Text>
+              </TouchableOpacity>
 
               {error ? (
                 <View style={styles.errorWrap}>
@@ -141,14 +145,16 @@ export default function LoginScreen() {
                 )}
               </TouchableOpacity>
 
-              {/* <View style={styles.footer}>
+              <View style={styles.footer}>
                 <Text style={styles.footerText}>Não tem uma conta? </Text>
-                <Link href="/(auth)/register" asChild>
-                  <TouchableOpacity activeOpacity={0.7} disabled={loading}>
-                    <Text style={styles.linkBold}>Cadastre-se</Text>
-                  </TouchableOpacity>
-                </Link>
-              </View> */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  disabled={loading}
+                  onPress={() => router.push('/(auth)/register')}
+                >
+                  <Text style={styles.linkBold}>Cadastre-se</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </ScrollView>

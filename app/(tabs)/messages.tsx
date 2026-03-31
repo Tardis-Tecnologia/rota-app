@@ -1,9 +1,11 @@
 import { AppColors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAppTheme } from '@/contexts/AppThemeContext';
-import { useConversations } from '@/contexts/ConversationsContext';
+import { Conversation, useConversations } from '@/contexts/ConversationsContext';
+import { getApiBaseUrl, getAuthToken } from '@/services/authApi';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -13,11 +15,129 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { StreamChat } from 'stream-chat';
+
+type StreamConversation = {
+  id: string;
+  providerId: string;
+  providerName: string;
+  providerImage: string;
+  lastMessage: string;
+  date: string;
+  providerData: {
+    id: string;
+    name: string;
+    image?: string;
+    channelId: string;
+    channelType: string;
+    cid: string;
+  };
+  unreadCount?: number;
+};
+type ConversationCardItem = Conversation | StreamConversation;
 
 export default function MensagensScreen() {
   const { backgroundColor } = useAppTheme();
-  const { conversations, fixedConversations } = useConversations();
+  const { user } = useAuth();
+  const { fixedConversations } = useConversations();
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+  const [conversations, setConversations] = useState<StreamConversation[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const formatMessageDate = (dateInput?: string | Date | null) => {
+    if (!dateInput) return '';
+    const date = new Date(dateInput);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const buildConversationFromChannel = useCallback(
+    (channel: any): StreamConversation => {
+      const members = Object.values(channel.state?.members ?? {}) as Array<any>;
+      const otherMember = members.find((member) => member?.user?.id !== user?.id);
+      const channelName = channel?.data?.name || otherMember?.user?.name || `Canal ${channel.id || ''}`;
+      const lastMessage =
+        channel.state?.messages?.[channel.state.messages.length - 1]?.text || 'Sem mensagens ainda';
+      const unreadCount = typeof channel.countUnread === 'function' ? channel.countUnread() : 0;
+
+      return {
+        id: channel.cid,
+        providerId: channel.id || channel.cid,
+        providerName: channelName,
+        providerImage: channel?.data?.image || otherMember?.user?.image || '',
+        lastMessage,
+        date: formatMessageDate(channel.state?.last_message_at),
+        unreadCount,
+        providerData: {
+          id: channel.id || channel.cid,
+          name: channelName,
+          image: channel?.data?.image || otherMember?.user?.image || '',
+          channelId: channel.id || '',
+          channelType: channel.type,
+          cid: channel.cid,
+        },
+      };
+    },
+    [user?.id],
+  );
+
+  const loadStreamConversations = useCallback(async () => {
+    if (!user?.id) {
+      setConversations([]);
+      return;
+    }
+
+    const authToken = getAuthToken();
+    if (!authToken) {
+      setLoadError('Faça login para carregar as conversas.');
+      setConversations([]);
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const tokenRes = await fetch(`${getApiBaseUrl()}/api/v1/stream-chat/token`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          Accept: 'application/json',
+        },
+      });
+
+      if (!tokenRes.ok) {
+        throw new Error(`Falha ao obter token do chat (${tokenRes.status})`);
+      }
+
+      const { token, apiKey } = (await tokenRes.json()) as { token: string; apiKey: string };
+      const client = StreamChat.getInstance(apiKey);
+      await client.connectUser({ id: user.id, name: user.name || undefined }, token);
+
+      const channels = await client.queryChannels(
+        { members: { $in: [user.id] } },
+        [{ last_message_at: -1 }],
+        {
+          watch: true,
+          state: true,
+        },
+      );
+
+      setConversations(channels.map(buildConversationFromChannel));
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Não foi possível carregar as conversas.');
+      setConversations([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [buildConversationFromChannel, user?.id, user?.name]);
+
+  useEffect(() => {
+    void loadStreamConversations();
+  }, [loadStreamConversations]);
 
   const getInitials = (name?: string) => {
     if (!name) return '';
@@ -26,7 +146,7 @@ export default function MensagensScreen() {
     return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
   };
 
-  const handleOpenChat = (conversation: typeof conversations[0]) => {
+  const handleOpenChat = (conversation: ConversationCardItem) => {
     router.push({
       pathname: '/ChatTab',
       params: {
@@ -35,7 +155,7 @@ export default function MensagensScreen() {
     });
   };
 
-  const renderConversationCard = (conversation: typeof conversations[0], isFixed = false) => {
+  const renderConversationCard = (conversation: ConversationCardItem, isFixed = false) => {
     const showFallback = !conversation.providerImage || imageErrors[conversation.id] || conversation.providerImage === '';
     const isOfficial = conversation.providerId === 'comunicados-oficiais';
     const isIPTU = conversation.providerId === 'iptu';
@@ -122,12 +242,25 @@ export default function MensagensScreen() {
           </View>
         )}
 
+        {isLoading && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateSubtext}>Carregando conversas...</Text>
+          </View>
+        )}
+
+        {loadError && !isLoading && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>Não foi possível carregar o chat</Text>
+            <Text style={styles.emptyStateSubtext}>{loadError}</Text>
+          </View>
+        )}
+
         {/* Chats Comuns */}
-        {conversations.length > 0 ? (
+        {!isLoading && !loadError && conversations.length > 0 ? (
           <View style={[styles.list, fixedConversations.length > 0 && styles.commonList]}>
             {conversations.map((conversation) => renderConversationCard(conversation, false))}
           </View>
-        ) : fixedConversations.length === 0 ? (
+        ) : !isLoading && !loadError && fixedConversations.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>Nenhuma conversa ainda</Text>
             <Text style={styles.emptyStateSubtext}>Suas conversas aparecerão aqui</Text>
@@ -135,7 +268,7 @@ export default function MensagensScreen() {
         ) : null}
       </ScrollView>
 
-      <TouchableOpacity activeOpacity={0.85} style={styles.fab} onPress={() => {}}>
+      <TouchableOpacity activeOpacity={0.85} style={styles.fab} onPress={() => void loadStreamConversations()}>
         <MaterialCommunityIcons name="whatsapp" size={28} color={AppColors.text.white} />
       </TouchableOpacity>
     </View>

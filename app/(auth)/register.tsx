@@ -1,68 +1,99 @@
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAppTheme } from '@/contexts/AppThemeContext';
+import { getPasswordPolicyError, PASSWORD_PLACEHOLDER } from '@/utils/passwordPolicy';
 import { Ionicons } from '@expo/vector-icons';
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+type FieldKey = 'name' | 'email' | 'password' | 'confirmPassword';
+
 export default function RegisterScreen() {
   const { register } = useAuth();
-  const { backgroundColor } = useAppTheme();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldKey, string>>>({});
+  const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleRegister = () => {
-    setError('');
+  const clearFieldError = (key: FieldKey) => {
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const handleRegister = async () => {
+    setServerError('');
+    const next: Partial<Record<FieldKey, string>> = {};
+
     if (!name.trim()) {
-      setError('Digite seu nome.');
-      return;
+      next.name = 'O nome é obrigatório.';
     }
     if (!email.trim()) {
-      setError('Digite seu e-mail.');
+      next.email = 'O e-mail é obrigatório.';
+    } else if (!email.trim().includes('@')) {
+      next.email = 'O e-mail deve conter @.';
+    }
+    const passwordErr = getPasswordPolicyError(password);
+    if (passwordErr) {
+      next.password = passwordErr;
+    }
+    if (!confirmPassword.trim()) {
+      next.confirmPassword = 'Confirme sua senha.';
+    } else if (password && password !== confirmPassword) {
+      next.confirmPassword = 'As senhas não coincidem.';
+    }
+
+    setFieldErrors(next);
+    if (Object.keys(next).length > 0) {
       return;
     }
-    if (!password) {
-      setError('Digite uma senha.');
-      return;
-    }
-    if (password.length < 6) {
-      setError('A senha deve ter no mínimo 6 caracteres.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError('As senhas não coincidem.');
-      return;
-    }
+
     setLoading(true);
-    const success = register(name.trim(), email.trim().toLowerCase(), password);
-    setLoading(false);
-    if (success) {
-      router.replace('/(auth)/login');
-    } else {
-      setError('Este e-mail já está em uso. Tente outro.');
+    try {
+      await register(name.trim(), email.trim().toLowerCase(), password);
+      Alert.alert(
+        'Cadastro concluído',
+        'Sua conta foi criada com sucesso. Faça login com seu e-mail e senha.',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/(auth)/login'),
+          },
+        ],
+      );
+    } catch (e) {
+      const message =
+        e instanceof Error && e.message === 'EMAIL_JA_CADASTRADO'
+          ? 'Este e-mail já está em uso. Tente outro.'
+          : e instanceof Error
+            ? e.message
+            : 'Não foi possível criar a conta. Tente novamente.';
+      setServerError(message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor }]}
-      edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -86,66 +117,85 @@ export default function RegisterScreen() {
             <View style={styles.form}>
               <Text style={styles.label}>Nome</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, fieldErrors.name && styles.inputError]}
                 placeholder="Seu nome completo"
                 placeholderTextColor={AppColors.gray[500]}
                 value={name}
                 onChangeText={(t) => {
                   setName(t);
-                  setError('');
+                  clearFieldError('name');
+                  setServerError('');
                 }}
                 autoCapitalize="words"
                 editable={!loading}
               />
+              {fieldErrors.name ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.name}</Text>
+              ) : null}
 
               <Text style={[styles.label, styles.labelMargin]}>E-mail</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, fieldErrors.email && styles.inputError]}
                 placeholder="ex: seu@gmail.com"
                 placeholderTextColor={AppColors.gray[500]}
                 value={email}
                 onChangeText={(t) => {
                   setEmail(t);
-                  setError('');
+                  clearFieldError('email');
+                  setServerError('');
                 }}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
                 editable={!loading}
               />
+              {fieldErrors.email ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.email}</Text>
+              ) : null}
 
               <Text style={[styles.label, styles.labelMargin]}>Senha</Text>
               <TextInput
-                style={styles.input}
-                placeholder="Mínimo 6 caracteres"
+                style={[styles.input, fieldErrors.password && styles.inputError]}
+                placeholder={PASSWORD_PLACEHOLDER}
                 placeholderTextColor={AppColors.gray[500]}
                 value={password}
                 onChangeText={(t) => {
                   setPassword(t);
-                  setError('');
+                  clearFieldError('password');
+                  setServerError('');
                 }}
                 secureTextEntry
                 editable={!loading}
               />
+              {fieldErrors.password ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.password}</Text>
+              ) : null}
 
               <Text style={[styles.label, styles.labelMargin]}>Confirmar senha</Text>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  fieldErrors.confirmPassword && styles.inputError,
+                ]}
                 placeholder="Repita a senha"
                 placeholderTextColor={AppColors.gray[500]}
                 value={confirmPassword}
                 onChangeText={(t) => {
                   setConfirmPassword(t);
-                  setError('');
+                  clearFieldError('confirmPassword');
+                  setServerError('');
                 }}
                 secureTextEntry
                 editable={!loading}
               />
+              {fieldErrors.confirmPassword ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.confirmPassword}</Text>
+              ) : null}
 
-              {error ? (
+              {serverError ? (
                 <View style={styles.errorWrap}>
                   <Ionicons name="alert-circle" size={18} color={AppColors.status.error} />
-                  <Text style={styles.errorText}>{error}</Text>
+                  <Text style={styles.errorText}>{serverError}</Text>
                 </View>
               ) : null}
 
@@ -167,11 +217,13 @@ export default function RegisterScreen() {
 
               <View style={styles.footer}>
                 <Text style={styles.footerText}>Já tem uma conta? </Text>
-                <Link href="/(auth)/login" asChild>
-                  <TouchableOpacity activeOpacity={0.7} disabled={loading}>
-                    <Text style={styles.linkBold}>Entrar</Text>
-                  </TouchableOpacity>
-                </Link>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  disabled={loading}
+                  onPress={() => router.replace('/(auth)/login')}
+                >
+                  <Text style={styles.linkBold}>Entrar</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -186,6 +238,7 @@ const CARD_MAX_WIDTH = 400;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: AppColors.background.muted,
   },
   keyboardView: {
     flex: 1,
@@ -263,6 +316,16 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 16,
     color: AppColors.text.secondary,
+  },
+  inputError: {
+    borderColor: AppColors.status.error,
+    backgroundColor: 'rgba(231, 76, 60, 0.06)',
+  },
+  fieldErrorText: {
+    fontSize: 13,
+    color: AppColors.status.error,
+    marginTop: 6,
+    fontWeight: '500',
   },
   errorWrap: {
     flexDirection: 'row',

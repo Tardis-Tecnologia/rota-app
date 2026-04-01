@@ -5,6 +5,7 @@ import React, { useMemo } from 'react';
 import {
   ActivityIndicator,
   Image,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -38,9 +39,21 @@ interface ExploreFloatingCardProps {
 
 const DEFAULT_ITEMS: QuickAccessItem[] = [
   { id: 'restaurant', label: 'Restaurantes', icon: 'restaurant-outline', iconColor: '#dc2626' },
+  { id: 'fast_food', label: 'Fast-food', icon: 'fast-food-outline', iconColor: '#f97316' },
+  { id: 'bakery', label: 'Padarias', icon: 'pizza-outline', iconColor: '#a16207' },
+  { id: 'bar', label: 'Bares', icon: 'beer-outline', iconColor: '#ef4444' },
+  { id: 'cafe', label: 'Cafés', icon: 'cafe-outline', iconColor: '#92400e' },
+  { id: 'pharmacy', label: 'Farmácias', icon: 'medkit-outline', iconColor: '#16a34a' },
+  { id: 'atm', label: 'Caixas', icon: 'card-outline', iconColor: '#059669' },
+  { id: 'market', label: 'Mercados', icon: 'basket-outline', iconColor: '#d97706' },
+  { id: 'supermarket', label: 'Supermercados', icon: 'cart-outline', iconColor: '#16a34a' },
   { id: 'prestador', label: 'Prestadores', icon: 'construct-outline', iconColor: '#0d9488' },
+  { id: 'gym', label: 'Academias', icon: 'barbell-outline', iconColor: '#7c3aed' },
+  { id: 'park', label: 'Parques', icon: 'leaf-outline', iconColor: '#15803d' },
+  { id: 'school', label: 'Escolas', icon: 'school-outline', iconColor: '#1e40af' },
+  { id: 'hotel', label: 'Hotéis', icon: 'bed-outline', iconColor: '#c026d3' },
   { id: 'hospital', label: 'Hospital', icon: 'medkit-outline', iconColor: '#db2777' },
-  { id: 'shopping_mall', label: 'Shopping', icon: 'bag-outline', iconColor: '#ea580c' },
+  { id: 'shopping_center', label: 'Shopping Center', icon: 'bag-outline', iconColor: '#ea580c' },
   { id: 'bank', label: 'Bancos', icon: 'business-outline', iconColor: '#2563eb' },
 ];
 
@@ -56,11 +69,7 @@ export function ExploreFloatingCard({
   filterLoading = false,
   style,
 }: ExploreFloatingCardProps) {
-  const [row1, row2] = useMemo(() => {
-    const items = quickAccessItems;
-    const mid = Math.ceil(items.length / 2);
-    return [items.slice(0, mid), items.slice(mid)];
-  }, [quickAccessItems]);
+  const items = useMemo(() => quickAccessItems, [quickAccessItems]);
 
   const goSearch = () => {
     onPressSearch?.();
@@ -122,8 +131,13 @@ export function ExploreFloatingCard({
       </View>
 
       <View style={styles.chipsBlock}>
-        <View style={styles.chipRow}>
-          {row1.map((item) => {
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsScrollContent}
+          style={styles.chipsScroll}
+        >
+          {items.map((item) => {
             const isActive = activeItemId === item.id;
             return (
               <TouchableOpacity
@@ -143,29 +157,7 @@ export function ExploreFloatingCard({
               </TouchableOpacity>
             );
           })}
-        </View>
-        <View style={styles.chipRow}>
-          {row2.map((item) => {
-            const isActive = activeItemId === item.id;
-            return (
-              <TouchableOpacity
-                key={item.id}
-                style={[styles.chip, isActive && styles.chipActive]}
-                onPress={() => onSelectQuickAccess?.(item.id)}
-                activeOpacity={0.85}
-              >
-                <Ionicons
-                  name={item.icon}
-                  size={16}
-                  color={item.iconColor ?? AppColors.text.secondary}
-                />
-                <Text style={[styles.chipLabel, isActive && styles.chipLabelActive]} numberOfLines={1}>
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        </ScrollView>
       </View>
     </View>
   );
@@ -278,12 +270,15 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   chipsBlock: {
-    gap: 10,
+    marginTop: 2,
   },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  chipsScroll: {
+    marginHorizontal: -6,
+  },
+  chipsScrollContent: {
+    paddingHorizontal: 6,
     gap: 8,
+    alignItems: 'center',
   },
   chip: {
     flexDirection: 'row',

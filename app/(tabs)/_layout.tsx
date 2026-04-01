@@ -51,7 +51,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: AppColors.tab.inactive,
         headerShown: false, // Remover header padrão
         tabBarButton: HapticTab,
-        sceneContainerStyle: { backgroundColor: sceneBackgroundColor },
+        sceneStyle: { backgroundColor: sceneBackgroundColor },
         tabBarStyle,
         tabBarLabelStyle: {
           fontSize: 12,
@@ -82,16 +82,23 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="map"
         options={{
           title: 'Explorar',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name="compass-outline" 
-              size={24} 
-              color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
+          tabBarIcon: ({ focused }) => (
+            <Ionicons
+              name="map-outline"
+              size={24}
+              color={focused ? AppColors.tab.active : AppColors.tab.inactive}
             />
           ),
+        }}
+      />
+      {/* Tela "Explorar" desativada por enquanto (mantemos o arquivo, mas ocultamos a aba). */}
+      <Tabs.Screen
+        name="explore"
+        options={{
+          href: null,
         }}
       />
        <Tabs.Screen

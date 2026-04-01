@@ -6,7 +6,6 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 export interface ExploreMapControlsProps {
   bottomOffset: number;
   onCenterUser: () => void;
-  onAccessibility: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
 }
@@ -14,7 +13,6 @@ export interface ExploreMapControlsProps {
 export default function ExploreMapControls({
   bottomOffset,
   onCenterUser,
-  onAccessibility,
   onZoomIn,
   onZoomOut,
 }: ExploreMapControlsProps) {
@@ -27,14 +25,6 @@ export default function ExploreMapControls({
         accessibilityLabel="Centralizar no mapa"
       >
         <Ionicons name="navigate-outline" size={22} color={AppColors.text.secondary} />
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={onAccessibility}
-        activeOpacity={0.85}
-        accessibilityLabel="Acessibilidade"
-      >
-        <Ionicons name="accessibility-outline" size={24} color={AppColors.text.secondary} />
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.fab}

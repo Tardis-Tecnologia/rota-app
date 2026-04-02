@@ -5,7 +5,6 @@ import PlaceDetailsSheet from '@/components/PlaceDetailsSheet';
 import ReportButton from '@/components/ReportButton';
 import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
-import { useAppTheme } from '@/contexts/AppThemeContext';
 import { placeToPonto } from '@/services/mapPlaceToPonto';
 import { searchNearbyPlaces } from '@/services/placesService';
 import { Localizacao, PontoInteresse } from '@/types';
@@ -128,7 +127,6 @@ const PONTOS_PADRAO_MARICA: PontoInteresse[] = [
 ];
 
 export default function ExplorarScreen() {
-  const { backgroundColor } = useAppTheme();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const mapRef = useRef<MapView | null>(null);
@@ -315,7 +313,7 @@ export default function ExplorarScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor }]}>
+      <View style={[styles.centerContainer, { backgroundColor: AppColors.background.default }]}>
         <ActivityIndicator size="large" color={AppColors.primary} />
         <Text style={styles.loadingText}>Carregando mapa de Maricá...</Text>
       </View>
@@ -325,8 +323,8 @@ export default function ExplorarScreen() {
   // Na web, mostrar uma lista de pontos de interesse
   if (Platform.OS === 'web') {
     return (
-      <View style={[styles.container, { backgroundColor }]}>
-        <ScrollView style={[styles.webContainer, { backgroundColor }]}>
+      <View style={[styles.container, { backgroundColor: AppColors.background.default }]}>
+        <ScrollView style={[styles.webContainer, { backgroundColor: AppColors.background.default }]}>
           <View style={styles.webHeader}>
             <Ionicons name="compass-outline" size={32} color={AppColors.primary} />
             <Text style={styles.webTitle}>Pontos de Interesse - Maricá</Text>
@@ -360,7 +358,7 @@ export default function ExplorarScreen() {
   const mapControlsBottom = tabBarHeight + 12;
 
   return (
-    <View style={[styles.container, { backgroundColor }]}>
+    <View style={[styles.container, { backgroundColor: AppColors.background.default }]}>
       <MapaView
         localizacao={localizacao}
         tipoMapa={tipoMapa}

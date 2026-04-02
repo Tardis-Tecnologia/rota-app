@@ -231,6 +231,44 @@ export const Colors = {
   },
 };
 
+function parseHexRgb(hex: string): { r: number; g: number; b: number } | null {
+  const normalized = hex.trim();
+  const match = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(normalized);
+  if (!match) return null;
+  const h = match[1];
+  if (h.length === 3) {
+    return {
+      r: parseInt(h[0] + h[0], 16),
+      g: parseInt(h[1] + h[1], 16),
+      b: parseInt(h[2] + h[2], 16),
+    };
+  }
+  return {
+    r: parseInt(h.slice(0, 2), 16),
+    g: parseInt(h.slice(2, 4), 16),
+    b: parseInt(h.slice(4, 6), 16),
+  };
+}
+
+/**
+ * Escurece um `#rgb` ou `#rrggbb` misturando em direção ao preto (0 = inalterado, 1 = preto).
+ * Útil para gradientes a partir da cor de marca da API.
+ */
+export function shadeHexColor(hex: string, amount: number): string {
+  const rgb = parseHexRgb(hex);
+  if (!rgb) return hex.trim();
+  const blend = (c: number) => Math.round(c * (1 - amount));
+  const toHex = (c: number) => blend(c).toString(16).padStart(2, '0');
+  return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
+}
+
+/** Converte `#rgb` / `#rrggbb` em `rgba(...)` com alpha entre 0 e 1. */
+export function hexToRgba(hex: string, alpha: number): string {
+  const rgb = parseHexRgb(hex);
+  if (!rgb) return `rgba(0,0,0,${alpha})`;
+  return `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;
+}
+
 export const Fonts = Platform.select({
   ios: {
     /** iOS `UIFontDescriptorSystemDesignDefault` */

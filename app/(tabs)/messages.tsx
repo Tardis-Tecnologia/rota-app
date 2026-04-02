@@ -1,5 +1,4 @@
 import { AppColors } from '@/constants/theme';
-import { useAppTheme } from '@/contexts/AppThemeContext';
 import { useConversations } from '@/contexts/ConversationsContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -15,7 +14,6 @@ import {
 } from 'react-native';
 
 export default function MensagensScreen() {
-  const { backgroundColor } = useAppTheme();
   const { conversations, fixedConversations } = useConversations();
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
@@ -113,7 +111,7 @@ export default function MensagensScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor }]}>
+    <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Chats Fixos */}
         {fixedConversations.length > 0 && (
@@ -146,6 +144,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     position: 'relative',
+    backgroundColor: AppColors.background.default,
   },
   scrollContent: {
     paddingHorizontal: 16,

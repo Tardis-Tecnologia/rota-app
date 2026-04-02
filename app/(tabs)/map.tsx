@@ -5,7 +5,6 @@ import PlaceDetailsSheet from '@/components/PlaceDetailsSheet';
 import ReportButton from '@/components/ReportButton';
 import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
-import { useAppTheme } from '@/contexts/AppThemeContext';
 import { ensureForegroundLocationPermission } from '@/services/locationPermission';
 import { placeToPonto } from '@/services/mapPlaceToPonto';
 import { NEARBY_PLACES_RADIUS_METERS, searchNearbyPlaces } from '@/services/placesService';
@@ -88,7 +87,6 @@ function routeParamToChipId(raw: string): string | undefined {
 }
 
 export default function MapScreen() {
-  const { backgroundColor } = useAppTheme();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const mapRef = useRef<MapLibreMapaViewRef | null>(null);
@@ -315,8 +313,8 @@ export default function MapScreen() {
 
   if (Platform.OS === 'web') {
     return (
-      <View style={[styles.container, { backgroundColor }]}>
-        <ScrollView style={[styles.webContainer, { backgroundColor }]}>
+      <View style={[styles.container, { backgroundColor: AppColors.background.default }]}>
+        <ScrollView style={[styles.webContainer, { backgroundColor: AppColors.background.default }]}>
           <View style={styles.webHeader}>
             <Ionicons name="compass-outline" size={32} color={AppColors.primary} />
             <Text style={styles.webTitle}>Pontos de Interesse - Maricá</Text>
@@ -349,7 +347,7 @@ export default function MapScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor }]}>
+      <View style={[styles.centerContainer, { backgroundColor: AppColors.background.default }]}>
         <ActivityIndicator size="large" color={AppColors.primary} />
         <Text style={styles.loadingText}>Obtendo sua localização…</Text>
       </View>
@@ -362,7 +360,7 @@ export default function MapScreen() {
         ? 'Ative a localização nas configurações para ver o mapa na sua posição.'
         : 'Não foi possível obter sua posição. Verifique o GPS ou tente novamente.';
     return (
-      <View style={[styles.centerContainer, { backgroundColor, paddingHorizontal: 24 }]}>
+      <View style={[styles.centerContainer, { backgroundColor: AppColors.background.default, paddingHorizontal: 24 }]}>
         <Ionicons name="location-outline" size={48} color={AppColors.primary} />
         <Text style={styles.locationErrorTitle}>Localização necessária</Text>
         <Text style={styles.locationErrorText}>{msg}</Text>
@@ -379,7 +377,7 @@ export default function MapScreen() {
   const mapControlsBottom = tabBarHeight + 12;
 
   return (
-    <View style={[styles.container, { backgroundColor }]}>
+    <View style={[styles.container, { backgroundColor: AppColors.background.default }]}>
       <MapLibreMapaView
         ref={mapRef}
         localizacao={localizacao}

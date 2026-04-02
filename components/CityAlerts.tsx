@@ -1,35 +1,70 @@
 import { AppColors } from '@/constants/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
+import { useAppTheme } from '@/contexts/AppThemeContext';
 import {
+  type EmergencyAlertItem,
+  getEmergencyAlerts,
+} from '@/services/emergencyAlertApi';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 
-interface Alerta {
-  id: string;
-  titulo: string;
-  descricao: string;
-  tipo?: 'chuva' | 'calor' | 'vento' | 'outro';
+/** Valores exatos de `level` no banco: critico | atencao | informativo */
+function iconForAlertLevel(level: string): React.ComponentProps<typeof Ionicons>['name'] {
+  const key = level.trim().toLowerCase();
+  switch (key) {
+    case 'critico':
+      return 'warning-outline';
+    case 'atencao':
+      return 'alert-circle-outline';
+    case 'informativo':
+      return 'information-circle-outline';
+    default:
+      return 'information-circle-outline';
+  }
 }
 
 export default function CityAlerts() {
-  const alertas: Alerta[] = [
-    {
-      id: '1',
-      titulo: 'Alerta de Chuva Forte',
-      descricao: 'Risco de alagamentos em áreas baixas.',
-      tipo: 'chuva',
-    },
-  ];
+  const { backgroundColor: brandColor } = useAppTheme();
+  const [alerta, setAlerta] = useState<EmergencyAlertItem | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (alertas.length === 0) {
-    return null;
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getEmergencyAlerts();
+      setAlerta(data[0] ?? null);
+    } catch {
+      setAlerta(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Alertas da Cidade</Text>
+        </View>
+        <View style={styles.loadingRow}>
+          <ActivityIndicator size="small" color={AppColors.primary} />
+        </View>
+      </View>
+    );
   }
 
-  const alerta = alertas[0]; // Por enquanto mostra apenas o primeiro
+  if (!alerta) {
+    return null;
+  }
 
   return (
     <View style={styles.container}>
@@ -37,17 +72,24 @@ export default function CityAlerts() {
         <Text style={styles.title}>Alertas da Cidade</Text>
       </View>
 
-      <View style={styles.alertCard}>
-        <LinearGradient
-          colors={[AppColors.alerts.primary, AppColors.alerts.secondary]}
-          style={styles.iconContainer}
-        >
-          <Ionicons name="rainy-outline" size={32} color={AppColors.text.white} />
-        </LinearGradient>
+      <View style={[styles.alertCard, { backgroundColor: brandColor }]}>
+        <View style={styles.iconContainer}>
+          <Ionicons
+            name={iconForAlertLevel(alerta.level)}
+            size={32}
+            color={AppColors.text.white}
+          />
+        </View>
 
         <View style={styles.content}>
-          <Text style={styles.alertTitulo}>{alerta.titulo}</Text>
-          <Text style={styles.alertDescricao}>{alerta.descricao}</Text>
+          <Text
+            style={[styles.alertTitulo, !alerta.description && styles.alertTituloOnly]}
+          >
+            {alerta.title}
+          </Text>
+          {alerta.description ? (
+            <Text style={styles.alertDescricao}>{alerta.description}</Text>
+          ) : null}
         </View>
       </View>
     </View>
@@ -67,17 +109,19 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: AppColors.text.secondary,
   },
+  loadingRow: {
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
   alertCard: {
-    backgroundColor: AppColors.background.default,
-    borderWidth: 1,
-    borderColor: AppColors.border.muted,
     borderRadius: 16,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
     marginHorizontal: 24,
-    shadowColor: AppColors.alerts.primary,
+    shadowColor: AppColors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -89,11 +133,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: AppColors.alerts.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     overflow: 'hidden',
   },
   content: {
@@ -102,12 +142,14 @@ const styles = StyleSheet.create({
   alertTitulo: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: AppColors.text.secondary,
+    color: AppColors.text.white,
     marginBottom: 4,
+  },
+  alertTituloOnly: {
+    marginBottom: 0,
   },
   alertDescricao: {
     fontSize: 14,
-    color: AppColors.text.tertiary,
+    color: 'rgba(255, 255, 255, 0.88)',
   },
 });
-

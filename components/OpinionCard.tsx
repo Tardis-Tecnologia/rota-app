@@ -1,6 +1,6 @@
-import { AppColors } from '@/constants/theme';
+import { AppColors, hexToRgba } from '@/constants/theme';
+import { useAppTheme } from '@/contexts/AppThemeContext';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -11,6 +11,7 @@ interface OpinionCardProps {
 }
 
 export default function OpinionCard({ onVote }: OpinionCardProps) {
+  const { backgroundColor: brandColor } = useAppTheme();
   const [selectedOption, setSelectedOption] = useState<PollOption | null>('seguranca');
 
   const handleOptionPress = (option: PollOption) => {
@@ -20,65 +21,65 @@ export default function OpinionCard({ onVote }: OpinionCardProps) {
     }
   };
 
-  const pollOptions: Array<{ id: PollOption; label: string; iconName: keyof typeof MaterialIcons.glyphMap }> = [
+  const pollOptions: { id: PollOption; label: string; iconName: keyof typeof MaterialIcons.glyphMap }[] = [
     { id: 'iluminacao', label: 'Iluminação', iconName: 'lightbulb-outline' },
     { id: 'asfalto', label: 'Asfalto', iconName: 'add-road' },
     { id: 'seguranca', label: 'Segurança', iconName: 'security' },
   ];
 
+  const optionBgTint = hexToRgba(brandColor, 0.14);
+  const optionBorderTint = hexToRgba(brandColor, 0.35);
+
   return (
     <View style={styles.section}>
-        <View style={styles.pollCard}>
-          <LinearGradient
-            colors={[AppColors.poll.gradientStart, AppColors.poll.gradientEnd]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.gradient}
-          >
-            {/* Header */}
-            <View style={styles.header}>
-              <Ionicons name="stats-chart" size={20} color={AppColors.poll.text} />
-              <Text style={styles.headerText}>Sua opinião importa!</Text>
-            </View>
+      <View style={styles.pollCard}>
+        <View style={styles.cardInner}>
+          <View style={styles.header}>
+            <Ionicons name="stats-chart" size={20} color={AppColors.primary} />
+            <Text style={styles.headerText}>Sua opinião importa!</Text>
+          </View>
 
-            {/* Question */}
-            <Text style={styles.question}>Qual a prioridade para o seu bairro este mês?</Text>
+          <Text style={styles.question}>Qual a prioridade para o seu bairro este mês?</Text>
 
-            {/* Options */}
-            <View style={styles.optionsContainer}>
-              {pollOptions.map((option) => {
-                const isSelected = selectedOption === option.id;
-                return (
-                  <TouchableOpacity
-                    key={option.id}
+          <View style={styles.optionsContainer}>
+            {pollOptions.map((option) => {
+              const isSelected = selectedOption === option.id;
+              return (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[
+                    styles.pollOption,
+                    {
+                      backgroundColor: isSelected ? AppColors.background.default : optionBgTint,
+                      borderColor: isSelected ? brandColor : optionBorderTint,
+                      borderWidth: isSelected ? 2 : 1,
+                    },
+                  ]}
+                  onPress={() => handleOptionPress(option.id)}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons
+                    name={option.iconName}
+                    size={18}
+                    color={isSelected ? brandColor : AppColors.text.secondary}
+                    style={styles.optionIcon}
+                  />
+                  <Text
                     style={[
-                      styles.pollOption,
-                      isSelected && styles.pollOptionSelected,
+                      styles.pollOptionText,
+                      isSelected ? styles.pollOptionTextSelected : styles.pollOptionTextIdle,
+                      isSelected && { color: brandColor },
                     ]}
-                    onPress={() => handleOptionPress(option.id)}
-                    activeOpacity={0.7}
                   >
-                    <MaterialIcons
-                      name={option.iconName}
-                      size={18}
-                      color={isSelected ? AppColors.primary : AppColors.poll.text}
-                      style={styles.optionIcon}
-                    />
-                    <Text
-                      style={[
-                        styles.pollOptionText,
-                        isSelected && styles.pollOptionTextSelected,
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </LinearGradient>
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
       </View>
+    </View>
   );
 }
 
@@ -96,8 +97,12 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
-  gradient: {
+  cardInner: {
+    backgroundColor: AppColors.background.default,
     padding: 18,
+    borderWidth: 1,
+    borderColor: AppColors.border.muted,
+    borderRadius: 20,
   },
   header: {
     flexDirection: 'row',
@@ -108,12 +113,12 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 14,
     fontWeight: '600',
-    color: AppColors.poll.text,
+    color: AppColors.text.secondary,
   },
   question: {
     fontSize: 18,
     fontWeight: '700',
-    color: AppColors.poll.text,
+    color: AppColors.text.secondary,
     marginBottom: 16,
     lineHeight: 24,
   },
@@ -127,9 +132,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderRadius: 12,
-    backgroundColor: AppColors.poll.optionBg,
-    borderWidth: 1,
-    borderColor: AppColors.poll.border,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'column',
@@ -138,17 +140,15 @@ const styles = StyleSheet.create({
   optionIcon: {
     marginBottom: 4,
   },
-  pollOptionSelected: {
-    backgroundColor: AppColors.poll.optionBgSelected,
-    borderColor: AppColors.poll.borderSelected,
-  },
   pollOptionText: {
     fontSize: 13,
     fontWeight: '500',
-    color: AppColors.poll.text,
     textAlign: 'center',
   },
+  pollOptionTextIdle: {
+    color: AppColors.text.secondary,
+  },
   pollOptionTextSelected: {
-    color: AppColors.primary,
+    fontWeight: '700',
   },
 });

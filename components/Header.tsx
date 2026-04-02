@@ -1,5 +1,6 @@
 import PointsBadge from '@/components/PointsBadge';
 import { AppColors } from '@/constants/theme';
+import { useAppTheme } from '@/contexts/AppThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React from 'react';
@@ -27,6 +28,8 @@ export default function Header({
   onProfilePress,
   temNotificacao = true,
 }: HeaderProps) {
+  const { backgroundColor: brandColor } = useAppTheme();
+
   const handleNotificationPress = () => {
     if (onNotificationPress) {
       onNotificationPress();
@@ -38,13 +41,13 @@ export default function Header({
 
   return (
     <View style={styles.container}>
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: brandColor }]}>
         <View style={styles.content}>
           <View style={styles.greetingContainer}>
-            <Text style={styles.greeting} numberOfLines={1} ellipsizeMode="tail">
+            <Text style={styles.greetingOnBrand} numberOfLines={1} ellipsizeMode="tail">
               Bem-vindo(a) de volta,
             </Text>
-            <Text style={styles.nome} numberOfLines={1} ellipsizeMode="tail">
+            <Text style={styles.nomeOnBrand} numberOfLines={1} ellipsizeMode="tail">
               {nomeUsuario}
             </Text>
           </View>
@@ -56,8 +59,10 @@ export default function Header({
                 onPress={handleNotificationPress}
                 activeOpacity={0.7}
               >
-                <Ionicons name="notifications-outline" size={20} color={AppColors.text.tertiary} />
-                {temNotificacao && <View style={styles.notificationDot} />}
+                <Ionicons name="notifications-outline" size={20} color={AppColors.text.white} />
+                {temNotificacao && (
+                  <View style={[styles.notificationDot, { borderColor: brandColor }]} />
+                )}
               </TouchableOpacity>
 
             <TouchableOpacity
@@ -95,7 +100,6 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 16,
     padding: 16,
     shadowColor: AppColors.shadow,
@@ -114,16 +118,16 @@ const styles = StyleSheet.create({
     marginRight: 12,
     minWidth: 0,
   },
-  greeting: {
+  greetingOnBrand: {
     fontSize: 14,
     fontWeight: '500',
-    color: AppColors.text.tertiary,
+    color: 'rgba(255, 255, 255, 0.9)',
     marginBottom: 4,
   },
-  nome: {
+  nomeOnBrand: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: AppColors.text.secondary,
+    color: AppColors.text.white,
     letterSpacing: -0.5,
   },
   rightSection: {
@@ -159,7 +163,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: AppColors.status.error,
     borderWidth: 2,
-    borderColor: AppColors.background.default,
   },
   avatarButton: {
     width: 36,
@@ -168,7 +171,7 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.gray[200],
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: AppColors.background.default,
+    borderColor: AppColors.text.white,
     shadowColor: AppColors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,

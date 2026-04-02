@@ -1,31 +1,36 @@
-import { Place } from '@/services/placesService';
+import { NearbyPlace } from '@/services/placesService';
 import { PontoInteresse } from '@/types';
 
 const PLACE_TYPE_TO_TIPO: Record<string, PontoInteresse['tipo']> = {
   restaurant: 'turismo',
+  fast_food: 'turismo',
+  bakery: 'turismo',
+  bar: 'turismo',
+  cafe: 'turismo',
+  pharmacy: 'saude',
+  atm: 'governo',
+  market: 'turismo',
+  supermarket: 'turismo',
+  gym: 'lazer',
+  park: 'lazer',
+  school: 'governo',
+  hotel: 'turismo',
   gas_station: 'lazer',
   hospital: 'saude',
   shopping_mall: 'turismo',
+  shopping: 'turismo',
+  shopping_center: 'turismo',
   bank: 'governo',
 };
 
-export function placeToPonto(place: Place, filterType: string): PontoInteresse {
-  const lat = place.geometry.location.lat();
-  const lng = place.geometry.location.lng();
-  const photoUrl = place.photos?.[0]?.getUrl({ maxWidth: 800, maxHeight: 600 });
+export function placeToPonto(place: NearbyPlace, filterType: string): PontoInteresse {
   return {
-    id: place.place_id,
+    id: place.id,
     titulo: place.name,
-    descricao: place.vicinity || place.formatted_address || '',
-    latitude: lat,
-    longitude: lng,
+    descricao: place.category ? `Tipo: ${place.category}` : '',
+    latitude: place.latitude,
+    longitude: place.longitude,
     tipo: PLACE_TYPE_TO_TIPO[filterType] || 'turismo',
-    rating: place.rating,
-    userRatingsTotal: place.user_ratings_total,
-    openNow: place.opening_hours?.open_now,
-    photoUrl,
-    formattedAddress: place.formatted_address,
-    telefone: place.formatted_phone_number,
     placeType: filterType,
   };
 }

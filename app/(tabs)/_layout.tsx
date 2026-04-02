@@ -6,10 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { AppColors } from '@/constants/theme';
-import { useAppTheme } from '@/contexts/AppThemeContext';
 
 export default function TabLayout() {
-  const { backgroundColor: sceneBackgroundColor } = useAppTheme();
   const insets = useSafeAreaInsets();
 
   const tabBarStyle = useMemo(() => {
@@ -51,7 +49,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: AppColors.tab.inactive,
         headerShown: false, // Remover header padrão
         tabBarButton: HapticTab,
-        sceneContainerStyle: { backgroundColor: sceneBackgroundColor },
+        sceneStyle: { backgroundColor: AppColors.background.default },
         tabBarStyle,
         tabBarLabelStyle: {
           fontSize: 12,
@@ -82,16 +80,23 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="map"
         options={{
           title: 'Explorar',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name="compass-outline" 
-              size={24} 
-              color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
+          tabBarIcon: ({ focused }) => (
+            <Ionicons
+              name="map-outline"
+              size={24}
+              color={focused ? AppColors.tab.active : AppColors.tab.inactive}
             />
           ),
+        }}
+      />
+      {/* Tela "Explorar" desativada por enquanto (mantemos o arquivo, mas ocultamos a aba). */}
+      <Tabs.Screen
+        name="explore"
+        options={{
+          href: null,
         }}
       />
        <Tabs.Screen

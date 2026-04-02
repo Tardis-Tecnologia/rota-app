@@ -2,22 +2,21 @@ import { AppColors } from '@/constants/theme';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming
 } from 'react-native-reanimated';
 
 type ReportType = 'buraco' | 'dengue' | 'iluminacao' | 'lixo';
 
 interface ReportButtonProps {
   onReport?: (type: ReportType) => void;
-  /** Distância da borda inferior (ex.: acima da tab bar). Padrão 24. */
   bottomOffset?: number;
 }
 

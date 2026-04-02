@@ -1,7 +1,6 @@
 import FilterTabs, { FilterOption } from '@/components/FilterTabs';
 import NewsPosts from '@/components/NewsPosts';
 import { AppColors } from '@/constants/theme';
-import { useAppTheme } from '@/contexts/AppThemeContext';
 import { FeedFilter } from '@/types';
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -14,7 +13,6 @@ const FILTERS: Array<FilterOption> = [
 ];
 
 export default function FeedScreen() {
-  const { backgroundColor } = useAppTheme();
   const [activeFilter, setActiveFilter] = useState<FeedFilter>('todos');
 
   const handleSelectFilter = (filterKey: string) => {
@@ -23,7 +21,7 @@ export default function FeedScreen() {
 
   return (
     <>
-      <View style={[styles.container, { backgroundColor }]}>
+      <View style={styles.container}>
         <NewsPosts
           key={activeFilter}
           filter={activeFilter}
@@ -42,6 +40,7 @@ export default function FeedScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: AppColors.background.default,
   },
 
   fab: {

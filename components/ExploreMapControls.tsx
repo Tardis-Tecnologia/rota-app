@@ -8,6 +8,7 @@ export interface ExploreMapControlsProps {
   onCenterUser: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
+  onAccessibility?: () => void;
 }
 
 export default function ExploreMapControls({
@@ -15,6 +16,7 @@ export default function ExploreMapControls({
   onCenterUser,
   onZoomIn,
   onZoomOut,
+  onAccessibility,
 }: ExploreMapControlsProps) {
   return (
     <View pointerEvents="box-none" style={[styles.column, { bottom: bottomOffset }]}>
@@ -26,6 +28,16 @@ export default function ExploreMapControls({
       >
         <Ionicons name="navigate-outline" size={22} color={AppColors.text.secondary} />
       </TouchableOpacity>
+      {onAccessibility ? (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={onAccessibility}
+          activeOpacity={0.85}
+          accessibilityLabel="Acessibilidade"
+        >
+          <Ionicons name="accessibility-outline" size={22} color={AppColors.text.secondary} />
+        </TouchableOpacity>
+      ) : null}
       <TouchableOpacity
         style={styles.fab}
         onPress={onZoomIn}

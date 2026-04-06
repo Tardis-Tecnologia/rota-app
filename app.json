@@ -48,6 +48,13 @@
         {
           "locationAlwaysAndWhenInUsePermission": "O aplicativo precisa da sua localização para mostrar pontos de interesse no mapa."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O aplicativo precisa acessar suas fotos para anexar uma imagem ao relatório.",
+          "cameraPermission": "O aplicativo precisa da câmera para você fotografar o problema e anexar ao relatório."
+        }
       ]
     ],
     "experiments": {

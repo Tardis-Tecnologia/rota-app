@@ -1,8 +1,11 @@
+import { chatCopy } from '@/constants/chatCopy';
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Animated,
   Image,
   KeyboardAvoidingView,
@@ -49,6 +52,9 @@ type ChatScreenProps = {
   onSaveConversation?: (lastMessage: string) => void;
   onOptionSelect?: (option: ChatOption) => void; // Callback quando uma opção é selecionada
   canSendMessages?: boolean; // Para notificações que não permitem resposta
+  /** Conversas Stream: mostrar ação para eliminar o canal (chama a API no pai). */
+  showDeleteConversation?: boolean;
+  onDeleteConversation?: () => Promise<void>;
 };
 
 // Componente para mensagem animada
@@ -143,8 +149,11 @@ export default function ChatScreen({
   onSaveConversation,
   onOptionSelect,
   canSendMessages = true,
+  showDeleteConversation = false,
+  onDeleteConversation,
 }: ChatScreenProps) {
   const [message, setMessage] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     if (initialMessages.length > 0) {
       return initialMessages;
@@ -200,6 +209,34 @@ export default function ChatScreen({
     } else {
       router.back();
     }
+  };
+
+  const ui = chatCopy.screen;
+
+  const handleDeletePress = () => {
+    Alert.alert(ui.deleteConversationTitle, ui.deleteConversationMessage, [
+      { text: ui.cancel, style: 'cancel' },
+      {
+        text: ui.delete,
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            if (!onDeleteConversation) return;
+            setDeleteLoading(true);
+            try {
+              await onDeleteConversation();
+            } catch (e) {
+              Alert.alert(
+                ui.errorTitle,
+                e instanceof Error ? e.message : ui.deleteConversationError,
+              );
+            } finally {
+              setDeleteLoading(false);
+            }
+          })();
+        },
+      },
+    ]);
   };
 
   const handleSend = () => {
@@ -259,12 +296,27 @@ export default function ChatScreen({
               <View style={styles.onlineStatus}>
                 <View style={[styles.onlineDot, !participant.isOnline && styles.offlineDot]} />
                 <Text style={[styles.onlineText, !participant.isOnline && styles.offlineText]}>
-                  {participant.isOnline ? 'Online' : 'Offline'}
+                  {participant.isOnline ? ui.online : ui.offline}
                 </Text>
               </View>
             )}
           </View>
         </View>
+
+        {showDeleteConversation && onDeleteConversation ? (
+          <Pressable
+            onPress={handleDeletePress}
+            disabled={deleteLoading}
+            style={styles.headerDeleteButton}
+            accessibilityLabel={ui.deleteConversationA11y}
+          >
+            {deleteLoading ? (
+              <ActivityIndicator size="small" color={AppColors.status.error} />
+            ) : (
+              <Ionicons name="trash-outline" size={22} color={AppColors.status.error} />
+            )}
+          </Pressable>
+        ) : null}
       </View>
 
       {/* Messages Area */}
@@ -329,7 +381,7 @@ export default function ChatScreen({
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
-              placeholder="Digite sua mensagem..."
+              placeholder={ui.inputPlaceholder}
               placeholderTextColor={AppColors.text.tertiary}
               value={message}
               onChangeText={setMessage}
@@ -373,6 +425,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 4,
+  },
+  headerDeleteButton: {
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   participantInfo: {
     flexDirection: 'row',

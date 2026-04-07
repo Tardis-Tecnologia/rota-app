@@ -1,10 +1,13 @@
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { Conversation, useConversations } from '@/contexts/ConversationsContext';
+import { mockSystemConversations } from '@/data/mockConversations';
 import { getApiBaseUrl, getAuthToken } from '@/services/authApi';
+import { streamAndUiDisplayName } from '@/utils/userDisplayName';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -34,6 +37,9 @@ type StreamConversation = {
   unreadCount?: number;
 };
 type ConversationCardItem = Conversation | StreamConversation;
+
+/** Assistentes virtuais (mock) — sempre visíveis, mesmo sem canais Stream. */
+const systemAssistantConversations = mockSystemConversations;
 
 export default function MensagensScreen() {
   const { user } = useAuth();
@@ -113,7 +119,8 @@ export default function MensagensScreen() {
 
       const { token, apiKey } = (await tokenRes.json()) as { token: string; apiKey: string };
       const client = StreamChat.getInstance(apiKey);
-      await client.connectUser({ id: user.id, name: user.name || undefined }, token);
+      const displayName = streamAndUiDisplayName(user);
+      await client.connectUser({ id: user.id, name: displayName }, token);
 
       const channels = await client.queryChannels(
         { members: { $in: [user.id] } },
@@ -131,11 +138,13 @@ export default function MensagensScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [buildConversationFromChannel, user?.id, user?.name]);
+  }, [buildConversationFromChannel, user?.id, user?.name, user?.email]);
 
-  useEffect(() => {
-    void loadStreamConversations();
-  }, [loadStreamConversations]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadStreamConversations();
+    }, [loadStreamConversations]),
+  );
 
   const getInitials = (name?: string) => {
     if (!name) return '';
@@ -166,10 +175,12 @@ export default function MensagensScreen() {
           style={styles.officialCard}
           onPress={() => handleOpenChat(conversation)}
         >
-          <View style={styles.officialIconContainer}>
-            <Ionicons name="shield-checkmark" size={24} color={AppColors.text.white} />
+          <View style={styles.officialIconWrap}>
+            <View style={styles.officialIconContainer}>
+              <Ionicons name="shield-checkmark" size={24} color={AppColors.text.white} />
+            </View>
           </View>
-          
+
           <View style={styles.cardContent}>
             <View style={styles.cardHeader}>
               <View style={styles.nameWithBadgeContainer}>
@@ -240,30 +251,55 @@ export default function MensagensScreen() {
           </View>
         )}
 
+        {systemAssistantConversations.length > 0 && (
+          <View
+            style={[
+              styles.list,
+              (fixedConversations.length > 0 || conversations.length > 0) && styles.commonList,
+            ]}
+          >
+            {systemAssistantConversations.map((conversation) =>
+              renderConversationCard(conversation, false),
+            )}
+          </View>
+        )}
+
         {isLoading && (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateSubtext}>Carregando conversas...</Text>
+          <View style={styles.inlineHint}>
+            <Text style={styles.inlineHintText}>A carregar conversas em tempo real…</Text>
           </View>
         )}
 
         {loadError && !isLoading && (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>Não foi possível carregar o chat</Text>
-            <Text style={styles.emptyStateSubtext}>{loadError}</Text>
+          <View style={styles.inlineHint}>
+            <Text style={styles.loadErrorText}>Não foi possível carregar chats do Stream</Text>
+            <Text style={styles.inlineHintText}>{loadError}</Text>
           </View>
         )}
 
-        {/* Chats Comuns */}
-        {!isLoading && !loadError && conversations.length > 0 ? (
-          <View style={[styles.list, fixedConversations.length > 0 && styles.commonList]}>
+        {conversations.length > 0 && (
+          <View
+            style={[
+              styles.list,
+              (fixedConversations.length > 0 ||
+                systemAssistantConversations.length > 0) &&
+                styles.commonList,
+            ]}
+          >
             {conversations.map((conversation) => renderConversationCard(conversation, false))}
           </View>
-        ) : !isLoading && !loadError && fixedConversations.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>Nenhuma conversa ainda</Text>
-            <Text style={styles.emptyStateSubtext}>Suas conversas aparecerão aqui</Text>
-          </View>
-        ) : null}
+        )}
+
+        {!isLoading &&
+          !loadError &&
+          fixedConversations.length === 0 &&
+          systemAssistantConversations.length === 0 &&
+          conversations.length === 0 && (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>Nenhuma conversa ainda</Text>
+              <Text style={styles.emptyStateSubtext}>Suas conversas aparecerão aqui</Text>
+            </View>
+          )}
       </ScrollView>
 
       <TouchableOpacity activeOpacity={0.85} style={styles.fab} onPress={() => void loadStreamConversations()}>
@@ -306,6 +342,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: AppColors.text.tertiary,
   },
+  inlineHint: {
+    marginTop: 16,
+    paddingHorizontal: 4,
+  },
+  inlineHintText: {
+    fontSize: 13,
+    color: AppColors.text.tertiary,
+  },
+  loadErrorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppColors.text.secondary,
+    marginBottom: 4,
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -324,11 +374,11 @@ const styles = StyleSheet.create({
   // Card especial para Comunicados Oficiais
   officialCard: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     gap: 12,
-    padding: 12,
+    padding: 16,
     borderRadius: 16,
-    backgroundColor: 'transparent',
+    backgroundColor: AppColors.background.default,
     shadowColor: AppColors.shadow,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.15,
@@ -336,6 +386,10 @@ const styles = StyleSheet.create({
     elevation: 4,
     borderWidth: 2,
     borderColor: AppColors.primaryDark,
+  },
+  officialIconWrap: {
+    justifyContent: 'center',
+    alignSelf: 'stretch',
   },
   officialIconContainer: {
     width: 48,

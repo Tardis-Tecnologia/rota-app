@@ -26,7 +26,7 @@ export const mockFixedConversations: Conversation[] = [
     providerId: 'iptu',
     providerName: 'IPTU',
     providerImage: '',
-    lastMessage: 'Consulte débitos, pague ou parcele seu IPTU.',
+    lastMessage: 'Assistente virtual: pagamento, débitos, segunda via e mais.',
     date: 'Serviço',
     providerData: {
       id: 'iptu',
@@ -56,7 +56,7 @@ export const mockSystemConversations: Conversation[] = [
     providerId: 'defesa-civil',
     providerName: 'Defesa Civil',
     providerImage: 'https://i.pravatar.cc/150?u=defesa-civil',
-    lastMessage: 'Olá! Meu nome é Roberta. Como posso ajudar?',
+    lastMessage: 'Olá! Meu nome é Roberto. Como posso ajudar?',
     date: '5d atrás',
     providerData: {
       id: 'defesa-civil',

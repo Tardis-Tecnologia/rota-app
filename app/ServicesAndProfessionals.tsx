@@ -3,6 +3,7 @@ import {
   CATEGORIES_WITH_ALL,
 } from '@/constants/providerCategories';
 import { AppColors } from '@/constants/theme';
+import MapLibreMapaView, { type MapLibreMapaViewRef } from '@/components/MapLibreMapaView';
 import { COMPANIES } from '@/data/companies';
 import { PROVIDERS } from '@/data/providers';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,10 +23,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const MapView = Platform.OS === 'web' ? View : require('react-native-maps').default;
-const PROVIDER_GOOGLE = Platform.OS === 'web' ? undefined : require('react-native-maps').PROVIDER_GOOGLE;
-const mapStyle = Platform.OS === 'web' ? [] : require('@/styles/mapStyle.json');
-
 const INITIAL_REGION = {
   latitude: -22.9189,
   longitude: -42.8186,
@@ -33,7 +30,6 @@ const INITIAL_REGION = {
   longitudeDelta: 0.04,
 };
 
-type MapCamera = { center?: { latitude: number; longitude: number }; zoom?: number };
 type TabFilter = 'prestadores' | 'empresas';
 
 export default function ServicesAndProfessionalsScreen() {
@@ -41,7 +37,7 @@ export default function ServicesAndProfessionalsScreen() {
   const [appliedQuery, setAppliedQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<TabFilter>('prestadores');
   const [hasSearched, setHasSearched] = useState(true);
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<MapLibreMapaViewRef | null>(null);
 
   const handleSearch = () => {
     setHasSearched(true);
@@ -75,48 +71,34 @@ export default function ServicesAndProfessionalsScreen() {
   const showList = hasSearched;
 
   const handleMyLocation = () => {
-    mapRef.current?.getCamera?.().then?.((camera: MapCamera) => {
-      if (camera?.center) {
-        mapRef.current?.animateCamera?.({ center: camera.center, zoom: 15 }, { duration: 300 });
-      }
-    });
+    mapRef.current?.animateToRegion(
+      {
+        latitude: INITIAL_REGION.latitude,
+        longitude: INITIAL_REGION.longitude,
+        latitudeDelta: Math.max(0.01, INITIAL_REGION.latitudeDelta),
+        longitudeDelta: Math.max(0.01, INITIAL_REGION.longitudeDelta),
+      },
+      320,
+    );
   };
 
   const handleZoomIn = () => {
-    mapRef.current?.getCamera?.().then?.((camera: MapCamera) => {
-      if (camera?.zoom != null) {
-        mapRef.current?.animateCamera?.(
-          { center: camera.center, zoom: Math.min((camera.zoom ?? 15) + 1, 20) },
-          { duration: 200 }
-        );
-      }
-    });
+    mapRef.current?.zoomBy(1, 200);
   };
 
   const handleZoomOut = () => {
-    mapRef.current?.getCamera?.().then?.((camera: MapCamera) => {
-      if (camera?.zoom != null) {
-        mapRef.current?.animateCamera?.(
-          { center: camera.center, zoom: Math.max((camera.zoom ?? 15) - 1, 3) },
-          { duration: 200 }
-        );
-      }
-    });
+    mapRef.current?.zoomBy(-1, 200);
   };
 
   const MapContent =
     Platform.OS === 'web' ? (
       <View style={styles.mapPlaceholder} />
     ) : (
-      <MapView
+      <MapLibreMapaView
         ref={mapRef}
-        style={StyleSheet.absoluteFill}
-        provider={PROVIDER_GOOGLE}
-        initialRegion={INITIAL_REGION}
-        mapType="standard"
-        customMapStyle={mapStyle}
-        showsUserLocation
-        showsMyLocationButton={false}
+        localizacao={INITIAL_REGION}
+        pontos={[]}
+        getMarkerColor={() => AppColors.primary}
       />
     );
 

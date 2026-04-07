@@ -1,5 +1,6 @@
 import PointsBadge from '@/components/PointsBadge';
 import { AppColors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAppTheme } from '@/contexts/AppThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -29,6 +30,8 @@ export default function Header({
   temNotificacao = true,
 }: HeaderProps) {
   const { backgroundColor: brandColor } = useAppTheme();
+  const { user } = useAuth();
+  const displayName = user?.name?.trim() ? user.name : nomeUsuario;
 
   const handleNotificationPress = () => {
     if (onNotificationPress) {
@@ -48,7 +51,7 @@ export default function Header({
               Bem-vindo(a) de volta,
             </Text>
             <Text style={styles.nomeOnBrand} numberOfLines={1} ellipsizeMode="tail">
-              {nomeUsuario}
+              {displayName}
             </Text>
           </View>
 

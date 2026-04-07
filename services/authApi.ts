@@ -10,6 +10,16 @@ export interface LoginSuccess {
   themeSlug: string | null;
 }
 
+export interface UserSummary {
+  id: string;
+  name: string;
+  email: string;
+  active: boolean;
+  profile?: string;
+  govbrSub?: string;
+  uf?: string;
+}
+
 let authToken: string | null = null;
 
 export function getAuthToken(): string | null {
@@ -25,6 +35,21 @@ export function getApiBaseUrl(): string {
     throw new Error('EXPO_PUBLIC_API_BASE_URL não definida');
   }
   return API_BASE_URL.replace(/\/$/, '');
+}
+
+export async function getUserById(userId: string): Promise<UserSummary> {
+  const url = `${getApiBaseUrl()}${BASE_PATH}/users/${encodeURIComponent(userId)}`;
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  const token = getAuthToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(url, { method: 'GET', headers });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(text || `Erro ao buscar usuário: ${res.status}`);
+  }
+  return (await res.json()) as UserSummary;
 }
 
 export async function login(

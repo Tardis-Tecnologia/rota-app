@@ -1,13 +1,14 @@
 import ExploreFloatingCard from '@/components/ExploreFloatingCard';
 import ExploreMapControls from '@/components/ExploreMapControls';
 import MapaView from '@/components/MapaView';
+import { ModalReportPrefeitura } from '@/components/ModalReportPrefeitura';
 import PlaceDetailsSheet from '@/components/PlaceDetailsSheet';
-import ReportButton from '@/components/ReportButton';
+import ReportButton, { REPORT_SUBJECT_BY_TYPE, type ReportType } from '@/components/ReportButton';
 import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
 import { placeToPonto } from '@/services/mapPlaceToPonto';
 import { searchNearbyPlaces } from '@/services/placesService';
-import { Localizacao, PontoInteresse } from '@/types';
+import type { Localizacao, PontoInteresse, Region } from '@/types';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -22,8 +23,8 @@ import {
   Text,
   View
 } from 'react-native';
-import MapView, { Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { MapLibreMapaViewRef } from '@/components/MapLibreMapaView';
 
 // Coordenadas de Maricá, RJ
 const MARICA_CENTER = {
@@ -50,7 +51,6 @@ const CHIP_LABELS: Record<string, string> = {
   bank: 'Bancos',
 };
 
-/** Deep link: ?category=gas_station → chip prestador */
 function routeParamToChipId(raw: string): string | undefined {
   const alias: Record<string, string> = {
     gas_station: 'prestador',
@@ -129,7 +129,7 @@ const PONTOS_PADRAO_MARICA: PontoInteresse[] = [
 export default function ExplorarScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
-  const mapRef = useRef<MapView | null>(null);
+  const mapRef = useRef<MapLibreMapaViewRef | null>(null);
   const [localizacao, setLocalizacao] = useState<Localizacao>(MARICA_CENTER);
   const [mapRegion, setMapRegion] = useState<Region>(() => ({
     ...MARICA_CENTER,
@@ -144,6 +144,8 @@ export default function ExplorarScreen() {
   const [toastKey, setToastKey] = useState(0);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'info' | 'error' | 'warning'>('success');
+  const [prefeituraModalVisible, setPrefeituraModalVisible] = useState(false);
+  const [prefeituraAssuntoInicial, setPrefeituraAssuntoInicial] = useState<string | undefined>();
   const { category } = useLocalSearchParams<{ category?: string }>();
   const appliedCategoryFromRoute = useRef(false);
 
@@ -294,22 +296,10 @@ export default function ExplorarScreen() {
     );
   }, []);
 
-  const handleReport = (type: 'buraco' | 'dengue' | 'iluminacao' | 'lixo') => {
-    const messages = {
-      buraco: 'Buraco na via reportado! +30 pontos',
-      dengue: 'Foco de Dengue reportado! +30 pontos',
-      iluminacao: 'Iluminação Falha reportado! +30 pontos',
-      lixo: 'Lixo Acumulado reportado! +30 pontos',
-    };
-
-    setShowToast(false);
-    setToastKey((prev) => prev + 1);
-    setToastMessage(messages[type]);
-    setToastType('success');
-    setTimeout(() => {
-      setShowToast(true);
-    }, 50);
-  };
+  const handleReport = useCallback((type: ReportType) => {
+    setPrefeituraAssuntoInicial(REPORT_SUBJECT_BY_TYPE[type]);
+    setPrefeituraModalVisible(true);
+  }, []);
 
   if (loading) {
     return (
@@ -386,6 +376,14 @@ export default function ExplorarScreen() {
         onZoomOut={handleZoomOut}
       />
       <ReportButton onReport={handleReport} bottomOffset={mapControlsBottom} />
+      <ModalReportPrefeitura
+        visible={prefeituraModalVisible}
+        initialAssunto={prefeituraAssuntoInicial}
+        onClose={() => {
+          setPrefeituraModalVisible(false);
+          setPrefeituraAssuntoInicial(undefined);
+        }}
+      />
       <PlaceDetailsSheet
         visible={selectedPontoDetail != null}
         ponto={selectedPontoDetail}

@@ -99,7 +99,7 @@ export default function TabLayout() {
           href: null,
         }}
       />
-       <Tabs.Screen
+       {/* <Tabs.Screen
         name="services"
         options={({ navigation }) => ({
           headerShown: true,
@@ -132,6 +132,10 @@ export default function TabLayout() {
             />
           ),
         })}
+      /> */}
+      <Tabs.Screen
+        name="services"
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="messages"

@@ -36,14 +36,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const data = await authApi.login(email, password);
     authApi.setAuthToken(data.token);
     const emailNorm = email.trim().toLowerCase();
-    setUser({
+    const baseUser: AuthUser = {
       id: data.userId,
       email: emailNorm,
       name: data.name?.trim() || '',
       role: profileToRole(data.profile),
       profile: data.profile,
       themeSlug: data.themeSlug ?? null,
-    });
+    };
+    setUser(baseUser);
+    try {
+      const details = await authApi.getUserById(data.userId);
+      const resolvedName = (details?.name ?? '').trim();
+      if (resolvedName) {
+        setUser((prev) => (prev ? { ...prev, name: resolvedName } : prev));
+      }
+    } catch {
+      // Se falhar, mantemos o usuário logado e o header pode cair no fallback.
+    }
     try {
       await refreshAppThemeAfterLogin();
     } catch {

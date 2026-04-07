@@ -1,7 +1,12 @@
 import { AppColors } from '@/constants/theme';
+import { formatBrazilPhoneInput } from '@/utils/phoneMask';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect } from 'react';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import {
+  Alert,
+  Dimensions,
   Modal,
   Pressable,
   ScrollView,
@@ -11,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -21,7 +27,10 @@ import Animated, {
 interface ModalReportPrefeituraProps {
   visible: boolean;
   onClose: () => void;
+  initialAssunto?: string;
 }
+
+const SHEET_HEIGHT_RATIO = 0.5;
 
 const CATEGORIAS = [
   { id: '', label: 'Selecione uma categoria' },
@@ -33,7 +42,27 @@ const CATEGORIAS = [
   { id: 'outros', label: 'Outros' },
 ];
 
-export function ModalReportPrefeitura({ visible, onClose }: ModalReportPrefeituraProps) {
+export function ModalReportPrefeitura({
+  visible,
+  onClose,
+  initialAssunto,
+}: ModalReportPrefeituraProps) {
+  const insets = useSafeAreaInsets();
+  const windowHeight = Dimensions.get('window').height;
+  const sheetMaxHeight = useMemo(
+    () =>
+      Math.min(
+        windowHeight * SHEET_HEIGHT_RATIO,
+        windowHeight - insets.top - 12,
+      ),
+    [windowHeight, insets.top],
+  );
+  const sheetPaddingBottom = Math.max(insets.bottom, 20) + 8;
+  const scrollMaxHeight = sheetMaxHeight - 24 - sheetPaddingBottom;
+
+  const [nome, setNome] = React.useState('');
+  const [telefone, setTelefone] = React.useState('');
+  const [imagem, setImagem] = React.useState<string | null>(null);
   const [assunto, setAssunto] = React.useState('');
   const [descricao, setDescricao] = React.useState('');
   const [categoriaId, setCategoriaId] = React.useState('');
@@ -46,12 +75,24 @@ export function ModalReportPrefeitura({ visible, onClose }: ModalReportPrefeitur
   useEffect(() => {
     if (!visible) {
       setIsSubmitted(false);
+      setNome('');
+      setTelefone('');
+      setImagem(null);
       setAssunto('');
       setDescricao('');
       setCategoriaId('');
       setDropdownOpen(false);
+      return;
     }
-  }, [visible]);
+    setIsSubmitted(false);
+    setNome('');
+    setTelefone('');
+    setImagem(null);
+    setAssunto(initialAssunto ?? '');
+    setDescricao('');
+    setCategoriaId('');
+    setDropdownOpen(false);
+  }, [visible, initialAssunto]);
 
   useEffect(() => {
     if (isSubmitted) {
@@ -69,6 +110,9 @@ export function ModalReportPrefeitura({ visible, onClose }: ModalReportPrefeitur
 
   const handleClose = () => {
     setIsSubmitted(false);
+    setNome('');
+    setTelefone('');
+    setImagem(null);
     setAssunto('');
     setDescricao('');
     setCategoriaId('');
@@ -83,6 +127,47 @@ export function ModalReportPrefeitura({ visible, onClose }: ModalReportPrefeitur
     transform: [{ scale: successScale.value }],
   }));
 
+  const pickFromGallery = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permissão necessária',
+        'Para escolher uma foto, permita o acesso à galeria nas configurações do aparelho.',
+      );
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.85,
+    });
+    if (!result.canceled && result.assets[0]?.uri) {
+      setImagem(result.assets[0].uri);
+    }
+  }, []);
+
+  const takePhoto = useCallback(async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permissão necessária',
+        'Para tirar uma foto, permita o uso da câmera nas configurações do aparelho.',
+      );
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.85,
+    });
+    if (!result.canceled && result.assets[0]?.uri) {
+      setImagem(result.assets[0].uri);
+    }
+  }, []);
+
+  const onTelefoneChange = useCallback((text: string) => {
+    setTelefone(formatBrazilPhoneInput(text));
+  }, []);
+
   return (
     <Modal
       visible={visible}
@@ -93,29 +178,97 @@ export function ModalReportPrefeitura({ visible, onClose }: ModalReportPrefeitur
       <View style={styles.modalBackdrop}>
         <Pressable style={styles.backdropTouchableArea} onPress={handleClose} />
 
-        <View style={styles.bottomSheet}>
-          <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>Reportar à Prefeitura</Text>
-            <Text style={styles.sheetSubtitle}>
-              Envie sua solicitação, reclamação ou sugestão para a prefeitura.
-            </Text>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={handleClose}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <Ionicons name="close" size={24} color="#374151" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.divider} />
-
+        <View style={[styles.bottomSheet, { maxHeight: sheetMaxHeight, paddingBottom: sheetPaddingBottom }]}>
           {!isSubmitted ? (
             <ScrollView
-              showsVerticalScrollIndicator={false}
+              style={{ maxHeight: scrollMaxHeight }}
+              showsVerticalScrollIndicator
               contentContainerStyle={styles.formContent}
               keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
             >
+              <View style={styles.sheetHeader}>
+                <Text style={styles.sheetTitle}>Reportar à Prefeitura</Text>
+                <Text style={styles.sheetSubtitle}>
+                  Envie sua solicitação, reclamação ou sugestão para a prefeitura.
+                </Text>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={handleClose}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <Ionicons name="close" size={24} color="#374151" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.formGroup}>
+                <Text style={styles.fieldLabel}>Nome</Text>
+                <TextInput
+                  value={nome}
+                  onChangeText={setNome}
+                  placeholder="Ex: João da Silva"
+                  placeholderTextColor="#9CA3AF"
+                  style={styles.input}
+                />
+              </View>
+              <View style={styles.formGroup}>
+                <Text style={styles.fieldLabel}>Telefone</Text>
+                <TextInput
+                  value={telefone}
+                  onChangeText={onTelefoneChange}
+                  placeholder="(11) 99999-9999"
+                  placeholderTextColor="#9CA3AF"
+                  style={styles.input}
+                  keyboardType="phone-pad"
+                  maxLength={15}
+                  textContentType="telephoneNumber"
+                  autoComplete="tel"
+                />
+              </View>
+              <View style={styles.formGroup}>
+                <Text style={styles.fieldLabel}>Imagem (opcional)</Text>
+                <Text style={styles.fieldHint}>
+                  Escolha uma foto da galeria ou tire na hora para anexar ao relatório.
+                </Text>
+                <View style={styles.imageActions}>
+                  <TouchableOpacity
+                    style={styles.imageActionButton}
+                    onPress={pickFromGallery}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="images-outline" size={22} color="#0891b2" />
+                    <Text style={styles.imageActionButtonText}>Galeria</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.imageActionButton}
+                    onPress={takePhoto}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="camera-outline" size={22} color="#0891b2" />
+                    <Text style={styles.imageActionButtonText}>Câmera</Text>
+                  </TouchableOpacity>
+                </View>
+                {imagem ? (
+                  <View style={styles.imagePreviewBox}>
+                    <Image
+                      source={{ uri: imagem }}
+                      style={styles.imagePreview}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                    <TouchableOpacity
+                      style={styles.removeImageButton}
+                      onPress={() => setImagem(null)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityLabel="Remover imagem"
+                    >
+                      <Ionicons name="close-circle" size={28} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+              </View>
               <View style={styles.formGroup}>
                 <Text style={styles.fieldLabel}>Assunto</Text>
                 <TextInput
@@ -234,7 +387,6 @@ const styles = StyleSheet.create({
   bottomSheet: {
     backgroundColor: '#FFFFFF',
     paddingTop: 24,
-    paddingBottom: 40,
     paddingHorizontal: 24,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -271,7 +423,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   formContent: {
-    paddingBottom: 24,
+    paddingBottom: 28,
   },
   formGroup: {
     marginBottom: 20,
@@ -284,6 +436,54 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#374151',
     marginBottom: 8,
+  },
+  fieldHint: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  imageActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  imageActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+  },
+  imageActionButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0e7490',
+  },
+  imagePreviewBox: {
+    marginTop: 12,
+    position: 'relative',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+  },
+  imagePreview: {
+    width: '100%',
+    height: 180,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 14,
   },
   input: {
     backgroundColor: '#FFFFFF',

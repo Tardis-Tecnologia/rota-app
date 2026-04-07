@@ -115,18 +115,18 @@ export default function ProfileComponent({
 
             {/* Menu Options */}
             <View style={styles.menuSection}>
-                <MenuItem
+                {/* <MenuItem
                 icon="person-circle-outline"
                 label="Conta"
                 iconColor={AppColors.gray[500]}
                 onPress={() => handleMenuPress('Conta')}
-                />
-                <MenuItem
+                /> */}
+                {/* <MenuItem
                 icon="folder-outline"
                 label="Meus Documentos"
                 iconColor="#6366F1"
                 onPress={() => handleMenuPress('Meus Documentos')}
-                />
+                /> */}
                 <MenuItem
                 icon="ribbon-outline"
                 label="Meu Currículo"

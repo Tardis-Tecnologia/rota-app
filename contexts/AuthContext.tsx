@@ -35,14 +35,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password: string): Promise<void> => {
     const data = await authApi.login(email, password);
     authApi.setAuthToken(data.token);
-    setUser({
+    const baseUser: AuthUser = {
       id: data.userId,
       email: email.trim().toLowerCase(),
       name: '', 
       role: profileToRole(data.profile),
       profile: data.profile,
       themeSlug: data.themeSlug ?? null,
-    });
+    };
+    setUser(baseUser);
+    try {
+      const details = await authApi.getUserById(data.userId);
+      const resolvedName = (details?.name ?? '').trim();
+      if (resolvedName) {
+        setUser((prev) => (prev ? { ...prev, name: resolvedName } : prev));
+      }
+    } catch {
+      // Se falhar, mantemos o usuário logado e o header pode cair no fallback.
+    }
     try {
       await refreshAppThemeAfterLogin();
     } catch {

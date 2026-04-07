@@ -13,7 +13,14 @@ import Animated, {
     withTiming
 } from 'react-native-reanimated';
 
-type ReportType = 'buraco' | 'dengue' | 'iluminacao' | 'lixo';
+export type ReportType = 'buraco' | 'dengue' | 'iluminacao' | 'lixo';
+
+export const REPORT_SUBJECT_BY_TYPE: Record<ReportType, string> = {
+  buraco: 'Buraco na via',
+  dengue: 'Foco de Dengue',
+  iluminacao: 'Iluminação Falha',
+  lixo: 'Lixo Acumulado',
+};
 
 interface ReportButtonProps {
   onReport?: (type: ReportType) => void;
@@ -31,28 +38,28 @@ interface ReportOption {
 const getReportOptions = (): ReportOption[] => [
   {
     id: 'buraco',
-    label: 'Buraco na via',
+    label: REPORT_SUBJECT_BY_TYPE.buraco,
     iconName: 'block',
     iconFamily: 'MaterialIcons',
     iconColor: AppColors.report.orange,
   },
   {
     id: 'dengue',
-    label: 'Foco de Dengue',
+    label: REPORT_SUBJECT_BY_TYPE.dengue,
     iconName: 'bug',
     iconFamily: 'Ionicons',
     iconColor: AppColors.report.red,
   },
   {
     id: 'iluminacao',
-    label: 'Iluminação Falha',
+    label: REPORT_SUBJECT_BY_TYPE.iluminacao,
     iconName: 'lightbulb-outline',
     iconFamily: 'MaterialIcons',
     iconColor: AppColors.report.amber,
   },
   {
     id: 'lixo',
-    label: 'Lixo Acumulado',
+    label: REPORT_SUBJECT_BY_TYPE.lixo,
     iconName: 'trash-outline',
     iconFamily: 'Ionicons',
     iconColor: AppColors.report.gray,

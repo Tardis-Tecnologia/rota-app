@@ -8,7 +8,7 @@ import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
 import { ensureForegroundLocationPermission } from '@/services/locationPermission';
 import { placeToPonto } from '@/services/mapPlaceToPonto';
-import { NEARBY_PLACES_RADIUS_METERS, searchNearbyPlaces } from '@/services/placesService';
+import { searchNearbyPlaces } from '@/services/placesService';
 import { Localizacao, PontoInteresse } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -27,7 +27,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import type { Region } from 'react-native-maps';
+import type { Region } from '@/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MARICA_CENTER = {

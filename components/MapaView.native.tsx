@@ -1,21 +1,19 @@
-import mapStyle from '@/styles/mapStyle.json';
-import { Localizacao, PontoInteresse } from '@/types';
+import MapLibreMapaView, { type MapLibreMapaViewRef } from '@/components/MapLibreMapaView';
+import type { Localizacao, PontoInteresse, Region } from '@/types';
 import React from 'react';
-import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 
 interface MapaViewProps {
   localizacao: Localizacao;
   tipoMapa: 'standard' | 'satellite' | 'hybrid';
   pontos: PontoInteresse[];
   getMarkerColor: (tipo: PontoInteresse['tipo']) => string;
-  mapRef?: React.RefObject<MapView | null>;
+  mapRef?: React.RefObject<MapLibreMapaViewRef | null>;
   onRegionChangeComplete?: (region: Region) => void;
   onMarkerPress?: (ponto: PontoInteresse) => void;
 }
 
 export default function MapaView({
   localizacao,
-  tipoMapa,
   pontos,
   getMarkerColor,
   mapRef,
@@ -23,31 +21,14 @@ export default function MapaView({
   onMarkerPress,
 }: MapaViewProps) {
   return (
-    <MapView
+    <MapLibreMapaView
       ref={mapRef}
-      style={{ flex: 1 }}
-      provider={PROVIDER_GOOGLE}
-      initialRegion={localizacao}
-      mapType={tipoMapa}
-      customMapStyle={mapStyle}
-      showsUserLocation={true}
-      showsMyLocationButton={false}
+      localizacao={localizacao}
+      pontos={pontos}
+      getMarkerColor={getMarkerColor}
       onRegionChangeComplete={onRegionChangeComplete}
-    >
-      {pontos.map((ponto) => (
-        <Marker
-          key={ponto.id}
-          coordinate={{
-            latitude: ponto.latitude,
-            longitude: ponto.longitude,
-          }}
-          title={ponto.titulo}
-          description={ponto.descricao}
-          pinColor={getMarkerColor(ponto.tipo)}
-          onPress={() => onMarkerPress?.(ponto)}
-        />
-      ))}
-    </MapView>
+      onMarkerPress={onMarkerPress}
+    />
   );
 }
 

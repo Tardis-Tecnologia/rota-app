@@ -62,6 +62,9 @@ export interface Localizacao {
   longitudeDelta: number;
 }
 
+// Região/viewport do mapa (compatível com Localizacao)
+export type Region = Localizacao;
+
 // Tipos de perfis de Serviços e Profissionais
 export type ProfileType = 'PROVIDER' | 'COMPANY';
 

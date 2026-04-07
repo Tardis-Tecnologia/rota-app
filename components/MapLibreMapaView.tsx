@@ -1,6 +1,6 @@
 import { getMapLibreStyleUrl } from '@/constants/mapLibreStyle';
 import { AppColors } from '@/constants/theme';
-import { Localizacao, PontoInteresse } from '@/types';
+import type { Localizacao, PontoInteresse, Region } from '@/types';
 import MapLibreGL, {
   Camera,
   MapView,
@@ -19,7 +19,6 @@ import React, {
   useState,
 } from 'react';
 import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
-import type { Region } from 'react-native-maps';
 
 function zoomFromLatitudeDelta(latitudeDelta: number): number {
   const span = Math.max(latitudeDelta, 1e-6);

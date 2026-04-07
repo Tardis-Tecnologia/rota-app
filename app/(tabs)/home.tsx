@@ -51,9 +51,9 @@ export default function NoticiasScreen() {
       {/* Componente Alertas da Cidade */}
       <CityAlerts />
       {/* Componente de Eventos (Carrossel) */}
-      <OpinionCard onVote={handleVote} />
+      {/* <OpinionCard onVote={handleVote} /> */}
       {/* Jobs and Opportunities Card */}
-      <JobSuggestionCard />
+      {/* <JobSuggestionCard /> */}
       <EventCarousel />
       <View>
         <View style={styles.sectionHeaderRow}>

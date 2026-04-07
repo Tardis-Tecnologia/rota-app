@@ -8,7 +8,7 @@ import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
 import { placeToPonto } from '@/services/mapPlaceToPonto';
 import { searchNearbyPlaces } from '@/services/placesService';
-import { Localizacao, PontoInteresse } from '@/types';
+import type { Localizacao, PontoInteresse, Region } from '@/types';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -23,8 +23,8 @@ import {
   Text,
   View
 } from 'react-native';
-import MapView, { Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { MapLibreMapaViewRef } from '@/components/MapLibreMapaView';
 
 // Coordenadas de Maricá, RJ
 const MARICA_CENTER = {
@@ -129,7 +129,7 @@ const PONTOS_PADRAO_MARICA: PontoInteresse[] = [
 export default function ExplorarScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
-  const mapRef = useRef<MapView | null>(null);
+  const mapRef = useRef<MapLibreMapaViewRef | null>(null);
   const [localizacao, setLocalizacao] = useState<Localizacao>(MARICA_CENTER);
   const [mapRegion, setMapRegion] = useState<Region>(() => ({
     ...MARICA_CENTER,

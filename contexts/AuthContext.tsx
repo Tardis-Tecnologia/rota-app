@@ -1,5 +1,6 @@
 import { refreshAppThemeAfterLogin } from '@/services/appThemeBridge';
 import * as authApi from '@/services/authApi';
+import type { UpdateUserProfilePayload } from '@/services/authApi';
 import React, { createContext, useCallback, useContext, useState } from 'react';
 
 export type UserRole = 'client';
@@ -11,6 +12,8 @@ export interface AuthUser {
   role: UserRole;
   profile: string;
   themeSlug: string | null;
+  uf?: string | null;
+  govbrSub?: string | null;
 }
 
 interface AuthContextValue {
@@ -19,6 +22,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
+  updateProfile: (payload: UpdateUserProfilePayload) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -35,23 +39,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password: string): Promise<void> => {
     const data = await authApi.login(email, password);
     authApi.setAuthToken(data.token);
-    const baseUser: AuthUser = {
-      id: data.userId,
-      email: email.trim().toLowerCase(),
-      name: '', 
-      role: profileToRole(data.profile),
-      profile: data.profile,
-      themeSlug: data.themeSlug ?? null,
-    };
-    setUser(baseUser);
     try {
       const details = await authApi.getUserById(data.userId);
-      const resolvedName = (details?.name ?? '').trim();
-      if (resolvedName) {
-        setUser((prev) => (prev ? { ...prev, name: resolvedName } : prev));
-      }
+      setUser({
+        id: data.userId,
+        email: details.email,
+        name: (details.name ?? '').trim(),
+        role: profileToRole(data.profile),
+        profile: data.profile,
+        themeSlug: data.themeSlug ?? null,
+        uf: details.uf ?? undefined,
+        govbrSub: details.govbrSub ?? undefined,
+      });
     } catch {
-      // Se falhar, mantemos o usuário logado e o header pode cair no fallback.
+      setUser({
+        id: data.userId,
+        email: email.trim().toLowerCase(),
+        name: '',
+        role: profileToRole(data.profile),
+        profile: data.profile,
+        themeSlug: data.themeSlug ?? null,
+      });
     }
     try {
       await refreshAppThemeAfterLogin();
@@ -71,12 +79,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
+  const updateProfile = useCallback(async (payload: UpdateUserProfilePayload): Promise<void> => {
+    if (!user?.id) {
+      throw new Error('Não autenticado');
+    }
+    const updated = await authApi.updateUserProfile(user.id, payload);
+    setUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            name: updated.name,
+            email: updated.email,
+            uf: updated.uf ?? undefined,
+            govbrSub: updated.govbrSub ?? undefined,
+          }
+        : null,
+    );
+  }, [user]);
+
   const value: AuthContextValue = {
     user,
     isLoading,
     login,
     register,
     logout,
+    updateProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

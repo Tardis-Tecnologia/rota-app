@@ -1,7 +1,7 @@
 import PointsBadge from '@/components/PointsBadge';
 import { AppColors } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
 import { useAppTheme } from '@/contexts/AppThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React from 'react';
@@ -48,7 +48,7 @@ export default function Header({
         <View style={styles.content}>
           <View style={styles.greetingContainer}>
             <Text style={styles.greetingOnBrand} numberOfLines={1} ellipsizeMode="tail">
-              Bem-vindo(a) de volta,
+              Bem-vindo(a),
             </Text>
             <Text style={styles.nomeOnBrand} numberOfLines={1} ellipsizeMode="tail">
               {displayName}

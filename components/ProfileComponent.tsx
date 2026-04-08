@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { streamAndUiDisplayName } from '@/utils/userDisplayName';
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -61,7 +62,7 @@ export default function ProfileComponent({
     const { user, logout } = useAuth();
     const [showDocumentosModal, setShowDocumentosModal] = useState(false);
     const [showCurriculoModal, setShowCurriculoModal] = useState(false);
-    const displayName = user?.name ?? nomeUsuario;
+    const displayName = user ? streamAndUiDisplayName(user) || nomeUsuario : nomeUsuario;
     const displaySubtitle = user ? 'Cidadão' : subtitulo;
 
     const handleMenuPress = (item: string) => {

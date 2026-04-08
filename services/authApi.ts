@@ -5,6 +5,7 @@ const BASE_PATH = '/api/v1';
 export interface LoginSuccess {
   token: string;
   userId: string;
+  name?: string | null;
   profile: string;
   themeSlug: string | null;
 }

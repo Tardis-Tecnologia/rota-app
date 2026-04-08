@@ -39,6 +39,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password: string): Promise<void> => {
     const data = await authApi.login(email, password);
     authApi.setAuthToken(data.token);
+    const emailNorm = email.trim().toLowerCase();
+    const baseUser: AuthUser = {
+      id: data.userId,
+      email: emailNorm,
+      name: data.name?.trim() || '',
+      role: profileToRole(data.profile),
+      profile: data.profile,
+      themeSlug: data.themeSlug ?? null,
+    };
+    setUser(baseUser);
     try {
       const details = await authApi.getUserById(data.userId);
       setUser({

@@ -62,8 +62,8 @@ const Toast: React.FC<ToastProps> = ({
       case 'success':
         return {
           iconColor: AppColors.status.success,
-          backgroundColor: '#F0F9FF', // Light blue/off-white
-          textColor: AppColors.text.primary,
+          backgroundColor: '#ECFDF5',
+          textColor: '#065F46',
         };
       case 'error':
         return {
@@ -94,12 +94,21 @@ const Toast: React.FC<ToastProps> = ({
 
   const typeStyles = getTypeStyles();
 
+  const iconName: React.ComponentProps<typeof Ionicons>['name'] =
+    type === 'success'
+      ? 'checkmark-circle'
+      : type === 'error'
+        ? 'close-circle'
+        : type === 'warning'
+          ? 'warning'
+          : 'information-circle';
+
   return (
     <Animated.View style={[styles.container, animatedStyle]} pointerEvents="none">
       {visible && (
         <View style={[styles.toast, { backgroundColor: typeStyles.backgroundColor }]}>
           <View style={[styles.iconContainer, { backgroundColor: typeStyles.iconColor }]}>
-            <Ionicons name="checkmark-outline" size={16} color={AppColors.text.white} />
+            <Ionicons name={iconName} size={16} color={AppColors.text.white} />
           </View>
           <Text style={[styles.message, { color: typeStyles.textColor }]}>{message}</Text>
         </View>
@@ -124,7 +133,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 9999, // Pill-shaped
+    borderRadius: 9999, 
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,

@@ -52,6 +52,36 @@ export async function getUserById(userId: string): Promise<UserSummary> {
   return (await res.json()) as UserSummary;
 }
 
+export type UpdateUserProfilePayload = {
+  name?: string;
+  email?: string;
+  uf?: string | null;
+  govbrSub?: string | null;
+};
+
+export async function updateUserProfile(
+  userId: string,
+  payload: UpdateUserProfilePayload,
+): Promise<UserSummary> {
+  const url = `${getApiBaseUrl()}${BASE_PATH}/users/${encodeURIComponent(userId)}`;
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Não autenticado');
+  }
+  const body = JSON.stringify(payload);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+  const res = await fetch(url, { method: 'PUT', headers, body });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(parseApiErrorBody(text) || `Erro ao atualizar perfil: ${res.status}`);
+  }
+  return (await res.json()) as UserSummary;
+}
+
 export async function login(
   email: string,
   password: string

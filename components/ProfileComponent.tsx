@@ -66,7 +66,11 @@ export default function ProfileComponent({
     const displaySubtitle = user ? 'Cidadão' : subtitulo;
 
     const handleMenuPress = (item: string) => {
-        if (item === 'Conta' || item === 'Ajuda') {
+        if (item === 'Conta') {
+            router.push('/edit-account');
+            return;
+        }
+        if (item === 'Ajuda') {
             Alert.alert(item, 'Esta tela ainda está em desenvolvimento.');
             return;
         }
@@ -116,24 +120,24 @@ export default function ProfileComponent({
 
             {/* Menu Options */}
             <View style={styles.menuSection}>
-                {/* <MenuItem
+                <MenuItem
                 icon="person-circle-outline"
                 label="Conta"
                 iconColor={AppColors.gray[500]}
                 onPress={() => handleMenuPress('Conta')}
-                /> */}
+                />
                 {/* <MenuItem
                 icon="folder-outline"
                 label="Meus Documentos"
                 iconColor="#6366F1"
                 onPress={() => handleMenuPress('Meus Documentos')}
                 /> */}
-                <MenuItem
+                {/* <MenuItem
                 icon="ribbon-outline"
                 label="Meu Currículo"
                 iconColor="#14B8A6"
                 onPress={() => handleMenuPress('Meu Currículo')}
-                />
+                /> */}
                 <MenuItem
                 icon="help-circle-outline"
                 label="Ajuda"

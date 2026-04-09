@@ -11,14 +11,13 @@ export interface Noticia {
   autor?: string;
 }
 
+/** Dados do carrossel de eventos (UI) — alinhado ao que o componente renderiza */
 export interface Evento {
   id: string;
   titulo: string;
   data: string;
   horario: string;
   local: string;
-  descricao: string;
-  tipo: 'Cultura' | 'Saúde' | 'Educação' | 'Meio Ambiente' | 'Esporte' | 'Turismo';
   imagem?: string;
 }
 

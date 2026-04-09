@@ -42,20 +42,6 @@ export const getNoticia = async (id: string): Promise<any> => {
 };
 
 /**
- * Buscar eventos
- */
-export const getEventos = async (): Promise<any> => {
-  return fetchAPI('/eventos');
-};
-
-/**
- * Buscar um evento específico
- */
-export const getEvento = async (id: string): Promise<any> => {
-  return fetchAPI(`/eventos/${id}`);
-};
-
-/**
  * Buscar posts
  */
 export const getPosts = async (): Promise<any> => {

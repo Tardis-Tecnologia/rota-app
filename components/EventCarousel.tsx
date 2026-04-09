@@ -1,10 +1,15 @@
 import { AppColors } from '@/constants/theme';
-import { Evento } from '@/types';
+import { getEvents } from '@/services/eventsService';
+import type { Evento } from '@/types';
+import {
+  eventItemToEvento,
+  formatEventCardDateLine,
+  startOfLocalDay,
+} from '@/utils/eventsCarousel';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
   Image,
   Pressable,
   ScrollView,
@@ -14,79 +19,33 @@ import {
   View,
 } from 'react-native';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = 240; // w-60 = 240px
+const CARD_WIDTH = 240;
 
 export default function EventCarousel() {
   const router = useRouter();
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  useEffect(() => {
-    carregarEventos();
+  const carregarEventos = useCallback(async (): Promise<void> => {
+    setLoading(true);
+    try {
+      const items = await getEvents({
+        init: 0,
+        end: 12,
+        featured: true,
+        startDate: startOfLocalDay().toISOString(),
+      });
+      setEventos(items.map(eventItemToEvento));
+    } catch {
+      setEventos([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const carregarEventos = async (): Promise<void> => {
-    setLoading(true);
-    // Dados simulados com o novo formato
-    const eventosSimulados: Evento[] = [
-      {
-        id: '1',
-        titulo: 'Feira de Artesanato Local',
-        data: 'Hoje',
-        horario: '10:00 - 18:00',
-        local: 'Praça da Matriz',
-        descricao: 'Feira de Artesanato Local',
-        tipo: 'Cultura',
-        imagem: 'https://maceio.al.gov.br/transform/imagens/_850x560_crop_center-center_none/10-12-24-6a-Feira-Itinerante-Economia-Solidaria-SEMSC-Foto-Alisson-Frazao-10.jpg',
-      },
-      {
-        id: '2',
-        titulo: 'Show de Rock no Parque',
-        data: 'Sábado',
-        horario: '20:00',
-        local: 'Parque da Cidade',
-        descricao: 'Show de Rock no Parque',
-        tipo: 'Cultura',
-        imagem: 'https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?w=500&auto=format&fit=crop&q=60',
-      },
-      {
-        id: '3',
-        titulo: 'Festival Gastronômico',
-        data: 'Todo o fim de semana',
-        horario: '',
-        local: 'Orla da Praia',
-        descricao: 'Festival Gastronômico',
-        tipo: 'Turismo',
-        imagem: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500&auto=format&fit=crop&q=60',
-      },
-      {
-        id: '4',
-        titulo: 'Cinema ao Ar Livre',
-        data: 'Sexta',
-        horario: '19:30',
-        local: 'Anfiteatro Municipal',
-        descricao: 'Cinema ao Ar Livre',
-        tipo: 'Cultura',
-        imagem: 'https://expresso.estadao.com.br/sao-paulo/wp-content/uploads/2023/03/cine-pinheios-2.jpg',
-      },
-    ];
-
-    setTimeout(() => {
-      setEventos(eventosSimulados);
-      setLoading(false);
-    }, 1000);
-  };
-
-  const formatarDataHorario = (evento: Evento): string => {
-    let texto = '';
-    if (evento.horario) {
-      texto = `${evento.data}, ${evento.horario}`;
-    } else {
-      texto = evento.data;
-    }
-    return texto.toUpperCase();
-  };
+  useEffect(() => {
+    carregarEventos();
+  }, [carregarEventos]);
 
   if (loading) {
     return (
@@ -104,9 +63,13 @@ export default function EventCarousel() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Eventos da Cidade</Text>
-         <Pressable hitSlop={8} style={styles.viewAllButton}>
-            <Text style={styles.viewAllText}>Ver todos</Text>
-          </Pressable>
+        <Pressable
+          hitSlop={8}
+          style={styles.viewAllButton}
+          onPress={() => router.push('/eventos')}
+        >
+          <Text style={styles.viewAllText}>Ver todos</Text>
+        </Pressable>
       </View>
       <ScrollView
         horizontal
@@ -129,15 +92,15 @@ export default function EventCarousel() {
             }
           >
             {evento.imagem && (
-              <Image 
-                source={{ uri: evento.imagem }} 
+              <Image
+                source={{ uri: evento.imagem }}
                 style={styles.cardImage}
                 resizeMode="cover"
               />
             )}
             <View style={styles.cardContent}>
               <Text style={styles.dataHorario}>
-                {formatarDataHorario(evento)}
+                {formatEventCardDateLine(evento)}
               </Text>
               <Text style={styles.titulo} numberOfLines={2}>
                 {evento.titulo}
@@ -178,7 +141,7 @@ const styles = StyleSheet.create({
   carousel: {
     paddingHorizontal: 24,
     gap: 16,
-    paddingBottom: 8
+    paddingBottom: 8,
   },
   card: {
     backgroundColor: AppColors.background.default,
@@ -226,4 +189,3 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
 });
-

@@ -87,7 +87,7 @@ export default function Header({
             </View>
             
             <View style={styles.badgeContainer}>
-              <PointsBadge points={1250} />
+              <PointsBadge />
             </View>
           </View>
         </View>

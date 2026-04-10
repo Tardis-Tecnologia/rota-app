@@ -14,13 +14,14 @@ export interface AuthUser {
   themeSlug: string | null;
   uf?: string | null;
   govbrSub?: string | null;
+  cpf?: string | null;
 }
 
 interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string, cpf: string) => Promise<void>;
   logout: () => void;
   updateProfile: (payload: UpdateUserProfilePayload) => Promise<void>;
 }
@@ -60,6 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         themeSlug: data.themeSlug ?? null,
         uf: details.uf ?? undefined,
         govbrSub: details.govbrSub ?? undefined,
+        cpf: details.cpf ?? null,
       });
     } catch {
       setUser({
@@ -69,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: profileToRole(data.profile),
         profile: data.profile,
         themeSlug: data.themeSlug ?? null,
+        cpf: undefined,
       });
     }
     try {
@@ -78,8 +81,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const register = useCallback(
-    async (name: string, email: string, password: string): Promise<void> => {
-      await authApi.registerCitizen(name, email, password);
+    async (name: string, email: string, password: string, cpf: string): Promise<void> => {
+      await authApi.registerCitizen(name, email, password, cpf);
     },
     [],
   );
@@ -102,6 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             email: updated.email,
             uf: updated.uf ?? undefined,
             govbrSub: updated.govbrSub ?? undefined,
+            cpf: updated.cpf ?? null,
           }
         : null,
     );

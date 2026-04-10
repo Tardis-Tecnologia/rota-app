@@ -1,5 +1,6 @@
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatCpf, isCpfWith11Digits, onlyCpfDigits } from '@/utils/cpf';
 import { getPasswordPolicyError, PASSWORD_PLACEHOLDER } from '@/utils/passwordPolicy';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -18,12 +19,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type FieldKey = 'name' | 'email' | 'password' | 'confirmPassword';
+type FieldKey = 'name' | 'email' | 'cpf' | 'password' | 'confirmPassword';
 
 export default function RegisterScreen() {
   const { register } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [cpf, setCpf] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldKey, string>>>({});
@@ -51,6 +53,11 @@ export default function RegisterScreen() {
     } else if (!email.trim().includes('@')) {
       next.email = 'O e-mail deve conter @.';
     }
+    if (!cpf.trim()) {
+      next.cpf = 'O CPF é obrigatório.';
+    } else if (!isCpfWith11Digits(cpf)) {
+      next.cpf = 'Informe um CPF com 11 dígitos.';
+    }
     const passwordErr = getPasswordPolicyError(password);
     if (passwordErr) {
       next.password = passwordErr;
@@ -68,7 +75,7 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      await register(name.trim(), email.trim().toLowerCase(), password);
+      await register(name.trim(), email.trim().toLowerCase(), password, onlyCpfDigits(cpf));
       Alert.alert(
         'Cadastro concluído',
         'Sua conta foi criada com sucesso. Faça login com seu e-mail e senha.',
@@ -151,6 +158,27 @@ export default function RegisterScreen() {
               />
               {fieldErrors.email ? (
                 <Text style={styles.fieldErrorText}>{fieldErrors.email}</Text>
+              ) : null}
+
+              <Text style={[styles.label, styles.labelMargin]}>CPF</Text>
+              <TextInput
+                style={[styles.input, fieldErrors.cpf && styles.inputError]}
+                placeholder="000.000.000-00"
+                placeholderTextColor={AppColors.gray[500]}
+                value={cpf}
+                onChangeText={(t) => {
+                  setCpf(formatCpf(t));
+                  clearFieldError('cpf');
+                  setServerError('');
+                }}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="number-pad"
+                maxLength={14}
+                editable={!loading}
+              />
+              {fieldErrors.cpf ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.cpf}</Text>
               ) : null}
 
               <Text style={[styles.label, styles.labelMargin]}>Senha</Text>

@@ -336,11 +336,11 @@ export default function PointsBadge({
                     {currentPoints.toLocaleString('pt-BR')}
                   </Text>
                 </View>
-                {redemptions.length > 0 ? (
+                {/* {redemptions.length > 0 ? (
                   <Text style={styles.balanceStatusText}>
                     {redemptions.length} resgate{redemptions.length > 1 ? 's' : ''} no histórico
                   </Text>
-                ) : null}
+                ) : null} */}
                 {needsCpf ? (
                   <View style={styles.cpfWarningContainer}>
                     <Text style={styles.cpfWarningText}>
@@ -468,18 +468,29 @@ export default function PointsBadge({
                   <View style={styles.historySection}>
                     <Text style={styles.historyTitle}>Histórico de resgates</Text>
                     {redemptions.slice(0, 8).map((item) => {
+                      const rewardFromList = rewards.find((r) => r.id === item.rewardId);
                       const rewardName =
                         item.reward?.name ??
-                        rewards.find((r) => r.id === item.rewardId)?.name ??
+                        rewardFromList?.name ??
                         'Recompensa';
+                      const rawRedeemedValue =
+                        typeof item.value === 'number'
+                          ? item.value
+                          : typeof item.reward?.value === 'number'
+                            ? item.reward.value
+                            : typeof rewardFromList?.value === 'number'
+                              ? rewardFromList.value
+                              : null;
+                      const redeemedValue =
+                        typeof rawRedeemedValue === 'number' ? Math.abs(rawRedeemedValue) : null;
+                      const redeemedLabel =
+                        redeemedValue === null ? '-' : `- ${redeemedValue.toLocaleString('pt-BR')}`;
                       return (
                         <View key={item.id} style={styles.historyItem}>
                           <Text style={styles.historyRewardName} numberOfLines={1}>
                             {rewardName}
                           </Text>
-                          <Text style={styles.historyMeta}>
-                            {formatRedemptionDate(item.createdAt)}
-                          </Text>
+                          <Text style={styles.historyMeta}>{redeemedLabel}</Text>
                         </View>
                       );
                     })}

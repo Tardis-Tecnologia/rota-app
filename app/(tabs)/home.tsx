@@ -1,4 +1,5 @@
 import CityAlerts from '@/components/CityAlerts';
+import CpfRequiredModal from '@/components/CpfRequiredModal';
 import EventCarousel from '@/components/EventCarousel';
 import Header from '@/components/Header';
 import JobSuggestionCard from '@/components/JobSuggestionCard';
@@ -7,9 +8,10 @@ import NewsPosts from '@/components/NewsPosts';
 import OpinionCard from '@/components/OpinionCard';
 import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   FlatList,
   RefreshControl,
@@ -21,9 +23,28 @@ import {
 
 export default function NoticiasScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [showToast, setShowToast] = useState(false);
   const [toastKey, setToastKey] = useState(0);
+  const [cpfNoticeShown, setCpfNoticeShown] = useState(false);
+  const [showCpfModal, setShowCpfModal] = useState(false);
+
+  useEffect(() => {
+    if (!user || cpfNoticeShown) {
+      return;
+    }
+    const cpfKnown = user.cpf !== undefined;
+    if (!cpfKnown) {
+      return;
+    }
+    const hasCpf = Boolean(user.cpf && user.cpf.replace(/\D/g, '').length === 11);
+    if (hasCpf) {
+      return;
+    }
+    setCpfNoticeShown(true);
+    setShowCpfModal(true);
+  }, [cpfNoticeShown, router, user]);
 
   const onRefresh = async (): Promise<void> => {
     setRefreshing(true);
@@ -96,6 +117,14 @@ export default function NoticiasScreen() {
         type="success"
         duration={3000}
         onHide={() => setShowToast(false)}
+      />
+      <CpfRequiredModal
+        visible={showCpfModal}
+        onClose={() => setShowCpfModal(false)}
+        onCompleteProfile={() => {
+          setShowCpfModal(false);
+          router.push('/edit-account');
+        }}
       />
     </View>
   );

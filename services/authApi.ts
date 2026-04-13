@@ -18,6 +18,7 @@ export interface UserSummary {
   profile?: string;
   govbrSub?: string;
   uf?: string;
+  cpf?: string;
 }
 
 let authToken: string | null = null;
@@ -57,6 +58,7 @@ export type UpdateUserProfilePayload = {
   email?: string;
   uf?: string | null;
   govbrSub?: string | null;
+  cpf?: string | null;
 };
 
 export async function updateUserProfile(
@@ -131,17 +133,15 @@ export async function registerCitizen(
   name: string,
   email: string,
   password: string,
-  govbrSub?: string,
+  cpf: string,
 ): Promise<void> {
   const url = `${getApiBaseUrl()}${BASE_PATH}/users/register`;
-  const body: { name: string; email: string; password: string; govbrSub?: string } = {
+  const body: { name: string; email: string; password: string; cpf: string } = {
     name: name.trim(),
     email: email.trim().toLowerCase(),
     password,
+    cpf: cpf.replace(/\D/g, ''),
   };
-  if (govbrSub?.trim()) {
-    body.govbrSub = govbrSub.trim();
-  }
 
   const res = await fetch(url, {
     method: 'POST',

@@ -1,7 +1,10 @@
+import CpfRequiredModal from '@/components/CpfRequiredModal';
+import RewardsModalBody from '@/components/rewards/RewardsModalBody';
+import RewardsModalHeader from '@/components/rewards/RewardsModalHeader';
+import type { CatalogReward, RewardsFilterTab } from '@/types/index';
+import Toast, { type ToastType } from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import CpfRequiredModal from '@/components/CpfRequiredModal';
-import Toast, { type ToastType } from '@/components/Toast';
 import {
   getRewardRedemptions,
   getRewards,
@@ -9,16 +12,19 @@ import {
   redeemReward,
   RewardApiError,
   type RewardRedemptionItem,
-  type RewardItem as ApiRewardItem,
 } from '@/services/rewardService';
+import {
+  filterRewardsByTab,
+  getRequiredBalanceForRedeem,
+  mapRewardFromApi,
+} from '@/utils/rewardHelpers';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
+import { router } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -30,42 +36,11 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-interface Reward {
-  id: string;
-  name: string;
-  description: string;
-  value: number;
-  disabled?: boolean;
-}
+const PAGE_SIZE = 10;
 
 interface PointsBadgeProps {
   points?: number;
   onRedeem?: (rewardId: string, cost: number, newBalance: number) => void;
-}
-
-function mapRewardFromApi(item: ApiRewardItem): Reward {
-  return {
-    id: item.id,
-    name: item.name,
-    description: item.description?.trim() || '',
-    value: item.value,
-  };
-}
-
-function getRequiredBalanceForRedeem(value: number): number {
-  return value < 0 ? Math.abs(value) : 0;
-}
-
-function formatRedemptionDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return '-';
-  }
-  return date.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
 }
 
 export default function PointsBadge({
@@ -76,13 +51,16 @@ export default function PointsBadge({
   const cpfKnown = user?.cpf !== undefined;
   const hasCpf = Boolean(user?.cpf && user.cpf.replace(/\D/g, '').length === 11);
   const needsCpf = cpfKnown && !hasCpf;
+
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [currentPoints, setCurrentPoints] = useState(initialPoints);
   const [isLoadingPoints, setIsLoadingPoints] = useState(false);
   const [pointsError, setPointsError] = useState<string | null>(null);
   const [redeemedRewards, setRedeemedRewards] = useState<Set<string>>(new Set());
-  const [rewards, setRewards] = useState<Reward[]>([]);
+  const [rewards, setRewards] = useState<CatalogReward[]>([]);
   const [isLoadingRewards, setIsLoadingRewards] = useState(false);
+  const [loadingMoreRewards, setLoadingMoreRewards] = useState(false);
+  const [hasMoreRewards, setHasMoreRewards] = useState(false);
   const [rewardsError, setRewardsError] = useState<string | null>(null);
   const [rewardActionError, setRewardActionError] = useState<string | null>(null);
   const [loadingRedeemId, setLoadingRedeemId] = useState<string | null>(null);
@@ -92,6 +70,8 @@ export default function PointsBadge({
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<ToastType>('info');
   const [toastKey, setToastKey] = useState(0);
+  const [rewardsFilterTab, setRewardsFilterTab] = useState<RewardsFilterTab>('disponiveis');
+
   const modalOpacity = useSharedValue(0);
   const modalTranslateY = useSharedValue(300);
 
@@ -124,20 +104,58 @@ export default function PointsBadge({
     }
   };
 
-  const loadRewards = async () => {
+  const rewardsLengthRef = useRef(0);
+  rewardsLengthRef.current = rewards.length;
+
+  const fetchRewardsPage = useCallback(async (offset: number) => {
+    return getRewards({ init: offset, end: offset + PAGE_SIZE });
+  }, []);
+
+  const loadRewards = useCallback(async () => {
     setIsLoadingRewards(true);
     setRewardsError(null);
+    setHasMoreRewards(false);
     try {
-      const apiRewards = await getRewards();
-      setRewards(apiRewards.map(mapRewardFromApi));
+      const list = await fetchRewardsPage(0);
+      const mapped = list.map(mapRewardFromApi);
+      setRewards(mapped);
+      setHasMoreRewards(list.length === PAGE_SIZE);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Não foi possível carregar recompensas';
+      const message =
+        error instanceof Error ? error.message : 'Não foi possível carregar recompensas';
       setRewardsError(message);
       setRewards([]);
+      setHasMoreRewards(false);
     } finally {
       setIsLoadingRewards(false);
     }
-  };
+  }, [fetchRewardsPage]);
+
+  const loadMoreRewards = useCallback(async () => {
+    if (loadingMoreRewards || isLoadingRewards || !hasMoreRewards) return;
+    if (rewardsFilterTab === 'historico') return;
+    setLoadingMoreRewards(true);
+    try {
+      const offset = rewardsLengthRef.current;
+      const list = await fetchRewardsPage(offset);
+      const mapped = list.map(mapRewardFromApi);
+      setRewards((prev) => [...prev, ...mapped]);
+      setHasMoreRewards(list.length === PAGE_SIZE);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Não foi possível carregar mais recompensas';
+      setRewardsError(message);
+      setHasMoreRewards(false);
+    } finally {
+      setLoadingMoreRewards(false);
+    }
+  }, [fetchRewardsPage, hasMoreRewards, isLoadingRewards, loadingMoreRewards, rewardsFilterTab]);
+
+  const handleEndReached = useCallback(() => {
+    if (loadingMoreRewards || isLoadingRewards || !hasMoreRewards) return;
+    if (rewardsFilterTab === 'historico') return;
+    void loadMoreRewards();
+  }, [hasMoreRewards, isLoadingRewards, loadMoreRewards, loadingMoreRewards, rewardsFilterTab]);
 
   const loadRedemptions = async () => {
     if (!user?.id) {
@@ -150,7 +168,6 @@ export default function PointsBadge({
       setRedemptions(data);
       setRedeemedRewards(new Set(data.map((item) => item.rewardId)));
     } catch {
-      // Histórico é complementar neste momento. Não bloqueia a loja.
       setRedemptions([]);
     }
   };
@@ -160,6 +177,7 @@ export default function PointsBadge({
     modalOpacity.value = withTiming(1, { duration: 200 });
     modalTranslateY.value = withTiming(0, { duration: 200 });
     setRewardActionError(null);
+    setRewardsFilterTab('disponiveis');
     void loadRewards();
     void loadPoints(false);
     void loadRedemptions();
@@ -173,6 +191,11 @@ export default function PointsBadge({
     }, 200);
   };
 
+  const filteredRewardsForTab = useMemo(
+    () => filterRewardsByTab(rewards, redeemedRewards, rewardsFilterTab),
+    [rewards, redeemedRewards, rewardsFilterTab],
+  );
+
   const handleRedeem = async (rewardId: string, cost: number) => {
     setRewardActionError(null);
     if (needsCpf) {
@@ -180,12 +203,10 @@ export default function PointsBadge({
       return;
     }
 
-    // Verificar se já foi resgatado
     if (redeemedRewards.has(rewardId)) {
       return;
     }
 
-    // Regra: value negativo só pode quando houver saldo suficiente.
     const requiredBalance = getRequiredBalanceForRedeem(cost);
     if (requiredBalance > 0 && currentPoints < requiredBalance) {
       const message = 'Saldo insuficiente para resgatar esta recompensa.';
@@ -194,8 +215,7 @@ export default function PointsBadge({
       return;
     }
 
-    // Regra de item inativo localmente.
-    const reward = rewards.find(r => r.id === rewardId);
+    const reward = rewards.find((r) => r.id === rewardId);
     if (reward?.disabled) {
       const message = 'Esta recompensa está inativa no momento.';
       setRewardActionError(message);
@@ -243,18 +263,14 @@ export default function PointsBadge({
     }
   };
 
-  const modalAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: modalOpacity.value,
-      transform: [{ translateY: modalTranslateY.value }],
-    };
-  });
+  const modalAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: modalOpacity.value,
+    transform: [{ translateY: modalTranslateY.value }],
+  }));
 
-  const backdropAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: modalOpacity.value * 0.4,
-    };
-  });
+  const backdropAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: modalOpacity.value * 0.4,
+  }));
 
   useEffect(() => {
     void loadPoints();
@@ -262,12 +278,7 @@ export default function PointsBadge({
 
   return (
     <>
-      {/* Badge Button */}
-      <TouchableOpacity
-        onPress={openModal}
-        activeOpacity={0.8}
-        style={styles.badgeContainer}
-      >
+      <TouchableOpacity onPress={openModal} activeOpacity={0.8} style={styles.badgeContainer}>
         <LinearGradient
           colors={['#667eea', '#764ba2']}
           start={{ x: 0, y: 0 }}
@@ -285,222 +296,49 @@ export default function PointsBadge({
         </LinearGradient>
       </TouchableOpacity>
 
-      {/* Modal */}
-      <Modal
-        visible={isModalVisible}
-        transparent
-        animationType="none"
-        onRequestClose={closeModal}
-      >
+      <Modal visible={isModalVisible} transparent animationType="none" onRequestClose={closeModal}>
         <View style={styles.modalContainer}>
-          {/* Backdrop */}
-          <Animated.View
-            style={[styles.backdrop, backdropAnimatedStyle]}
-            pointerEvents="box-none"
-          >
-            <TouchableOpacity
-              style={StyleSheet.absoluteFill}
-              activeOpacity={1}
-              onPress={closeModal}
-            />
+          <Animated.View style={[styles.backdrop, backdropAnimatedStyle]} pointerEvents="box-none">
+            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeModal} />
           </Animated.View>
 
-          {/* Modal Panel */}
           <Animated.View style={[styles.modalPanel, modalAnimatedStyle]}>
-            {/* Header */}
-            <View style={styles.header}>
-              <View style={styles.headerTop}>
-                <Text style={styles.headerTitle}>Loja de Recompensas</Text>
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={closeModal}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name="close"
-                    size={20}
-                    color={AppColors.text.tertiary}
-                  />
-                </TouchableOpacity>
-              </View>
+            <RewardsModalHeader
+              currentPoints={currentPoints}
+              needsCpf={needsCpf}
+              isLoadingPoints={isLoadingPoints}
+              pointsError={pointsError}
+              onClose={closeModal}
+              onRetryLoadPoints={() => {
+                void loadPoints();
+              }}
+              filterTab={rewardsFilterTab}
+              onFilterChange={setRewardsFilterTab}
+            />
 
-              <View style={styles.balanceContainer}>
-                <Text style={styles.balanceLabel}>Seu Saldo</Text>
-                <View style={styles.balanceValue}>
-                  <Ionicons
-                    name="star-outline"
-                    size={20}
-                    color={AppColors.palette.purple.base}
-                  />
-                  <Text style={styles.balanceText}>
-                    {currentPoints.toLocaleString('pt-BR')}
-                  </Text>
-                </View>
-                {/* {redemptions.length > 0 ? (
-                  <Text style={styles.balanceStatusText}>
-                    {redemptions.length} resgate{redemptions.length > 1 ? 's' : ''} no histórico
-                  </Text>
-                ) : null} */}
-                {needsCpf ? (
-                  <View style={styles.cpfWarningContainer}>
-                    <Text style={styles.cpfWarningText}>
-                      Cadastre seu CPF para resgatar recompensas.
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.cpfWarningButton}
-                      onPress={() => router.push('/edit-account')}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.cpfWarningButtonText}>Completar cadastro</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
-                {isLoadingPoints ? (
-                  <Text style={styles.balanceStatusText}>Atualizando saldo...</Text>
-                ) : null}
-                {!isLoadingPoints && pointsError ? (
-                  <View style={styles.pointsErrorContainer}>
-                    <Text style={styles.balanceErrorText}>{pointsError}</Text>
-                    <TouchableOpacity
-                      style={styles.retryPointsButton}
-                      onPress={() => {
-                        void loadPoints();
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.retryPointsButtonText}>Recarregar saldo</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
-              </View>
-            </View>
-
-            {/* Rewards List */}
             <View style={styles.rewardsListContainer}>
-              <ScrollView
-                style={styles.rewardsList}
-                contentContainerStyle={styles.rewardsListContent}
-                showsVerticalScrollIndicator={true}
-                nestedScrollEnabled={true}
-              >
-                {rewardActionError ? (
-                  <View style={styles.feedbackContainer}>
-                    <Text style={styles.feedbackTextError}>{rewardActionError}</Text>
-                  </View>
-                ) : null}
-                {rewards.map((reward) => (
-                  <View key={reward.id} style={styles.rewardCard}>
-                    <View style={styles.rewardInfo}>
-                      <Text style={styles.rewardTitle}>{reward.name}</Text>
-                      {reward.description ? (
-                        <Text style={styles.rewardDescription}>{reward.description}</Text>
-                      ) : null}
-                      <View style={styles.rewardCost}>
-                        <Ionicons
-                          name="star-outline"
-                          size={16}
-                          color={AppColors.palette.purple.base}
-                        />
-                        <Text style={styles.rewardCostText}>
-                          {reward.value.toLocaleString('pt-BR')}
-                        </Text>
-                      </View>
-                    </View>
-                    <TouchableOpacity
-                      style={[
-                        styles.redeemButton,
-                        (reward.disabled ||
-                          redeemedRewards.has(reward.id) ||
-                          loadingRedeemId === reward.id) &&
-                          styles.redeemButtonDisabled,
-                      ]}
-                      onPress={() => {
-                        void handleRedeem(reward.id, reward.value);
-                      }}
-                      disabled={reward.disabled || redeemedRewards.has(reward.id) || loadingRedeemId === reward.id}
-                      activeOpacity={0.7}
-                    >
-                      <Text
-                        style={[
-                          styles.redeemButtonText,
-                          (reward.disabled ||
-                            redeemedRewards.has(reward.id) ||
-                            loadingRedeemId === reward.id) &&
-                            styles.redeemButtonTextDisabled,
-                        ]}
-                      >
-                        {loadingRedeemId === reward.id
-                          ? 'Resgatando...'
-                          : redeemedRewards.has(reward.id)
-                            ? 'Resgatado'
-                            : 'Resgatar'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-                {isLoadingRewards ? (
-                  <View style={styles.feedbackContainer}>
-                    <ActivityIndicator color={AppColors.palette.purple.base} />
-                    <Text style={styles.feedbackText}>Carregando recompensas...</Text>
-                  </View>
-                ) : null}
-                {!isLoadingRewards && rewardsError ? (
-                  <View style={styles.feedbackContainer}>
-                    <Text style={styles.feedbackTextError}>{rewardsError}</Text>
-                    <TouchableOpacity
-                      style={styles.retryButton}
-                      onPress={() => {
-                        void loadRewards();
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.retryButtonText}>Tentar novamente</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
-                {!isLoadingRewards && !rewardsError && rewards.length === 0 ? (
-                  <View style={styles.feedbackContainer}>
-                    <Text style={styles.feedbackText}>Nenhuma recompensa disponível no momento.</Text>
-                  </View>
-                ) : null}
-
-                {redemptions.length > 0 ? (
-                  <View style={styles.historySection}>
-                    <Text style={styles.historyTitle}>Histórico de resgates</Text>
-                    {redemptions.slice(0, 8).map((item) => {
-                      const rewardFromList = rewards.find((r) => r.id === item.rewardId);
-                      const rewardName =
-                        item.reward?.name ??
-                        rewardFromList?.name ??
-                        'Recompensa';
-                      const rawRedeemedValue =
-                        typeof item.value === 'number'
-                          ? item.value
-                          : typeof item.reward?.value === 'number'
-                            ? item.reward.value
-                            : typeof rewardFromList?.value === 'number'
-                              ? rewardFromList.value
-                              : null;
-                      const redeemedValue =
-                        typeof rawRedeemedValue === 'number' ? Math.abs(rawRedeemedValue) : null;
-                      const redeemedLabel =
-                        redeemedValue === null ? '-' : `- ${redeemedValue.toLocaleString('pt-BR')}`;
-                      return (
-                        <View key={item.id} style={styles.historyItem}>
-                          <Text style={styles.historyRewardName} numberOfLines={1}>
-                            {rewardName}
-                          </Text>
-                          <Text style={styles.historyMeta}>{redeemedLabel}</Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                ) : null}
-              </ScrollView>
+              <RewardsModalBody
+                filterTab={rewardsFilterTab}
+                rewardActionError={rewardActionError}
+                redemptions={redemptions}
+                rewards={rewards}
+                filteredRewards={filteredRewardsForTab}
+                redeemedIds={redeemedRewards}
+                loadingRedeemId={loadingRedeemId}
+                isLoadingRewards={isLoadingRewards}
+                rewardsError={rewardsError}
+                loadingMore={loadingMoreRewards}
+                onEndReached={handleEndReached}
+                onRedeem={handleRedeem}
+                onRetryLoadRewards={() => {
+                  void loadRewards();
+                }}
+              />
             </View>
           </Animated.View>
         </View>
       </Modal>
+
       <CpfRequiredModal
         visible={showCpfModal}
         title="CPF obrigatório"
@@ -564,218 +402,8 @@ const styles = StyleSheet.create({
     elevation: 16,
     flexDirection: 'column',
   },
-  header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: AppColors.gray[200],
-    flexShrink: 0,
-  },
   rewardsListContainer: {
     flex: 1,
     minHeight: 0,
   },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: AppColors.text.secondary,
-  },
-  closeButton: {
-    padding: 8,
-    borderRadius: 9999,
-  },
-  balanceContainer: {
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  balanceLabel: {
-    fontSize: 14,
-    color: AppColors.text.tertiary,
-    marginBottom: 4,
-  },
-  balanceValue: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  balanceText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: AppColors.palette.purple.base,
-  },
-  cpfWarningContainer: {
-    marginTop: 8,
-    alignItems: 'center',
-  },
-  cpfWarningText: {
-    fontSize: 12,
-    color: AppColors.status.warning,
-    textAlign: 'center',
-  },
-  cpfWarningButton: {
-    marginTop: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 9999,
-    backgroundColor: AppColors.status.warning,
-  },
-  cpfWarningButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: AppColors.text.white,
-  },
-  balanceStatusText: {
-    marginTop: 6,
-    fontSize: 12,
-    color: AppColors.text.tertiary,
-  },
-  pointsErrorContainer: {
-    marginTop: 6,
-    alignItems: 'center',
-  },
-  balanceErrorText: {
-    fontSize: 12,
-    color: AppColors.status.error,
-    textAlign: 'center',
-  },
-  retryPointsButton: {
-    marginTop: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 9999,
-    backgroundColor: AppColors.palette.purple.base,
-  },
-  retryPointsButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: AppColors.text.white,
-  },
-  rewardsList: {
-    flex: 1,
-  },
-  rewardsListContent: {
-    padding: 16,
-    paddingBottom: 24,
-    gap: 12,
-  },
-  rewardCard: {
-    backgroundColor: AppColors.background.default,
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  rewardInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  rewardTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: AppColors.text.secondary,
-    marginBottom: 4,
-  },
-  rewardDescription: {
-    fontSize: 12,
-    color: AppColors.text.tertiary,
-    marginBottom: 6,
-  },
-  rewardCost: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  rewardCostText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: AppColors.palette.purple.base,
-  },
-  redeemButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 9999,
-    backgroundColor: AppColors.palette.purple.base,
-  },
-  redeemButtonDisabled: {
-    backgroundColor: AppColors.gray[200],
-  },
-  redeemButtonText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: AppColors.text.white,
-  },
-  redeemButtonTextDisabled: {
-    color: AppColors.text.tertiary,
-  },
-  feedbackContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  feedbackText: {
-    fontSize: 14,
-    color: AppColors.text.tertiary,
-    textAlign: 'center',
-  },
-  feedbackTextError: {
-    fontSize: 14,
-    color: AppColors.status.error,
-    textAlign: 'center',
-  },
-  retryButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 9999,
-    backgroundColor: AppColors.palette.purple.base,
-  },
-  retryButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: AppColors.text.white,
-  },
-  historySection: {
-    marginTop: 8,
-    backgroundColor: AppColors.background.default,
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: AppColors.border.muted,
-    gap: 8,
-  },
-  historyTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: AppColors.text.secondary,
-  },
-  historyItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-    paddingVertical: 2,
-  },
-  historyRewardName: {
-    flex: 1,
-    fontSize: 12,
-    color: AppColors.text.secondary,
-  },
-  historyMeta: {
-    fontSize: 12,
-    color: AppColors.text.tertiary,
-    fontWeight: '500',
-  },
 });
-

@@ -169,13 +169,19 @@ export async function getUserRewardPoints(): Promise<UserRewardPoints> {
   return requestApi('/users/reward-points');
 }
 
-export async function getRewards(): Promise<RewardItem[]> {
+export async function getRewards(options?: {
+  init?: number;
+  end?: number;
+  active?: boolean;
+}): Promise<RewardItem[]> {
   const hostId = getConfiguredRewardsHostId();
 
-  const params = new URLSearchParams({
-    hostId,
-    active: String(DEFAULT_ACTIVE_REWARDS),
-  });
+  const params = new URLSearchParams({ hostId });
+  const active =
+    typeof options?.active === 'boolean' ? options.active : DEFAULT_ACTIVE_REWARDS;
+  params.set('active', String(active));
+  if (typeof options?.init === 'number') params.set('init', String(options.init));
+  if (typeof options?.end === 'number') params.set('end', String(options.end));
 
   const data = await requestApi<RewardItem[]>(`/rewards?${params.toString()}`);
   return Array.isArray(data) ? data : [];

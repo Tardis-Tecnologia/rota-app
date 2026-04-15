@@ -105,3 +105,26 @@ export type Profile = {
   gallery: string[];
   muralPosts?: MuralPost[];
 };
+
+export interface CatalogReward {
+  id: string;
+  name: string;
+  description: string;
+  value: number;
+  disabled?: boolean;
+}
+
+export type RewardsFilterTab =
+  | 'disponiveis'
+  | 'resgatados'
+  | 'ganhar'
+  | 'gastar'
+  | 'historico';
+
+export const FILTER_CHIPS: { key: RewardsFilterTab; label: string }[] = [
+  { key: 'disponiveis', label: 'Disponíveis' },
+  { key: 'resgatados', label: 'Resgatados' },
+  { key: 'ganhar', label: 'Ganhar pontos' },
+  { key: 'gastar', label: 'Gastar pontos' },
+  { key: 'historico', label: 'Histórico' },
+];

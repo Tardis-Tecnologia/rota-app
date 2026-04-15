@@ -21,7 +21,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -35,6 +35,8 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+
+const PAGE_SIZE = 10;
 
 interface PointsBadgeProps {
   points?: number;
@@ -57,6 +59,8 @@ export default function PointsBadge({
   const [redeemedRewards, setRedeemedRewards] = useState<Set<string>>(new Set());
   const [rewards, setRewards] = useState<CatalogReward[]>([]);
   const [isLoadingRewards, setIsLoadingRewards] = useState(false);
+  const [loadingMoreRewards, setLoadingMoreRewards] = useState(false);
+  const [hasMoreRewards, setHasMoreRewards] = useState(false);
   const [rewardsError, setRewardsError] = useState<string | null>(null);
   const [rewardActionError, setRewardActionError] = useState<string | null>(null);
   const [loadingRedeemId, setLoadingRedeemId] = useState<string | null>(null);
@@ -100,20 +104,58 @@ export default function PointsBadge({
     }
   };
 
-  const loadRewards = async () => {
+  const rewardsLengthRef = useRef(0);
+  rewardsLengthRef.current = rewards.length;
+
+  const fetchRewardsPage = useCallback(async (offset: number) => {
+    return getRewards({ init: offset, end: offset + PAGE_SIZE });
+  }, []);
+
+  const loadRewards = useCallback(async () => {
     setIsLoadingRewards(true);
     setRewardsError(null);
+    setHasMoreRewards(false);
     try {
-      const apiRewards = await getRewards();
-      setRewards(apiRewards.map(mapRewardFromApi));
+      const list = await fetchRewardsPage(0);
+      const mapped = list.map(mapRewardFromApi);
+      setRewards(mapped);
+      setHasMoreRewards(list.length === PAGE_SIZE);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Não foi possível carregar recompensas';
+      const message =
+        error instanceof Error ? error.message : 'Não foi possível carregar recompensas';
       setRewardsError(message);
       setRewards([]);
+      setHasMoreRewards(false);
     } finally {
       setIsLoadingRewards(false);
     }
-  };
+  }, [fetchRewardsPage]);
+
+  const loadMoreRewards = useCallback(async () => {
+    if (loadingMoreRewards || isLoadingRewards || !hasMoreRewards) return;
+    if (rewardsFilterTab === 'historico') return;
+    setLoadingMoreRewards(true);
+    try {
+      const offset = rewardsLengthRef.current;
+      const list = await fetchRewardsPage(offset);
+      const mapped = list.map(mapRewardFromApi);
+      setRewards((prev) => [...prev, ...mapped]);
+      setHasMoreRewards(list.length === PAGE_SIZE);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Não foi possível carregar mais recompensas';
+      setRewardsError(message);
+      setHasMoreRewards(false);
+    } finally {
+      setLoadingMoreRewards(false);
+    }
+  }, [fetchRewardsPage, hasMoreRewards, isLoadingRewards, loadingMoreRewards, rewardsFilterTab]);
+
+  const handleEndReached = useCallback(() => {
+    if (loadingMoreRewards || isLoadingRewards || !hasMoreRewards) return;
+    if (rewardsFilterTab === 'historico') return;
+    void loadMoreRewards();
+  }, [hasMoreRewards, isLoadingRewards, loadMoreRewards, loadingMoreRewards, rewardsFilterTab]);
 
   const loadRedemptions = async () => {
     if (!user?.id) {
@@ -285,6 +327,8 @@ export default function PointsBadge({
                 loadingRedeemId={loadingRedeemId}
                 isLoadingRewards={isLoadingRewards}
                 rewardsError={rewardsError}
+                loadingMore={loadingMoreRewards}
+                onEndReached={handleEndReached}
                 onRedeem={handleRedeem}
                 onRetryLoadRewards={() => {
                   void loadRewards();

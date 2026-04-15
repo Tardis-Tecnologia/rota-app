@@ -1,6 +1,13 @@
 import { AppColors } from '@/constants/theme';
 import React from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 import type { RewardRedemptionItem } from '@/services/rewardService';
 import type { CatalogReward, RewardsFilterTab } from '../../types/index';
@@ -18,6 +25,8 @@ interface RewardsModalBodyProps {
   loadingRedeemId: string | null;
   isLoadingRewards: boolean;
   rewardsError: string | null;
+  loadingMore: boolean;
+  onEndReached: () => void;
   onRedeem: (rewardId: string, cost: number) => void;
   onRetryLoadRewards: () => void;
 }
@@ -32,82 +41,92 @@ export default function RewardsModalBody({
   loadingRedeemId,
   isLoadingRewards,
   rewardsError,
+  loadingMore,
+  onEndReached,
   onRedeem,
   onRetryLoadRewards,
 }: RewardsModalBodyProps) {
+  const listHeader =
+    filterTab !== 'historico' && rewardActionError ? (
+      <View style={styles.feedback}>
+        <Text style={styles.feedbackError}>{rewardActionError}</Text>
+      </View>
+    ) : null;
+
+  const listFooter =
+    loadingMore ? (
+      <View style={styles.footerLoading}>
+        <ActivityIndicator size="small" color={AppColors.palette.purple.base} />
+        <Text style={styles.footerText}>Carregando…</Text>
+      </View>
+    ) : null;
+
+  const empty =
+    isLoadingRewards ? (
+      <View style={styles.feedback}>
+        <ActivityIndicator color={AppColors.palette.purple.base} />
+        <Text style={styles.feedbackText}>Carregando recompensas...</Text>
+      </View>
+    ) : rewardsError ? (
+      <View style={styles.feedback}>
+        <Text style={styles.feedbackError}>{rewardsError}</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => {
+            void onRetryLoadRewards();
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.retryButtonText}>Tentar novamente</Text>
+        </TouchableOpacity>
+      </View>
+    ) : filterTab === 'historico' ? (
+      <RewardRedemptionHistory redemptions={redemptions} catalog={rewards} />
+    ) : rewards.length === 0 ? (
+      <View style={styles.feedback}>
+        <Text style={styles.feedbackText}>Nenhuma recompensa disponível no momento.</Text>
+      </View>
+    ) : filteredRewards.length === 0 ? (
+      <View style={styles.feedback}>
+        <Text style={styles.feedbackText}>{emptyFilterMessage(filterTab)}</Text>
+      </View>
+    ) : null;
+
   if (filterTab === 'historico') {
     return (
-      <ScrollView
-        style={styles.list}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator
-        nestedScrollEnabled
-      >
-        <RewardRedemptionHistory redemptions={redemptions} catalog={rewards} />
-      </ScrollView>
+      <View style={styles.list}>
+        <FlatList
+          data={[]}
+          renderItem={() => null}
+          ListEmptyComponent={empty ?? <RewardRedemptionHistory redemptions={redemptions} catalog={rewards} />}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator
+        />
+      </View>
     );
   }
 
   return (
-    <ScrollView
-      style={styles.list}
-      contentContainerStyle={styles.listContent}
-      showsVerticalScrollIndicator
-      nestedScrollEnabled
-    >
-      {rewardActionError ? (
-        <View style={styles.feedback}>
-          <Text style={styles.feedbackError}>{rewardActionError}</Text>
-        </View>
-      ) : null}
-
-      {filteredRewards.map((reward) => (
+    <FlatList
+      data={filteredRewards}
+      keyExtractor={(r) => r.id}
+      renderItem={({ item }) => (
         <RewardCatalogCard
-          key={reward.id}
-          reward={reward}
-          isRedeemed={redeemedIds.has(reward.id)}
-          isLoading={loadingRedeemId === reward.id}
+          reward={item}
+          isRedeemed={redeemedIds.has(item.id)}
+          isLoading={loadingRedeemId === item.id}
           onRedeem={onRedeem}
         />
-      ))}
-
-      {isLoadingRewards ? (
-        <View style={styles.feedback}>
-          <ActivityIndicator color={AppColors.palette.purple.base} />
-          <Text style={styles.feedbackText}>Carregando recompensas...</Text>
-        </View>
-      ) : null}
-
-      {!isLoadingRewards && rewardsError ? (
-        <View style={styles.feedback}>
-          <Text style={styles.feedbackError}>{rewardsError}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => {
-              void onRetryLoadRewards();
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.retryButtonText}>Tentar novamente</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
-
-      {!isLoadingRewards && !rewardsError && rewards.length === 0 ? (
-        <View style={styles.feedback}>
-          <Text style={styles.feedbackText}>Nenhuma recompensa disponível no momento.</Text>
-        </View>
-      ) : null}
-
-      {!isLoadingRewards &&
-      !rewardsError &&
-      rewards.length > 0 &&
-      filteredRewards.length === 0 ? (
-        <View style={styles.feedback}>
-          <Text style={styles.feedbackText}>{emptyFilterMessage(filterTab)}</Text>
-        </View>
-      ) : null}
-    </ScrollView>
+      )}
+      ListHeaderComponent={listHeader}
+      ListEmptyComponent={empty}
+      ListFooterComponent={listFooter}
+      onEndReached={onEndReached}
+      onEndReachedThreshold={0.35}
+      contentContainerStyle={styles.listContent}
+      style={styles.list}
+      showsVerticalScrollIndicator
+    />
   );
 }
 
@@ -147,5 +166,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: AppColors.text.white,
+  },
+  footerLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 16,
+  },
+  footerText: {
+    fontSize: 13,
+    color: AppColors.text.tertiary,
   },
 });

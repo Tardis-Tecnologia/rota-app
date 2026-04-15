@@ -1,6 +1,15 @@
+import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
+
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 const BASE_PATH = '/api/v1';
+
+interface LoginResponseBody {
+  token: string;
+  name?: string | null;
+  profile: string;
+  themeSlug?: string | null;
+}
 
 export interface LoginSuccess {
   token: string;
@@ -107,11 +116,27 @@ export async function login(
     throw new Error(parseApiErrorBody(text) || `Erro no login: ${res.status}`);
   }
 
-  const data = (await res.json()) as LoginSuccess;
-  if (!data?.token) {
+  const data = (await res.json()) as LoginResponseBody;
+  if (!data?.token || typeof data.profile !== 'string') {
     throw new Error('Resposta inválida do servidor');
   }
-  return data;
+  let claims;
+  try {
+    claims = parseJwtAccessTokenPayload(data.token);
+  } catch {
+    throw new Error('Token de login inválido');
+  }
+  const userId = (claims.userId ?? claims.sub)?.trim();
+  if (!userId) {
+    throw new Error('Token sem identificação de usuário');
+  }
+  return {
+    token: data.token,
+    userId,
+    name: data.name ?? null,
+    profile: data.profile,
+    themeSlug: data.themeSlug ?? null,
+  };
 }
 
 function parseApiErrorBody(text: string): string {

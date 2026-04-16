@@ -6,6 +6,7 @@ import PlaceDetailsSheet from '@/components/PlaceDetailsSheet';
 import ReportButton, { REPORT_SUBJECT_BY_TYPE, type ReportType } from '@/components/ReportButton';
 import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
+import { useNotificationUnreadCount } from '@/hooks/useNotificationUnreadCount';
 import { placeToPonto } from '@/services/mapPlaceToPonto';
 import { searchNearbyPlaces } from '@/services/placesService';
 import type { Localizacao, PontoInteresse, Region } from '@/types';
@@ -128,6 +129,7 @@ const PONTOS_PADRAO_MARICA: PontoInteresse[] = [
 
 export default function ExplorarScreen() {
   const insets = useSafeAreaInsets();
+  const { unreadCount } = useNotificationUnreadCount();
   const tabBarHeight = useBottomTabBarHeight();
   const mapRef = useRef<MapLibreMapaViewRef | null>(null);
   const [localizacao, setLocalizacao] = useState<Localizacao>(MARICA_CENTER);
@@ -366,6 +368,7 @@ export default function ExplorarScreen() {
           activeItemId={categoriaSelecionada}
           onSelectQuickAccess={(id) => void applyFilterChip(id)}
           filterLoading={filterLoading}
+          hasNotifications={unreadCount > 0}
         />
       </View>
       <ExploreMapControls

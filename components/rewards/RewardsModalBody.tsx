@@ -17,6 +17,7 @@ import RewardRedemptionHistory from './RewardRedemptionHistory';
 
 interface RewardsModalBodyProps {
   filterTab: RewardsFilterTab;
+  currentPoints: number;
   rewardActionError: string | null;
   redemptions: RewardRedemptionItem[];
   rewards: CatalogReward[];
@@ -28,11 +29,13 @@ interface RewardsModalBodyProps {
   loadingMore: boolean;
   onEndReached: () => void;
   onRedeem: (rewardId: string, cost: number) => void;
+  onLockedRewardPress: (reward: CatalogReward) => void;
   onRetryLoadRewards: () => void;
 }
 
 export default function RewardsModalBody({
   filterTab,
+  currentPoints,
   rewardActionError,
   redemptions,
   rewards,
@@ -44,6 +47,7 @@ export default function RewardsModalBody({
   loadingMore,
   onEndReached,
   onRedeem,
+  onLockedRewardPress,
   onRetryLoadRewards,
 }: RewardsModalBodyProps) {
   const listHeader =
@@ -115,6 +119,8 @@ export default function RewardsModalBody({
           reward={item}
           isRedeemed={redeemedIds.has(item.id)}
           isLoading={loadingRedeemId === item.id}
+          canRedeemWithBalance={(item.value ?? 0) >= 0 || Math.abs(item.value ?? 0) <= currentPoints}
+          onLockedPress={onLockedRewardPress}
           onRedeem={onRedeem}
         />
       )}

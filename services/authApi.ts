@@ -1,8 +1,11 @@
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+const HOST_ID = process.env.EXPO_PUBLIC_HOST_ID;
 
 const BASE_PATH = '/api/v1';
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 interface LoginResponseBody {
   token: string;
@@ -68,6 +71,7 @@ export type UpdateUserProfilePayload = {
   uf?: string | null;
   govbrSub?: string | null;
   cpf?: string | null;
+  password?: string;
 };
 
 export async function updateUserProfile(
@@ -161,11 +165,13 @@ export async function registerCitizen(
   cpf: string,
 ): Promise<void> {
   const url = `${getApiBaseUrl()}${BASE_PATH}/users/register`;
-  const body: { name: string; email: string; password: string; cpf: string } = {
+  const hostId = getHostId();
+  const body: { name: string; email: string; password: string; cpf: string; hostId: string } = {
     name: name.trim(),
     email: email.trim().toLowerCase(),
     password,
     cpf: cpf.replace(/\D/g, ''),
+    hostId,
   };
 
   const res = await fetch(url, {
@@ -184,6 +190,16 @@ export async function registerCitizen(
     }
     throw new Error(parseApiErrorBody(text) || `Erro no cadastro: ${res.status}`);
   }
+}
+
+function getHostId(): string {
+  if (!HOST_ID) {
+    throw new Error('EXPO_PUBLIC_HOST_ID não definida');
+  }
+  if (!UUID_REGEX.test(HOST_ID)) {
+    throw new Error('EXPO_PUBLIC_HOST_ID inválida: informe um UUID válido');
+  }
+  return HOST_ID;
 }
 
 export async function forgotPassword(email: string): Promise<{ message: string }> {

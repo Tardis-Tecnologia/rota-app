@@ -29,14 +29,10 @@ export function filterRewardsByTab(
 ): CatalogReward[] {
   const v = (r: CatalogReward) => r.value ?? 0;
   switch (tab) {
-    case 'disponiveis':
-      return rewards.filter((r) => !redeemedIds.has(r.id));
-    case 'resgatados':
-      return rewards.filter((r) => redeemedIds.has(r.id));
+    case 'resgatar':
+      return rewards.filter((r) => !redeemedIds.has(r.id) && v(r) < 0);
     case 'ganhar':
-      return rewards.filter((r) => v(r) > 0);
-    case 'gastar':
-      return rewards.filter((r) => v(r) < 0);
+      return rewards.filter((r) => !redeemedIds.has(r.id) && v(r) > 0);
     default:
       return [];
   }
@@ -60,14 +56,10 @@ export function resolveRedemptionDelta(
 
 export function emptyFilterMessage(tab: RewardsFilterTab): string {
   switch (tab) {
-    case 'disponiveis':
-      return 'Não há recompensas disponíveis para resgatar.';
-    case 'resgatados':
-      return 'Você ainda não resgatou nenhuma recompensa.';
+    case 'resgatar':
+      return 'Não há recompensas de resgate disponíveis no momento.';
     case 'ganhar':
-      return 'Nenhuma recompensa de crédito no catálogo.';
-    case 'gastar':
-      return 'Nenhuma recompensa de débito no catálogo.';
+      return 'Não há opções disponíveis para ganhar pontos no momento.';
     default:
       return '';
   }

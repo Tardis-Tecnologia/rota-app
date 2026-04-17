@@ -1,6 +1,7 @@
 import Toast from '@/components/Toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppColors } from '@/constants/theme';
+import { getPasswordPolicyError, PASSWORD_PLACEHOLDER } from '@/utils/passwordPolicy';
 import { formatCpf, isCpfWith11Digits, onlyCpfDigits } from '@/utils/cpf';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -17,7 +18,14 @@ import {
   View,
 } from 'react-native';
 
-type FieldKey = 'name' | 'email' | 'uf' | 'govbrSub' | 'cpf';
+type FieldKey =
+  | 'name'
+  | 'email'
+  | 'uf'
+  | 'govbrSub'
+  | 'cpf'
+  | 'password'
+  | 'confirmPassword';
 
 export default function EditInfoUser() {
   const { user, updateProfile } = useAuth();
@@ -26,6 +34,10 @@ export default function EditInfoUser() {
   const [uf, setUf] = useState('');
   const [govbrSub, setGovbrSub] = useState('');
   const [cpf, setCpf] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldKey, string>>>({});
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -80,6 +92,17 @@ export default function EditInfoUser() {
     if (ufTrim && ufTrim.length !== 2) {
       next.uf = 'Use a sigla do estado com 2 letras (ex.: SP).';
     }
+    if (password || confirmPassword) {
+      const passwordErr = getPasswordPolicyError(password);
+      if (passwordErr) {
+        next.password = passwordErr;
+      }
+      if (!confirmPassword) {
+        next.confirmPassword = 'Confirme a nova senha.';
+      } else if (password !== confirmPassword) {
+        next.confirmPassword = 'As senhas não coincidem.';
+      }
+    }
 
     setFieldErrors(next);
     if (Object.keys(next).length > 0) {
@@ -94,7 +117,10 @@ export default function EditInfoUser() {
         uf: ufTrim ? ufTrim : null,
         govbrSub: govbrSub.trim() || null,
         cpf: onlyCpfDigits(cpf),
+        password: password || undefined,
       });
+      setPassword('');
+      setConfirmPassword('');
       showSuccessToast();
     } catch (e) {
       const message =
@@ -155,6 +181,9 @@ export default function EditInfoUser() {
             keyboardType="email-address"
             editable={!loading}
           />
+          {fieldErrors.email ? (
+            <Text style={styles.fieldErrorText}>{fieldErrors.email}</Text>
+          ) : null}
           <Text style={[styles.label, styles.labelMargin]}>CPF</Text>
           <TextInput
             style={[styles.input, fieldErrors.cpf && styles.inputError]}
@@ -220,6 +249,82 @@ export default function EditInfoUser() {
               <Text style={styles.errorText}>{serverError}</Text>
             </View>
           ) : null} */}
+
+          <Text style={[styles.label, styles.labelMargin]}>Alterar Senha</Text>
+          <View style={styles.passwordInputWrap}>
+            <TextInput
+              style={[
+                styles.input,
+                styles.inputWithToggle,
+                fieldErrors.password && styles.inputError,
+              ]}
+              placeholder={PASSWORD_PLACEHOLDER}
+              placeholderTextColor={AppColors.gray[500]}
+              value={password}
+              onChangeText={(t) => {
+                setPassword(t);
+                clearFieldError('password');
+                setServerError('');
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              secureTextEntry={!showPassword}
+              editable={!loading}
+            />
+            <TouchableOpacity
+              style={styles.passwordToggleButton}
+              onPress={() => setShowPassword((v) => !v)}
+              disabled={loading}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+                color={AppColors.gray[500]}
+              />
+            </TouchableOpacity>
+          </View>
+          {fieldErrors.password ? (
+            <Text style={styles.fieldErrorText}>{fieldErrors.password}</Text>
+          ) : null}
+
+          <Text style={[styles.label, styles.labelMargin]}>Confirmar nova senha</Text>
+          <View style={styles.passwordInputWrap}>
+            <TextInput
+              style={[
+                styles.input,
+                styles.inputWithToggle,
+                fieldErrors.confirmPassword && styles.inputError,
+              ]}
+              placeholder="Repita a nova senha"
+              placeholderTextColor={AppColors.gray[500]}
+              value={confirmPassword}
+              onChangeText={(t) => {
+                setConfirmPassword(t);
+                clearFieldError('confirmPassword');
+                setServerError('');
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              secureTextEntry={!showConfirmPassword}
+              editable={!loading}
+            />
+            <TouchableOpacity
+              style={styles.passwordToggleButton}
+              onPress={() => setShowConfirmPassword((v) => !v)}
+              disabled={loading}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+                color={AppColors.gray[500]}
+              />
+            </TouchableOpacity>
+          </View>
+          {fieldErrors.confirmPassword ? (
+            <Text style={styles.fieldErrorText}>{fieldErrors.confirmPassword}</Text>
+          ) : null}
 
           {serverError ? (
             <View style={styles.errorWrap}>
@@ -287,6 +392,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: AppColors.text.secondary,
     backgroundColor: AppColors.background.default,
+  },
+  passwordInputWrap: {
+    position: 'relative',
+  },
+  inputWithToggle: {
+    paddingRight: 46,
+  },
+  passwordToggleButton: {
+    position: 'absolute',
+    right: 14,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
   },
   inputError: {
     borderColor: AppColors.status.error,

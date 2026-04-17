@@ -9,6 +9,8 @@ interface RewardCatalogCardProps {
   reward: CatalogReward;
   isRedeemed: boolean;
   isLoading: boolean;
+  canRedeemWithBalance?: boolean;
+  onLockedPress?: (reward: CatalogReward) => void;
   onRedeem: (rewardId: string, value: number) => void;
 }
 
@@ -16,9 +18,17 @@ export default function RewardCatalogCard({
   reward,
   isRedeemed,
   isLoading,
+  canRedeemWithBalance = true,
+  onLockedPress,
   onRedeem,
 }: RewardCatalogCardProps) {
+  const isBalanceBlocked = (reward.value ?? 0) < 0 && !canRedeemWithBalance;
   const disabled = Boolean(reward.disabled) || isRedeemed || isLoading;
+  const buttonLabel = isLoading
+    ? 'Resgatando...'
+    : isRedeemed
+      ? 'Resgatado'
+      : 'Resgatar';
 
   return (
     <View style={styles.card}>
@@ -33,16 +43,33 @@ export default function RewardCatalogCard({
         </View>
       </View>
       <TouchableOpacity
-        style={[styles.button, disabled && styles.buttonDisabled]}
+        style={[
+          styles.button,
+          isBalanceBlocked && styles.buttonLockedIconOnly,
+          isBalanceBlocked && styles.buttonLocked,
+          disabled && styles.buttonDisabled,
+        ]}
         onPress={() => {
+          if (isBalanceBlocked && onLockedPress) {
+            onLockedPress(reward);
+            return;
+          }
           void onRedeem(reward.id, reward.value ?? 0);
         }}
         disabled={disabled}
         activeOpacity={0.7}
       >
-        <Text style={[styles.buttonText, disabled && styles.buttonTextDisabled]}>
-          {isLoading ? 'Resgatando...' : isRedeemed ? 'Resgatado' : 'Resgatar'}
-        </Text>
+        {isBalanceBlocked ? (
+          <Ionicons
+            name="lock-closed"
+            size={16}
+            color={AppColors.text.white}
+          />
+        ) : (
+          <Text style={[styles.buttonText, disabled && styles.buttonTextDisabled]}>
+            {buttonLabel}
+          </Text>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -95,6 +122,17 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     backgroundColor: AppColors.gray[200],
+  },
+  buttonLocked: {
+    backgroundColor: AppColors.gray[500],
+  },
+  buttonLockedIconOnly: {
+    width: 40,
+    height: 40,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   buttonText: {
     fontSize: 14,

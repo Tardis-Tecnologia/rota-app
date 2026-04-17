@@ -115,16 +115,12 @@ export interface CatalogReward {
 }
 
 export type RewardsFilterTab =
-  | 'disponiveis'
-  | 'resgatados'
+  | 'resgatar'
   | 'ganhar'
-  | 'gastar'
   | 'historico';
 
 export const FILTER_CHIPS: { key: RewardsFilterTab; label: string }[] = [
-  { key: 'disponiveis', label: 'Disponíveis' },
-  { key: 'resgatados', label: 'Resgatados' },
-  { key: 'ganhar', label: 'Ganhar pontos' },
-  { key: 'gastar', label: 'Gastar pontos' },
+  { key: 'resgatar', label: 'Resgatar recompensas' },
+  { key: 'ganhar', label: 'Ganhe pontos' },
   { key: 'historico', label: 'Histórico' },
 ];

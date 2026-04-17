@@ -1,4 +1,5 @@
 import { getApiBaseUrl, getAuthToken } from './authApi';
+import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
 
 const BASE_PATH = '/api/v1';
 
@@ -9,6 +10,7 @@ export interface NewsImage {
 }
 
 export interface NewsItem {
+  hostId?: string | null;
   id: string;
   title: string;
   content: string | null;
@@ -22,6 +24,18 @@ export interface NewsItem {
   updatedAt: string;
   tags: string[];
   image?: NewsImage | null;
+}
+
+function newsHostIdFromAuth(): string | null {
+  const token = getAuthToken();
+  if (!token) return null;
+  try {
+    const c = parseJwtAccessTokenPayload(token);
+    const id = c.hostId != null && String(c.hostId).trim() ? String(c.hostId).trim() : null;
+    return id;
+  } catch {
+    return null;
+  }
 }
 
 async function fetchApi<T>(endpoint: string): Promise<T> {
@@ -49,6 +63,8 @@ export async function getNews(options?: {
   if (options?.tag) params.set('tag', options.tag);
   if (typeof options?.init === 'number') params.set('init', String(options.init));
   if (typeof options?.end === 'number') params.set('end', String(options.end));
+  const hostId = newsHostIdFromAuth();
+  if (hostId) params.set('hostId', hostId);
   const qs = params.toString();
   const endpoint = qs ? `/news?${qs}` : '/news';
   const data = await fetchApi<NewsItem[]>(endpoint);
@@ -58,7 +74,9 @@ export async function getNews(options?: {
 
 export async function getNewsById(id: string): Promise<NewsItem | null> {
   try {
-    return await fetchApi<NewsItem>(`/news/${id}`);
+    const hostId = newsHostIdFromAuth();
+    const q = hostId ? `?hostId=${encodeURIComponent(hostId)}` : '';
+    return await fetchApi<NewsItem>(`/news/${id}${q}`);
   } catch {
     return null;
   }

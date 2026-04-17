@@ -1,6 +1,7 @@
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+const PUBLIC_HOST_ID = process.env.EXPO_PUBLIC_HOST_ID?.trim();
 
 const BASE_PATH = '/api/v1';
 
@@ -160,12 +161,22 @@ export async function registerCitizen(
   password: string,
   cpf: string,
 ): Promise<void> {
+  if (!PUBLIC_HOST_ID) {
+    throw new Error('EXPO_PUBLIC_HOST_ID não definida');
+  }
   const url = `${getApiBaseUrl()}${BASE_PATH}/users/register`;
-  const body: { name: string; email: string; password: string; cpf: string } = {
+  const body: {
+    name: string;
+    email: string;
+    password: string;
+    cpf: string;
+    hostId: string;
+  } = {
     name: name.trim(),
     email: email.trim().toLowerCase(),
     password,
     cpf: cpf.replace(/\D/g, ''),
+    hostId: PUBLIC_HOST_ID,
   };
 
   const res = await fetch(url, {

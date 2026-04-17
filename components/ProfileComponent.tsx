@@ -5,7 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
     Image,
     ScrollView,
     StyleSheet,
@@ -71,7 +70,7 @@ export default function ProfileComponent({
             return;
         }
         if (item === 'Ajuda') {
-            Alert.alert(item, 'Esta tela ainda está em desenvolvimento.');
+            router.push('/(tabs)/messages');
             return;
         }
         else if (item === 'Meus Documentos') {

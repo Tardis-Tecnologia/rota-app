@@ -2,7 +2,8 @@ import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { Conversation, useConversations } from '@/contexts/ConversationsContext';
 import { mockSystemConversations } from '@/data/mockConversations';
-import { getApiBaseUrl, getAuthToken } from '@/services/authApi';
+import { getAuthToken, getWhitelabelHostId } from '@/services/authApi';
+import { streamChatUrl } from '@/services/streamChatApi';
 import { streamAndUiDisplayName } from '@/utils/userDisplayName';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -105,7 +106,7 @@ export default function MensagensScreen() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const tokenRes = await fetch(`${getApiBaseUrl()}/api/v1/stream-chat/token`, {
+      const tokenRes = await fetch(streamChatUrl('token'), {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${authToken}`,
@@ -122,8 +123,13 @@ export default function MensagensScreen() {
       const displayName = streamAndUiDisplayName(user);
       await client.connectUser({ id: user.id, name: displayName }, token);
 
+      const hostId = getWhitelabelHostId();
       const channels = await client.queryChannels(
-        { members: { $in: [user.id] } },
+        {
+          type: 'messaging',
+          members: { $in: [user.id] },
+          whitelabel_host_id: hostId,
+        },
         [{ last_message_at: -1 }],
         {
           watch: true,

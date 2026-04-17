@@ -163,7 +163,7 @@ export async function registerCitizen(
   password: string,
   cpf: string,
 ): Promise<void> {
-  const hostId = getHostId();
+  const hostId = getWhitelabelHostId();
   const url = `${getApiBaseUrl()}${BASE_PATH}/users/register`;
   const body: {
     name: string;
@@ -197,7 +197,7 @@ export async function registerCitizen(
   }
 }
 
-function getHostId(): string {
+export function getWhitelabelHostId(): string {
   const raw = process.env.EXPO_PUBLIC_HOST_ID?.trim();
   if (!raw) {
     throw new Error('EXPO_PUBLIC_HOST_ID não definida');

@@ -6,6 +6,7 @@ import PlaceDetailsSheet from '@/components/PlaceDetailsSheet';
 import ReportButton, { REPORT_SUBJECT_BY_TYPE, type ReportType } from '@/components/ReportButton';
 import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
+import { useNotificationUnreadCount } from '@/hooks/useNotificationUnreadCount';
 import { ensureForegroundLocationPermission } from '@/services/locationPermission';
 import { placeToPonto } from '@/services/mapPlaceToPonto';
 import { searchNearbyPlaces } from '@/services/placesService';
@@ -88,6 +89,7 @@ function routeParamToChipId(raw: string): string | undefined {
 }
 
 export default function MapScreen() {
+  const { unreadCount } = useNotificationUnreadCount();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const mapRef = useRef<MapLibreMapaViewRef | null>(null);
@@ -399,6 +401,7 @@ export default function MapScreen() {
           activeItemId={categoriaSelecionada}
           onSelectQuickAccess={(id) => void applyFilterChip(id)}
           filterLoading={filterLoading}
+          hasNotifications={unreadCount > 0}
         />
       </View>
       <ExploreMapControls

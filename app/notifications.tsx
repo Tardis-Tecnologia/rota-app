@@ -1,12 +1,107 @@
-import Notification from '@/components/NotificationComponent';
+import NotificationsList from '@/components/NotificationComponent';
 import { AppColors } from '@/constants/theme';
+import type { NotificationDto } from '@/services/notificationApi';
+import {
+  getNotifications,
+  isNotificationUnreadDto,
+  markNotificationRead,
+  NOTIFICATIONS_PAGE_SIZE,
+} from '@/services/notificationApi';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function NotificationsScreen() {
+  const [items, setItems] = useState<NotificationDto[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const itemsRef = useRef<NotificationDto[]>([]);
+  itemsRef.current = items;
+
+  const load = useCallback(async (mode: 'initial' | 'refresh' | 'append') => {
+    if (mode === 'initial') {
+      setLoading(true);
+    } else if (mode === 'refresh') {
+      setRefreshing(true);
+    } else {
+      setLoadingMore(true);
+    }
+    setError(null);
+    try {
+      const prevLen = mode === 'append' ? itemsRef.current.length : 0;
+      const offset = mode === 'append' ? prevLen : 0;
+      const { items: page, total: totalFromApi } = await getNotifications({
+        init: offset,
+        end: offset + NOTIFICATIONS_PAGE_SIZE,
+      });
+
+      const nextLen = mode === 'append' ? prevLen + page.length : page.length;
+      const more =
+        totalFromApi !== null
+          ? nextLen < totalFromApi
+          : page.length === NOTIFICATIONS_PAGE_SIZE;
+
+      setHasMore(more);
+      if (mode === 'append') {
+        setItems((prev) => [...prev, ...page]);
+      } else {
+        setItems(page);
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Não foi possível carregar as notificações.';
+      setError(message);
+    } finally {
+      if (mode === 'initial') {
+        setLoading(false);
+      } else if (mode === 'refresh') {
+        setRefreshing(false);
+      } else {
+        setLoadingMore(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    void load('initial');
+  }, [load]);
+
+  const onRefresh = useCallback(() => {
+    void load('refresh');
+  }, [load]);
+
+  const onLoadMore = useCallback(() => {
+    if (loading || loadingMore || refreshing || !hasMore) return;
+    void load('append');
+  }, [hasMore, load, loading, loadingMore, refreshing]);
+
+  const onPressItem = useCallback(
+    async (item: NotificationDto) => {
+      if (!isNotificationUnreadDto(item)) return;
+      const optimisticAt = new Date().toISOString();
+      setItems((prev) =>
+        prev.map((n) =>
+          n.id === item.id ? { ...n, isRead: true, readAt: optimisticAt } : n,
+        ),
+      );
+      try {
+        const res = await markNotificationRead(item.id);
+        setItems((prev) =>
+          prev.map((n) =>
+            n.id === item.id ? { ...n, isRead: true, readAt: res.readAt } : n,
+          ),
+        );
+      } catch {
+        await load('refresh');
+      }
+    },
+    [load],
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
@@ -23,7 +118,18 @@ export default function NotificationsScreen() {
         <View style={{ width: 36 }} />
       </View>
 
-      <Notification />
+      <NotificationsList
+        items={items}
+        loading={loading}
+        error={error}
+        refreshing={refreshing}
+        loadingMore={loadingMore}
+        hasMore={hasMore}
+        onRefresh={onRefresh}
+        onLoadMore={onLoadMore}
+        onRetry={() => void load('initial')}
+        onPressItem={onPressItem}
+      />
     </SafeAreaView>
   );
 }
@@ -42,12 +148,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: AppColors.border.muted,
   },
-  headertitle: {
-    textAlign: 'center',
-    fontSize: 18,
-    fontWeight: '700',
-    color: AppColors.text.secondary,
-  },
   backButton: {
     width: 36,
     height: 36,
@@ -64,4 +164,3 @@ const styles = StyleSheet.create({
     color: AppColors.text.secondary,
   },
 });
-

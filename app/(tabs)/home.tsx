@@ -2,6 +2,7 @@ import CityAlerts from '@/components/CityAlerts';
 import CpfRequiredModal from '@/components/CpfRequiredModal';
 import EventCarousel from '@/components/EventCarousel';
 import Header from '@/components/Header';
+import { useNotificationUnreadCount } from '@/hooks/useNotificationUnreadCount';
 import JobSuggestionCard from '@/components/JobSuggestionCard';
 import NewsCarousel from '@/components/NewsCarousel';
 import NewsPosts from '@/components/NewsPosts';
@@ -24,6 +25,7 @@ import {
 export default function NoticiasScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { unreadCount, refresh: refreshUnreadCount } = useNotificationUnreadCount();
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [showToast, setShowToast] = useState(false);
   const [toastKey, setToastKey] = useState(0);
@@ -48,6 +50,7 @@ export default function NoticiasScreen() {
 
   const onRefresh = async (): Promise<void> => {
     setRefreshing(true);
+    void refreshUnreadCount();
     setTimeout(() => {
       setRefreshing(false);
     }, 1000);
@@ -66,7 +69,7 @@ export default function NoticiasScreen() {
   const ListHeader = () => (
     <View>
       {/* Componente Header */}
-      <Header />
+      <Header hasNotifications={unreadCount > 0} />
       {/* Componente Novidades (Carrossel) */}
       <NewsCarousel />
       {/* Componente Alertas da Cidade */}

@@ -19,7 +19,7 @@ interface HeaderProps {
   avatarUrl?: string;
   onNotificationPress?: () => void;
   onProfilePress?: () => void;
-  temNotificacao?: boolean;
+  hasNotifications?: boolean;
 }
 
 export default function Header({
@@ -27,7 +27,7 @@ export default function Header({
   avatarUrl = 'https://i.pravatar.cc/150?u=a042581f4e29026704d',
   onNotificationPress,
   onProfilePress,
-  temNotificacao = true,
+  hasNotifications = false,
 }: HeaderProps) {
   const { backgroundColor: brandColor } = useAppTheme();
   const { user } = useAuth();
@@ -63,7 +63,7 @@ export default function Header({
                 activeOpacity={0.7}
               >
                 <Ionicons name="notifications-outline" size={20} color={AppColors.text.white} />
-                {temNotificacao && (
+                {hasNotifications && (
                   <View style={[styles.notificationDot, { borderColor: brandColor }]} />
                 )}
               </TouchableOpacity>

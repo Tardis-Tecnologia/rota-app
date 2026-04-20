@@ -15,8 +15,6 @@ export interface AuthUser {
   uf?: string | null;
   govbrSub?: string | null;
   cpf?: string | null;
-  /** URL pública da foto de perfil (bucket). */
-  photoUrl?: string | null;
 }
 
 interface AuthContextValue {
@@ -54,7 +52,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role: profileToRole(data.profile),
       profile: data.profile,
       themeSlug: data.themeSlug ?? null,
-      photoUrl: data.photoUrl ?? null,
     };
     setUser(baseUser);
     try {
@@ -69,7 +66,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uf: details.uf ?? undefined,
         govbrSub: details.govbrSub ?? undefined,
         cpf: details.cpf ?? null,
-        photoUrl: details.photoUrl ?? null,
       });
     } catch {
       setUser({
@@ -80,7 +76,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         profile: data.profile,
         themeSlug: data.themeSlug ?? null,
         cpf: undefined,
-        photoUrl: null,
       });
     }
     try {
@@ -127,7 +122,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             uf: updated.uf ?? undefined,
             govbrSub: updated.govbrSub ?? undefined,
             cpf: updated.cpf ?? null,
-            photoUrl: updated.photoUrl !== undefined ? updated.photoUrl : prev.photoUrl,
           }
         : null,
     );

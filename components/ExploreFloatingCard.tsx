@@ -1,5 +1,4 @@
 import { AppColors } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useMemo } from 'react';
@@ -70,8 +69,7 @@ export function ExploreFloatingCard({
   filterLoading = false,
   style,
 }: ExploreFloatingCardProps) {
-  const { user } = useAuth();
-  const resolvedAvatarUri = user?.photoUrl?.trim() || avatarUrl;
+  const resolvedAvatarUri = avatarUrl;
   const items = useMemo(() => quickAccessItems, [quickAccessItems]);
 
   const goSearch = () => {

@@ -32,7 +32,7 @@ export default function Header({
   const { backgroundColor: brandColor } = useAppTheme();
   const { user } = useAuth();
   const displayName = user?.name?.trim() ? user.name : nomeUsuario;
-  const resolvedAvatarUri = user?.photoUrl?.trim() || avatarUrl;
+  const resolvedAvatarUri = avatarUrl;
 
   const handleNotificationPress = () => {
     if (onNotificationPress) {

@@ -65,7 +65,7 @@ export default function ProfileComponent({
       ? streamAndUiDisplayName(user) || nomeUsuario
       : nomeUsuario;
     const displaySubtitle = user ? 'Cidadão' : subtitulo;
-    const resolvedAvatarUri = user?.photoUrl?.trim() || avatarUrl;
+    const resolvedAvatarUri = avatarUrl;
 
     const handleMenuPress = (item: string) => {
         if (item === 'Conta') {
@@ -114,7 +114,7 @@ export default function ProfileComponent({
                         style={styles.cameraButton}
                         activeOpacity={0.8}
                         onPress={() => router.push('/edit-account')}
-                        accessibilityLabel="Alterar foto de perfil"
+                        accessibilityLabel="Alterar foto"
                     >
                         <Ionicons name="camera" size={14} color={AppColors.text.white} />
                     </TouchableOpacity>

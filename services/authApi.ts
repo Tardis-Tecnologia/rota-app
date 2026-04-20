@@ -12,8 +12,6 @@ interface LoginResponseBody {
   name?: string | null;
   profile: string;
   themeSlug?: string | null;
-  photoUrl?: string | null;
-  photo_url?: string | null;
 }
 
 export interface LoginSuccess {
@@ -22,7 +20,6 @@ export interface LoginSuccess {
   name?: string | null;
   profile: string;
   themeSlug: string | null;
-  photoUrl: string | null;
 }
 
 export interface UserSummary {
@@ -34,8 +31,6 @@ export interface UserSummary {
   govbrSub?: string;
   uf?: string;
   cpf?: string;
-  /** URL pública da foto de perfil (ex.: bucket). Aceita `photo_url` na resposta JSON. */
-  photoUrl?: string | null;
 }
 
 let authToken: string | null = null;
@@ -53,16 +48,6 @@ export function getApiBaseUrl(): string {
     throw new Error('EXPO_PUBLIC_API_BASE_URL não definida');
   }
   return API_BASE_URL.replace(/\/$/, '');
-}
-
-function pickPhotoUrl(raw: Record<string, unknown>): string | null | undefined {
-  const v = raw.photoUrl ?? raw.photo_url;
-  if (v === null) return null;
-  if (typeof v === 'string') {
-    const t = v.trim();
-    return t.length ? t : null;
-  }
-  return undefined;
 }
 
 function mapUserSummary(raw: unknown): UserSummary {
@@ -84,7 +69,6 @@ function mapUserSummary(raw: unknown): UserSummary {
           : undefined,
     uf: typeof r.uf === 'string' ? r.uf : undefined,
     cpf: typeof r.cpf === 'string' ? r.cpf : undefined,
-    photoUrl: pickPhotoUrl(r),
   };
 }
 
@@ -180,7 +164,6 @@ export async function login(
     name: data.name ?? null,
     profile: data.profile,
     themeSlug: data.themeSlug ?? null,
-    photoUrl: pickPhotoUrl(data as unknown as Record<string, unknown>) ?? null,
   };
 }
 

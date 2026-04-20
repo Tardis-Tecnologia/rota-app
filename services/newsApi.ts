@@ -20,6 +20,8 @@ export interface NewsItem {
   imageId: string | null;
   createdBy?: string | null;
   updatedBy?: string | null;
+  creatorName?: string | null;
+  creatorPhotoUrl?: string | null;
   createdAt: string;
   updatedAt: string;
   tags: string[];
@@ -124,21 +126,6 @@ export function mapNewsItemFeedCategory(item: NewsItem): 'noticias' | 'obras' | 
   return mapCategoryFromTags(item.tags) ?? mapCategoryFromField(item.category);
 }
 
-function parseCreatedBy(createdBy: string | null | undefined): { autor: string; username?: string } {
-  const raw = (createdBy ?? '').trim();
-  if (!raw) return { autor: 'Prefeitura' };
-
-  const [namePartRaw, userPartRaw] = raw.split('|', 2);
-  const autor = (namePartRaw ?? '').trim() || 'Prefeitura';
-
-  const userPart = (userPartRaw ?? '').trim();
-  if (!userPart) return { autor };
-
-  const username = userPart.startsWith('@') ? userPart : `@${userPart}`;
-  return { autor, username };
-}
-
-
 export function newsItemToPost(item: NewsItem): {
   id: string;
   autor: string;
@@ -156,11 +143,12 @@ export function newsItemToPost(item: NewsItem): {
 } {
   const dateStr = item.publishedAt || item.createdAt;
   const conteudo = [item.title, item.content].filter(Boolean).join('\n\n') || item.title;
-  const createdByParsed = parseCreatedBy(item.createdBy);
+  const autor = item.creatorName?.trim() || 'Prefeitura';
+  const avatar = item.creatorPhotoUrl?.trim() || AVATAR_PLACEHOLDER;
   return {
     id: item.id,
-    autor: createdByParsed.autor,
-    avatar: AVATAR_PLACEHOLDER,
+    autor,
+    avatar,
     data: formatTimeAgo(dateStr),
     conteudo,
     imagem: item.image?.id ? `${getApiBaseUrl()}/api/v1/upload/files/${item.image.id}` : null,
@@ -168,7 +156,6 @@ export function newsItemToPost(item: NewsItem): {
     comentarios: 0,
     compartilhamentos: 0,
     curtido: false,
-    ...(createdByParsed.username ? { username: createdByParsed.username } : {}),
     tipo: 'post',
     categoria: mapNewsItemFeedCategory(item),
   };

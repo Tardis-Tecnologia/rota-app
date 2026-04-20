@@ -1,19 +1,30 @@
 import { AppColors } from '@/constants/theme';
+import { getNews, NEWS_FEED_TAG, newsItemToPost } from '@/services/newsApi';
 import { FeedFilter, Post } from '@/types';
 import { Feather } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Image,
-  ListRenderItem,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    ListRenderItem,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { getNews, NEWS_FEED_TAG, newsItemToPost } from '@/services/newsApi';
+
+function dedupePostsById(posts: Post[]): Post[] {
+  const seen = new Set<string>();
+  const out: Post[] = [];
+  for (const p of posts) {
+    if (seen.has(p.id)) continue;
+    seen.add(p.id);
+    out.push(p);
+  }
+  return out;
+}
 
 interface NewsPostsProps {
   filter?: FeedFilter;
@@ -32,6 +43,7 @@ export default function NewsPosts({ filter = 'todos', maxItems, listHeader }: Ne
   const [error, setError] = useState<string | null>(null);
   const postsLengthRef = useRef(0);
   postsLengthRef.current = posts.length;
+  const loadMoreInFlightRef = useRef(false);
 
   const feedTag = useMemo(() => {
     if (filter === 'todos') return undefined;
@@ -55,7 +67,7 @@ export default function NewsPosts({ filter = 'todos', maxItems, listHeader }: Ne
     setError(null);
     try {
       const list = await fetchPage(0);
-      const mapped: Post[] = list.map(newsItemToPost);
+      const mapped: Post[] = dedupePostsById(list.map(newsItemToPost));
       setPosts(mapped);
       setHasMore(!isPreview && list.length === pageSize);
     } catch (e) {
@@ -69,26 +81,32 @@ export default function NewsPosts({ filter = 'todos', maxItems, listHeader }: Ne
   }, [fetchPage, isPreview, pageSize]);
 
   const loadMorePosts = useCallback(async () => {
-    if (isPreview || loadingMore || !hasMore || loading) return;
+    if (isPreview || !hasMore || loading || loadMoreInFlightRef.current) return;
+    loadMoreInFlightRef.current = true;
     setLoadingMore(true);
     try {
       const offset = postsLengthRef.current;
       const list = await fetchPage(offset);
       const mapped: Post[] = list.map(newsItemToPost);
-      setPosts((prev) => [...prev, ...mapped]);
+      setPosts((prev) => {
+        const existing = new Set(prev.map((p) => p.id));
+        const onlyNew = mapped.filter((p) => !existing.has(p.id));
+        return dedupePostsById([...prev, ...onlyNew]);
+      });
       setHasMore(list.length === pageSize);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Não foi possível carregar mais notícias.';
       Alert.alert('Erro', message);
     } finally {
+      loadMoreInFlightRef.current = false;
       setLoadingMore(false);
     }
-  }, [fetchPage, hasMore, isPreview, loading, loadingMore, pageSize]);
+  }, [fetchPage, hasMore, isPreview, loading, pageSize]);
 
   const handleEndReached = useCallback(() => {
-    if (isPreview || loadingMore || !hasMore || loading) return;
+    if (isPreview || loadMoreInFlightRef.current || !hasMore || loading) return;
     void loadMorePosts();
-  }, [isPreview, loadingMore, hasMore, loading, loadMorePosts]);
+  }, [isPreview, hasMore, loading, loadMorePosts]);
 
   useEffect(() => {
     loadPosts();

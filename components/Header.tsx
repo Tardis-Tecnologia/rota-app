@@ -32,6 +32,7 @@ export default function Header({
   const { backgroundColor: brandColor } = useAppTheme();
   const { user } = useAuth();
   const displayName = user?.name?.trim() ? user.name : nomeUsuario;
+  const resolvedAvatarUri = user?.photoUrl?.trim() || avatarUrl;
 
   const handleNotificationPress = () => {
     if (onNotificationPress) {
@@ -63,9 +64,7 @@ export default function Header({
                 activeOpacity={0.7}
               >
                 <Ionicons name="notifications-outline" size={20} color={AppColors.text.white} />
-                {hasNotifications && (
-                  <View style={[styles.notificationDot, { borderColor: brandColor }]} />
-                )}
+                {hasNotifications ? <View style={styles.notificationDot} /> : null}
               </TouchableOpacity>
 
             <TouchableOpacity
@@ -80,7 +79,7 @@ export default function Header({
               activeOpacity={0.7}
             >
               <Image
-                source={{ uri: avatarUrl }}
+                source={{ uri: resolvedAvatarUri }}
                 style={styles.avatar}
               />
             </TouchableOpacity>
@@ -164,8 +163,9 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: AppColors.status.error,
+    backgroundColor: AppColors.status.success,
     borderWidth: 2,
+    borderColor: AppColors.text.white,
   },
   avatarButton: {
     width: 36,

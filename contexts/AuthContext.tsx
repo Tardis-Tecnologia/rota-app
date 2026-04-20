@@ -1,6 +1,6 @@
 import { refreshAppThemeAfterLogin } from '@/services/appThemeBridge';
-import * as authApi from '@/services/authApi';
 import type { UpdateUserProfilePayload } from '@/services/authApi';
+import * as authApi from '@/services/authApi';
 import React, { createContext, useCallback, useContext, useState } from 'react';
 
 export type UserRole = 'client';
@@ -15,6 +15,7 @@ export interface AuthUser {
   uf?: string | null;
   govbrSub?: string | null;
   cpf?: string | null;
+  photoUrl?: string | null;
 }
 
 interface AuthContextValue {
@@ -24,6 +25,7 @@ interface AuthContextValue {
   register: (name: string, email: string, password: string, cpf: string) => Promise<void>;
   logout: () => void;
   updateProfile: (payload: UpdateUserProfilePayload) => Promise<void>;
+  uploadProfilePhoto: (uri: string, options?: { mimeType?: string; fileName?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -31,6 +33,11 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 function profileToRole(profile: string): UserRole {
   if (profile === 'CIDADAO') return 'client';
   return 'client';
+}
+
+function withPhotoCacheBust(url: string): string {
+  const key = `v=${Date.now()}`;
+  return url.includes('?') ? `${url}&${key}` : `${url}?${key}`;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -48,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role: profileToRole(data.profile),
       profile: data.profile,
       themeSlug: data.themeSlug ?? null,
+      photoUrl: data.photoUrl ?? null,
     };
     setUser(baseUser);
     try {
@@ -62,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uf: details.uf ?? undefined,
         govbrSub: details.govbrSub ?? undefined,
         cpf: details.cpf ?? null,
+        photoUrl: details.photoUrl ?? null,
       });
     } catch {
       setUser({
@@ -72,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         profile: data.profile,
         themeSlug: data.themeSlug ?? null,
         cpf: undefined,
+        photoUrl: data.photoUrl ?? null,
       });
     }
     try {
@@ -92,6 +102,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
+  const uploadProfilePhoto = useCallback(
+    async (uri: string, options?: { mimeType?: string; fileName?: string }): Promise<void> => {
+      if (!user?.id) {
+        throw new Error('Não autenticado');
+      }
+      const result = await authApi.uploadMyProfilePhotoFromUri(uri, options);
+      setUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              photoUrl: withPhotoCacheBust(result.photoUrl),
+            }
+          : prev,
+      );
+    },
+    [user?.id],
+  );
+
   const updateProfile = useCallback(async (payload: UpdateUserProfilePayload): Promise<void> => {
     if (!user?.id) {
       throw new Error('Não autenticado');
@@ -106,6 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             uf: updated.uf ?? undefined,
             govbrSub: updated.govbrSub ?? undefined,
             cpf: updated.cpf ?? null,
+            photoUrl: updated.photoUrl !== undefined ? updated.photoUrl : prev.photoUrl,
           }
         : null,
     );
@@ -118,6 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     register,
     logout,
     updateProfile,
+    uploadProfilePhoto,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

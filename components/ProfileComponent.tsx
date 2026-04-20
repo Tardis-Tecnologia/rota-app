@@ -1,6 +1,6 @@
+import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { streamAndUiDisplayName } from '@/utils/userDisplayName';
-import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
@@ -63,6 +63,7 @@ export default function ProfileComponent({
     const [showCurriculoModal, setShowCurriculoModal] = useState(false);
     const displayName = user ? streamAndUiDisplayName(user) || nomeUsuario : nomeUsuario;
     const displaySubtitle = user ? 'Cidadão' : subtitulo;
+    const resolvedAvatarUri = user?.photoUrl?.trim() || avatarUrl;
 
     const handleMenuPress = (item: string) => {
         if (item === 'Conta') {
@@ -106,8 +107,13 @@ export default function ProfileComponent({
             {/* Profile Picture */}
             <View style={styles.profileSection}>
                 <View style={styles.avatarContainer}>
-                    <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-                    <TouchableOpacity style={styles.cameraButton} activeOpacity={0.8}>
+                    <Image source={{ uri: resolvedAvatarUri }} style={styles.avatar} />
+                    <TouchableOpacity
+                      style={styles.cameraButton}
+                      activeOpacity={0.8}
+                      onPress={() => router.push('/edit-account')}
+                      accessibilityLabel="Alterar foto de perfil"
+                    >
                         <Ionicons name="camera" size={14} color={AppColors.text.white} />
                     </TouchableOpacity>
                 </View>

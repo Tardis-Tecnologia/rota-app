@@ -1,13 +1,16 @@
 import Toast from '@/components/Toast';
-import { useAuth } from '@/contexts/AuthContext';
 import { AppColors } from '@/constants/theme';
-import { getPasswordPolicyError, PASSWORD_PLACEHOLDER } from '@/utils/passwordPolicy';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatCpf, isCpfWith11Digits, onlyCpfDigits } from '@/utils/cpf';
+import { getPasswordPolicyError, PASSWORD_PLACEHOLDER } from '@/utils/passwordPolicy';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -28,7 +31,7 @@ type FieldKey =
   | 'confirmPassword';
 
 export default function EditInfoUser() {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, uploadProfilePhoto } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [uf, setUf] = useState('');
@@ -41,8 +44,12 @@ export default function EditInfoUser() {
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldKey, string>>>({});
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastKey, setToastKey] = useState(0);
+
+  const DEFAULT_AVATAR =
+    'https://i.pravatar.cc/150?u=a042581f4e29026704d';
 
   const showSuccessToast = useCallback(() => {
     setShowToast(false);
@@ -61,6 +68,76 @@ export default function EditInfoUser() {
     setGovbrSub(user.govbrSub ?? '');
     setCpf(formatCpf(user.cpf ?? ''));
   }, [user]);
+
+  const applyAvatarFromUri = useCallback(
+    async (uri: string, mimeType?: string | null, fileName?: string | null) => {
+      setPhotoUploading(true);
+      setServerError('');
+      try {
+        await uploadProfilePhoto(uri, {
+          mimeType: mimeType ?? undefined,
+          fileName: fileName ?? undefined,
+        });
+        showSuccessToast();
+      } catch (e) {
+        const message =
+          e instanceof Error ? e.message : 'Não foi possível atualizar a foto. Tente novamente.';
+        setServerError(message);
+      } finally {
+        setPhotoUploading(false);
+      }
+    },
+    [uploadProfilePhoto, showSuccessToast],
+  );
+
+  const pickFromGallery = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permissão necessária',
+        'Para escolher uma foto, permita o acesso à galeria nas configurações do aparelho.',
+      );
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    const asset = result.assets?.[0];
+    if (!result.canceled && asset?.uri) {
+      await applyAvatarFromUri(asset.uri, asset.mimeType ?? null, asset.fileName ?? null);
+    }
+  }, [applyAvatarFromUri]);
+
+  const takePhoto = useCallback(async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permissão necessária',
+        'Para tirar uma foto, permita o uso da câmera nas configurações do aparelho.',
+      );
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    const asset = result.assets?.[0];
+    if (!result.canceled && asset?.uri) {
+      await applyAvatarFromUri(asset.uri, asset.mimeType ?? null, asset.fileName ?? null);
+    }
+  }, [applyAvatarFromUri]);
+
+  const onPressChangePhoto = useCallback(() => {
+    Alert.alert('Foto de perfil', 'Escolha uma opção', [
+      { text: 'Galeria', onPress: () => void pickFromGallery() },
+      { text: 'Câmera', onPress: () => void takePhoto() },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  }, [pickFromGallery, takePhoto]);
 
   const clearFieldError = (key: FieldKey) => {
     setFieldErrors((prev) => {
@@ -147,6 +224,31 @@ export default function EditInfoUser() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.form}>
+          <View style={styles.photoSection}>
+            <View style={styles.photoAvatarWrap}>
+              <Image
+                source={{ uri: user.photoUrl?.trim() || DEFAULT_AVATAR }}
+                style={styles.photoAvatar}
+              />
+              {photoUploading ? (
+                <View style={styles.photoLoadingOverlay}>
+                  <ActivityIndicator color={AppColors.text.white} />
+                </View>
+              ) : null}
+            </View>
+            <View style={styles.photoActions}>
+              <TouchableOpacity
+                style={styles.photoButton}
+                onPress={onPressChangePhoto}
+                disabled={photoUploading || loading}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="camera-outline" size={18} color={AppColors.accent} />
+                <Text style={[styles.photoButtonText, styles.photoButtonTextSpacing]}>Alterar foto</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           <Text style={styles.label}>Nome</Text>
           <TextInput
             style={[styles.input, fieldErrors.name && styles.inputError]}
@@ -373,6 +475,50 @@ const styles = StyleSheet.create({
   form: {
     paddingHorizontal: 24,
     paddingTop: 8,
+  },
+  photoSection: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  photoAvatarWrap: {
+    position: 'relative',
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    overflow: 'hidden',
+    backgroundColor: AppColors.gray[200],
+  },
+  photoAvatar: {
+    width: '100%',
+    height: '100%',
+  },
+  photoLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoActions: {
+    marginTop: 14,
+    alignItems: 'center',
+  },
+  photoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: AppColors.accent,
+    backgroundColor: AppColors.background.default,
+  },
+  photoButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: AppColors.accent,
+  },
+  photoButtonTextSpacing: {
+    marginLeft: 8,
   },
   label: {
     fontSize: 14,

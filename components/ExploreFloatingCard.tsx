@@ -1,16 +1,17 @@
 import { AppColors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useMemo } from 'react';
 import {
-  ActivityIndicator,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  ViewStyle,
+    ActivityIndicator,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+    ViewStyle,
 } from 'react-native';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -69,6 +70,8 @@ export function ExploreFloatingCard({
   filterLoading = false,
   style,
 }: ExploreFloatingCardProps) {
+  const { user } = useAuth();
+  const resolvedAvatarUri = user?.photoUrl?.trim() || avatarUrl;
   const items = useMemo(() => quickAccessItems, [quickAccessItems]);
 
   const goSearch = () => {
@@ -99,7 +102,7 @@ export function ExploreFloatingCard({
             onPress={() => onPressProfile?.() ?? router.push('/Profile')}
             activeOpacity={0.7}
           >
-            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+            <Image source={{ uri: resolvedAvatarUri }} style={styles.avatar} />
           </TouchableOpacity>
         </View>
       </View>
@@ -219,7 +222,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: AppColors.status.error,
+    backgroundColor: AppColors.status.success,
     borderWidth: 2,
     borderColor: AppColors.background.default,
   },

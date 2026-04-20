@@ -32,6 +32,7 @@ export default function Header({
   const { backgroundColor: brandColor } = useAppTheme();
   const { user } = useAuth();
   const displayName = user?.name?.trim() ? user.name : nomeUsuario;
+  const resolvedAvatarUri = user?.photoUrl?.trim() || avatarUrl;
 
   const handleNotificationPress = () => {
     if (onNotificationPress) {
@@ -80,7 +81,7 @@ export default function Header({
               activeOpacity={0.7}
             >
               <Image
-                source={{ uri: avatarUrl }}
+                source={{ uri: resolvedAvatarUri }}
                 style={styles.avatar}
               />
             </TouchableOpacity>
@@ -186,4 +187,3 @@ const styles = StyleSheet.create({
     height: '100%',
   },
 });
-

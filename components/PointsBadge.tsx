@@ -86,7 +86,6 @@ export default function PointsBadge({
     useState<PendingRedeemConfirmation | null>(null);
   const [insufficientBalanceInfo, setInsufficientBalanceInfo] =
     useState<InsufficientBalanceInfo | null>(null);
-
   const modalOpacity = useSharedValue(0);
   const modalTranslateY = useSharedValue(300);
 

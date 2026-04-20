@@ -9,7 +9,7 @@ import NewsPosts from '@/components/NewsPosts';
 import OpinionCard from '@/components/OpinionCard';
 import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
+import { GUEST_USER_ID, useAuth } from '@/contexts/AuthContext';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -33,7 +33,7 @@ export default function NoticiasScreen() {
   const [showCpfModal, setShowCpfModal] = useState(false);
 
   useEffect(() => {
-    if (!user || cpfNoticeShown) {
+    if (!user || user.id === GUEST_USER_ID || cpfNoticeShown) {
       return;
     }
     const cpfKnown = user.cpf !== undefined;

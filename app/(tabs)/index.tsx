@@ -6,6 +6,7 @@ export default function Index() {
   if (!user) {
     return <Redirect href="/(auth)/login" />;
   }
+  /** Logado ou visitante: ambos usam as abas. */
   return <Redirect href="/(tabs)/home" />;
 }
 

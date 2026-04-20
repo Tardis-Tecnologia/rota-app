@@ -12,6 +12,8 @@ interface LoginResponseBody {
   name?: string | null;
   profile: string;
   themeSlug?: string | null;
+  photoUrl?: string | null;
+  photo_url?: string | null;
 }
 
 export interface LoginSuccess {
@@ -20,6 +22,7 @@ export interface LoginSuccess {
   name?: string | null;
   profile: string;
   themeSlug: string | null;
+  photoUrl: string | null;
 }
 
 export interface UserSummary {
@@ -31,6 +34,8 @@ export interface UserSummary {
   govbrSub?: string;
   uf?: string;
   cpf?: string;
+  /** URL pública da foto de perfil (ex.: bucket). Aceita `photo_url` na resposta JSON. */
+  photoUrl?: string | null;
 }
 
 let authToken: string | null = null;
@@ -50,6 +55,39 @@ export function getApiBaseUrl(): string {
   return API_BASE_URL.replace(/\/$/, '');
 }
 
+function pickPhotoUrl(raw: Record<string, unknown>): string | null | undefined {
+  const v = raw.photoUrl ?? raw.photo_url;
+  if (v === null) return null;
+  if (typeof v === 'string') {
+    const t = v.trim();
+    return t.length ? t : null;
+  }
+  return undefined;
+}
+
+function mapUserSummary(raw: unknown): UserSummary {
+  if (!raw || typeof raw !== 'object') {
+    throw new Error('Resposta inválida do servidor');
+  }
+  const r = raw as Record<string, unknown>;
+  return {
+    id: String(r.id ?? ''),
+    name: String(r.name ?? ''),
+    email: String(r.email ?? ''),
+    active: Boolean(r.active),
+    profile: typeof r.profile === 'string' ? r.profile : undefined,
+    govbrSub:
+      typeof r.govbrSub === 'string'
+        ? r.govbrSub
+        : typeof r.govbr_sub === 'string'
+          ? r.govbr_sub
+          : undefined,
+    uf: typeof r.uf === 'string' ? r.uf : undefined,
+    cpf: typeof r.cpf === 'string' ? r.cpf : undefined,
+    photoUrl: pickPhotoUrl(r),
+  };
+}
+
 export async function getUserById(userId: string): Promise<UserSummary> {
   const url = `${getApiBaseUrl()}${BASE_PATH}/users/${encodeURIComponent(userId)}`;
   const headers: Record<string, string> = {
@@ -62,7 +100,8 @@ export async function getUserById(userId: string): Promise<UserSummary> {
     const text = await res.text().catch(() => '');
     throw new Error(text || `Erro ao buscar usuário: ${res.status}`);
   }
-  return (await res.json()) as UserSummary;
+  const raw = await res.json();
+  return mapUserSummary(raw);
 }
 
 export type UpdateUserProfilePayload = {
@@ -94,7 +133,8 @@ export async function updateUserProfile(
     const text = await res.text().catch(() => '');
     throw new Error(parseApiErrorBody(text) || `Erro ao atualizar perfil: ${res.status}`);
   }
-  return (await res.json()) as UserSummary;
+  const raw = await res.json();
+  return mapUserSummary(raw);
 }
 
 export async function login(
@@ -140,6 +180,7 @@ export async function login(
     name: data.name ?? null,
     profile: data.profile,
     themeSlug: data.themeSlug ?? null,
+    photoUrl: pickPhotoUrl(data as unknown as Record<string, unknown>) ?? null,
   };
 }
 

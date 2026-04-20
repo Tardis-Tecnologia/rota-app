@@ -1,4 +1,5 @@
 import { AppColors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useMemo } from 'react';
@@ -69,6 +70,8 @@ export function ExploreFloatingCard({
   filterLoading = false,
   style,
 }: ExploreFloatingCardProps) {
+  const { user } = useAuth();
+  const resolvedAvatarUri = user?.photoUrl?.trim() || avatarUrl;
   const items = useMemo(() => quickAccessItems, [quickAccessItems]);
 
   const goSearch = () => {
@@ -96,10 +99,12 @@ export function ExploreFloatingCard({
 
           <TouchableOpacity
             style={styles.profileButton}
-            onPress={() => onPressProfile?.() ?? router.push('/Profile')}
+            onPress={() => {
+              onPressProfile?.() ?? router.push('/Profile');
+            }}
             activeOpacity={0.7}
           >
-            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+            <Image source={{ uri: resolvedAvatarUri }} style={styles.avatar} />
           </TouchableOpacity>
         </View>
       </View>

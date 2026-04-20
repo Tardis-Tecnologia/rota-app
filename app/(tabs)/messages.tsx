@@ -1,5 +1,5 @@
 import { AppColors } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
+import { GUEST_USER_ID, useAuth } from '@/contexts/AuthContext';
 import { Conversation, useConversations } from '@/contexts/ConversationsContext';
 import { mockSystemConversations } from '@/data/mockConversations';
 import { getApiBaseUrl, getAuthToken } from '@/services/authApi';
@@ -90,7 +90,7 @@ export default function MensagensScreen() {
   );
 
   const loadStreamConversations = useCallback(async () => {
-    if (!user?.id) {
+    if (!user?.id || user.id === GUEST_USER_ID) {
       setConversations([]);
       return;
     }

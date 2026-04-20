@@ -1,5 +1,5 @@
 import { AppColors } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
+import { GUEST_USER_ID, useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -17,14 +17,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
-  const { user, login } = useAuth();
+  const { user, login, enterAsGuest } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) {
+    if (user && user.id !== GUEST_USER_ID) {
       router.replace('/(tabs)/home');
     }
   }, [user]);
@@ -143,6 +143,21 @@ export default function LoginScreen() {
                     <Text style={styles.buttonText}>Entrar</Text>
                   </>
                 )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.guestButton, loading && styles.buttonDisabled]}
+                onPress={() => {
+                  enterAsGuest();
+                  router.replace('/(tabs)/home');
+                }}
+                activeOpacity={0.85}
+                disabled={loading}
+              >
+                <Ionicons name="eye-outline" size={20} color={AppColors.primary} />
+                <Text style={[styles.guestButtonText, styles.guestButtonTextSpacing]}>
+                  Entrar como visitante
+                </Text>
               </TouchableOpacity>
 
               <View style={styles.footer}>
@@ -291,6 +306,26 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.75,
+  },
+  guestButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginTop: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 102, 204, 0.35)',
+    backgroundColor: AppColors.background.default,
+  },
+  guestButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: AppColors.primary,
+    letterSpacing: 0.2,
+  },
+  guestButtonTextSpacing: {
+    marginLeft: 8,
   },
   buttonText: {
     fontSize: 16,

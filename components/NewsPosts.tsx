@@ -1,19 +1,19 @@
 import { AppColors } from '@/constants/theme';
+import { getNews, NEWS_FEED_TAG, newsItemToPost } from '@/services/newsApi';
 import { FeedFilter, Post } from '@/types';
 import { Feather } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Image,
-  ListRenderItem,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    ListRenderItem,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { getNews, NEWS_FEED_TAG, newsItemToPost } from '@/services/newsApi';
 
 interface NewsPostsProps {
   filter?: FeedFilter;
@@ -29,7 +29,6 @@ export default function NewsPosts({ filter = 'todos', maxItems, listHeader }: Ne
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const postsLengthRef = useRef(0);
   postsLengthRef.current = posts.length;
 
@@ -52,15 +51,12 @@ export default function NewsPosts({ filter = 'todos', maxItems, listHeader }: Ne
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const list = await fetchPage(0);
       const mapped: Post[] = list.map(newsItemToPost);
       setPosts(mapped);
       setHasMore(!isPreview && list.length === pageSize);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : 'Não foi possível carregar as notícias.';
-      setError(message);
+    } catch {
       setPosts([]);
       setHasMore(false);
     } finally {
@@ -77,9 +73,8 @@ export default function NewsPosts({ filter = 'todos', maxItems, listHeader }: Ne
       const mapped: Post[] = list.map(newsItemToPost);
       setPosts((prev) => [...prev, ...mapped]);
       setHasMore(list.length === pageSize);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : 'Não foi possível carregar mais notícias.';
-      Alert.alert('Erro', message);
+    } catch {
+      /* falha silenciosa — lista já exibida */
     } finally {
       setLoadingMore(false);
     }
@@ -209,22 +204,15 @@ export default function NewsPosts({ filter = 'todos', maxItems, listHeader }: Ne
         </View>
       );
     }
-    if (error) {
-      return (
-        <View style={styles.feedEmptyBlock}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadPosts} activeOpacity={0.8}>
-            <Text style={styles.retryButtonText}>Tentar novamente</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
     return (
       <View style={styles.feedEmptyBlock}>
-        <Text style={styles.emptyText}>Nenhuma notícia no momento.</Text>
+        <Text style={styles.emptyTitle}>Notícias não encontradas</Text>
+        <Text style={styles.emptySubtitle}>
+          Tente outro filtro, volte mais tarde ou puxe para atualizar.
+        </Text>
       </View>
     );
-  }, [loading, loadingMore, error, loadPosts]);
+  }, [loading, loadingMore]);
 
   if (isPreview) {
     if (loading) {
@@ -235,21 +223,13 @@ export default function NewsPosts({ filter = 'todos', maxItems, listHeader }: Ne
       );
     }
 
-    if (error) {
-      return (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadPosts} activeOpacity={0.8}>
-            <Text style={styles.retryButtonText}>Tentar novamente</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
     if (posts.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>Nenhuma notícia no momento.</Text>
+          <Text style={styles.emptyTitle}>Notícias não encontradas</Text>
+          <Text style={styles.emptySubtitle}>
+            Tente outro filtro, volte mais tarde ou puxe para atualizar.
+          </Text>
         </View>
       );
     }
@@ -335,35 +315,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  errorContainer: {
-    padding: 24,
-    alignItems: 'center',
-    minHeight: 120,
-  },
-  errorText: {
-    fontSize: 14,
-    color: AppColors.status.error,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  retryButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: AppColors.primary,
-    borderRadius: 12,
-  },
-  retryButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
   emptyContainer: {
     padding: 32,
     alignItems: 'center',
   },
-  emptyText: {
-    fontSize: 15,
-    color: AppColors.gray[500],
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: AppColors.text.secondary,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    marginTop: 6,
+    fontSize: 13,
+    color: AppColors.text.tertiary,
+    textAlign: 'center',
+    paddingHorizontal: 8,
   },
   postsContainer: {
     gap: 16,

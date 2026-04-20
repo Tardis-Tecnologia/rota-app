@@ -139,13 +139,18 @@ export function newsItemToPost(item: NewsItem): {
   const dateStr = item.publishedAt || item.createdAt;
   const conteudo = [item.title, item.content].filter(Boolean).join('\n\n') || item.title;
   const createdByParsed = parseCreatedBy(item.createdBy);
+  const imagem =
+    item.image?.publicUrl?.trim() ||
+    (item.image?.id
+      ? `${getApiBaseUrl()}/api/v1/upload/files/${item.image.id}`
+      : null);
   return {
     id: item.id,
     autor: createdByParsed.autor,
     avatar: AVATAR_PLACEHOLDER,
     data: formatTimeAgo(dateStr),
     conteudo,
-    imagem: item.image?.id ? `${getApiBaseUrl()}/api/v1/upload/files/${item.image.id}` : null,
+    imagem,
     curtidas: 0,
     comentarios: 0,
     compartilhamentos: 0,

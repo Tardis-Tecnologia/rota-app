@@ -15,6 +15,8 @@ export interface AuthUser {
   uf?: string | null;
   govbrSub?: string | null;
   cpf?: string | null;
+  /** URL pública da foto de perfil (bucket). */
+  photoUrl?: string | null;
 }
 
 interface AuthContextValue {
@@ -22,9 +24,13 @@ interface AuthContextValue {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, cpf: string) => Promise<void>;
+  enterAsGuest: () => void;
   logout: () => void;
   updateProfile: (payload: UpdateUserProfilePayload) => Promise<void>;
 }
+
+/** Id sintético da sessão "Entrar como visitante" (sem JWT). */
+export const GUEST_USER_ID = '__guest__';
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -48,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role: profileToRole(data.profile),
       profile: data.profile,
       themeSlug: data.themeSlug ?? null,
+      photoUrl: data.photoUrl ?? null,
     };
     setUser(baseUser);
     try {
@@ -62,6 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uf: details.uf ?? undefined,
         govbrSub: details.govbrSub ?? undefined,
         cpf: details.cpf ?? null,
+        photoUrl: details.photoUrl ?? null,
       });
     } catch {
       setUser({
@@ -72,6 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         profile: data.profile,
         themeSlug: data.themeSlug ?? null,
         cpf: undefined,
+        photoUrl: null,
       });
     }
     try {
@@ -87,13 +96,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const enterAsGuest = useCallback(() => {
+    authApi.setAuthToken(null);
+    setUser({
+      id: GUEST_USER_ID,
+      email: '',
+      name: 'Visitante',
+      role: 'client',
+      profile: 'VISITANTE',
+      themeSlug: null,
+    });
+  }, []);
+
   const logout = useCallback(() => {
     authApi.setAuthToken(null);
     setUser(null);
   }, []);
 
   const updateProfile = useCallback(async (payload: UpdateUserProfilePayload): Promise<void> => {
-    if (!user?.id) {
+    if (!user?.id || user.id === GUEST_USER_ID) {
       throw new Error('Não autenticado');
     }
     const updated = await authApi.updateUserProfile(user.id, payload);
@@ -106,6 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             uf: updated.uf ?? undefined,
             govbrSub: updated.govbrSub ?? undefined,
             cpf: updated.cpf ?? null,
+            photoUrl: updated.photoUrl !== undefined ? updated.photoUrl : prev.photoUrl,
           }
         : null,
     );
@@ -116,6 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading,
     login,
     register,
+    enterAsGuest,
     logout,
     updateProfile,
   };

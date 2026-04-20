@@ -1,8 +1,10 @@
 import { getApiBaseUrl, getAuthToken } from './authApi';
 
 const BASE_PATH = '/api/v1';
+const PUBLIC_HOST_ID = process.env.EXPO_PUBLIC_HOST_ID?.trim();
 
 export interface EmergencyAlertItem {
+  hostId?: string | null;
   id: string;
   title: string;
   description: string | null;
@@ -13,8 +15,16 @@ export interface EmergencyAlertItem {
   updatedBy: string | null;
 }
 
+function appendHostId(path: string): string {
+  if (!PUBLIC_HOST_ID) {
+    throw new Error('EXPO_PUBLIC_HOST_ID não definida');
+  }
+  const join = path.includes('?') ? '&' : '?';
+  return `${path}${join}hostId=${encodeURIComponent(PUBLIC_HOST_ID)}`;
+}
+
 async function fetchEmergencyAlerts(endpoint: string): Promise<EmergencyAlertItem[]> {
-  const url = `${getApiBaseUrl()}${BASE_PATH}${endpoint}`;
+  const url = `${getApiBaseUrl()}${BASE_PATH}${appendHostId(endpoint)}`;
   const headers: Record<string, string> = { Accept: 'application/json' };
   const token = getAuthToken();
   if (token) headers.Authorization = `Bearer ${token}`;

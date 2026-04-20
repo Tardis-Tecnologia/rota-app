@@ -3,7 +3,8 @@ import { chatCopy } from '@/constants/chatCopy';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConversations } from '@/contexts/ConversationsContext';
 import { getChatResponseConfig } from '@/data/chatResponses';
-import { getApiBaseUrl, getAuthToken } from '@/services/authApi';
+import { getApiBaseUrl, getAuthToken, getWhitelabelHostId } from '@/services/authApi';
+import { streamChatUrl } from '@/services/streamChatApi';
 import { streamAndUiDisplayName } from '@/utils/userDisplayName';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -41,7 +42,10 @@ async function requestSupportHandoff(
   if (!authToken) {
     return { ok: false, message: errCopy.sessionRequiredForAttendant };
   }
-  const body: Record<string, string> = { name: handoffChannelName };
+  const body: Record<string, string> = {
+    name: handoffChannelName,
+    hostId: getWhitelabelHostId(),
+  };
   if (agendamento) {
     body.agendamentoEspecialidade = agendamento.especialidade.slice(0, 200);
     body.agendamentoCpf = agendamento.cpf.replace(/\D/g, '').slice(0, 14);
@@ -76,7 +80,9 @@ async function postWaitMessage(channelType: string, channelId: string): Promise<
   if (!authToken) return;
   try {
     await fetch(
-      `${getApiBaseUrl()}/api/v1/stream-chat/${encodeURIComponent(channelType)}/${encodeURIComponent(channelId)}/messages`,
+      streamChatUrl(
+        `${encodeURIComponent(channelType)}/${encodeURIComponent(channelId)}/messages`,
+      ),
       {
         method: 'POST',
         headers: {
@@ -170,7 +176,7 @@ export default function ChatTab() {
       throw new Error(errCopy.noUser);
     }
 
-    const tokenRes = await fetch(`${getApiBaseUrl()}/api/v1/stream-chat/token`, {
+    const tokenRes = await fetch(streamChatUrl('token'), {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${authToken}`,
@@ -291,7 +297,9 @@ export default function ChatTab() {
     if (!authToken) {
       throw new Error(errCopy.sessionRequired);
     }
-    const url = `${getApiBaseUrl()}/api/v1/stream-chat/${encodeURIComponent(streamChannelInfo.channelType)}/${encodeURIComponent(streamChannelInfo.channelId)}`;
+    const url = streamChatUrl(
+      `${encodeURIComponent(streamChannelInfo.channelType)}/${encodeURIComponent(streamChannelInfo.channelId)}`,
+    );
     const res = await fetch(url, {
       method: 'DELETE',
       headers: {

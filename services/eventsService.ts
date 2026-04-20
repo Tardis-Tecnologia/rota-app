@@ -1,6 +1,7 @@
 import { getApiBaseUrl, getAuthToken } from './authApi';
 
 const BASE_PATH = '/api/v1';
+const PUBLIC_HOST_ID = process.env.EXPO_PUBLIC_HOST_ID?.trim();
 
 export interface EventImage {
   id: string;
@@ -9,6 +10,7 @@ export interface EventImage {
 }
 
 export interface EventItem {
+  hostId?: string | null;
   id: string;
   title: string;
   description: string | null;
@@ -32,6 +34,9 @@ export interface EventItem {
 }
 
 async function fetchApi<T>(endpoint: string): Promise<T> {
+  if (!PUBLIC_HOST_ID) {
+    throw new Error('EXPO_PUBLIC_HOST_ID não definida');
+  }
   const url = `${getApiBaseUrl()}${BASE_PATH}${endpoint}`;
   const headers: Record<string, string> = { Accept: 'application/json' };
   const token = getAuthToken();
@@ -41,6 +46,11 @@ async function fetchApi<T>(endpoint: string): Promise<T> {
     throw new Error(`Erro ao carregar eventos: ${res.status}`);
   }
   return res.json();
+}
+
+function appendHostIdToEventsPath(path: string): string {
+  const join = path.includes('?') ? '&' : '?';
+  return `${path}${join}hostId=${encodeURIComponent(PUBLIC_HOST_ID!)}`;
 }
 
 export async function getEvents(options?: {
@@ -72,14 +82,17 @@ export async function getEvents(options?: {
   if (options?.locationName) params.set('locationName', options.locationName);
   if (options?.title) params.set('title', options.title);
   const qs = params.toString();
-  const endpoint = qs ? `/events?${qs}` : '/events';
+  const path = qs ? `/events?${qs}` : '/events';
+  const endpoint = appendHostIdToEventsPath(path);
   const data = await fetchApi<EventItem[]>(endpoint);
   return Array.isArray(data) ? data : [];
 }
 
 export async function getEventById(id: string): Promise<EventItem | null> {
   try {
-    return await fetchApi<EventItem>(`/events/${encodeURIComponent(id)}`);
+    return await fetchApi<EventItem>(
+      appendHostIdToEventsPath(`/events/${encodeURIComponent(id)}`),
+    );
   } catch {
     return null;
   }

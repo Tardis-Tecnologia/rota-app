@@ -1,7 +1,6 @@
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
-const HOST_ID = process.env.EXPO_PUBLIC_HOST_ID;
 
 const BASE_PATH = '/api/v1';
 const UUID_REGEX =
@@ -250,9 +249,15 @@ export async function registerCitizen(
   password: string,
   cpf: string,
 ): Promise<void> {
+  const hostId = getWhitelabelHostId();
   const url = `${getApiBaseUrl()}${BASE_PATH}/users/register`;
-  const hostId = getHostId();
-  const body: { name: string; email: string; password: string; cpf: string; hostId: string } = {
+  const body: {
+    name: string;
+    email: string;
+    password: string;
+    cpf: string;
+    hostId: string;
+  } = {
     name: name.trim(),
     email: email.trim().toLowerCase(),
     password,
@@ -278,14 +283,15 @@ export async function registerCitizen(
   }
 }
 
-function getHostId(): string {
-  if (!HOST_ID) {
+export function getWhitelabelHostId(): string {
+  const raw = process.env.EXPO_PUBLIC_HOST_ID?.trim();
+  if (!raw) {
     throw new Error('EXPO_PUBLIC_HOST_ID não definida');
   }
-  if (!UUID_REGEX.test(HOST_ID)) {
+  if (!UUID_REGEX.test(raw)) {
     throw new Error('EXPO_PUBLIC_HOST_ID inválida: informe um UUID válido');
   }
-  return HOST_ID;
+  return raw;
 }
 
 export async function forgotPassword(email: string): Promise<{ message: string }> {

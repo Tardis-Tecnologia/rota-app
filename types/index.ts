@@ -33,6 +33,7 @@ export interface Post {
   compartilhamentos: number;
   curtido: boolean;
   username?: string; // @pref_cidade
+  createdByUserId?: string | null;
   tipo?: 'post' | 'alerta'; // Tipo do post
   titulo?: string; // Para alertas
   categoria: Exclude<FeedFilter, 'todos'>;

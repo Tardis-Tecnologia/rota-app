@@ -19,6 +19,8 @@ export interface NewsItem {
   publishedAt: string | null;
   imageId: string | null;
   createdBy?: string | null;
+  creatorName?: string | null;
+  creatorPhotoUrl?: string | null;
   updatedBy?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -124,20 +126,36 @@ export function mapNewsItemFeedCategory(item: NewsItem): 'noticias' | 'obras' | 
   return mapCategoryFromTags(item.tags) ?? mapCategoryFromField(item.category);
 }
 
-function parseCreatedBy(createdBy: string | null | undefined): { autor: string; username?: string } {
+
+const NOTICIA_AUTOR_EXIBICAO = 'Prefeito';
+
+const CREATED_BY_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function extractCreatorUserId(createdBy: string | null | undefined): string | null {
   const raw = (createdBy ?? '').trim();
-  if (!raw) return { autor: 'Prefeitura' };
-
-  const [namePartRaw, userPartRaw] = raw.split('|', 2);
-  const autor = (namePartRaw ?? '').trim() || 'Prefeitura';
-
-  const userPart = (userPartRaw ?? '').trim();
-  if (!userPart) return { autor };
-
-  const username = userPart.startsWith('@') ? userPart : `@${userPart}`;
-  return { autor, username };
+  if (!raw) return null;
+  const first = raw.split('|', 2)[0]?.trim() ?? '';
+  if (first && CREATED_BY_UUID_RE.test(first)) return first;
+  return null;
 }
 
+function optionalUsernameFromCreatedBy(createdBy: string | null | undefined): string | undefined {
+  const raw = (createdBy ?? '').trim();
+  if (!raw) return undefined;
+  const userPart = (raw.split('|', 2)[1] ?? '').trim();
+  if (!userPart) return undefined;
+  return userPart.startsWith('@') ? userPart : `@${userPart}`;
+}
+
+function newsItemImageUri(item: NewsItem): string | null {
+  const direct = item.image?.publicUrl?.trim();
+  if (direct) return direct;
+  if (item.image?.id) {
+    return `${getApiBaseUrl()}/api/v1/upload/files/${item.image.id}`;
+  }
+  return null;
+}
 
 export function newsItemToPost(item: NewsItem): {
   id: string;
@@ -151,24 +169,31 @@ export function newsItemToPost(item: NewsItem): {
   compartilhamentos: number;
   curtido: boolean;
   username?: string;
+  createdByUserId?: string | null;
   tipo: 'post';
   categoria: 'noticias' | 'obras' | 'lazer';
 } {
   const dateStr = item.publishedAt || item.createdAt;
   const conteudo = [item.title, item.content].filter(Boolean).join('\n\n') || item.title;
-  const createdByParsed = parseCreatedBy(item.createdBy);
+  const createdByUserId = extractCreatorUserId(item.createdBy);
+  const username = optionalUsernameFromCreatedBy(item.createdBy);
+  const photo = item.creatorPhotoUrl?.trim();
+  const avatar =
+    photo && photo.length > 0 ? photo : AVATAR_PLACEHOLDER;
+
   return {
     id: item.id,
-    autor: createdByParsed.autor,
-    avatar: AVATAR_PLACEHOLDER,
+    autor: NOTICIA_AUTOR_EXIBICAO,
+    avatar,
     data: formatTimeAgo(dateStr),
     conteudo,
-    imagem: item.image?.id ? `${getApiBaseUrl()}/api/v1/upload/files/${item.image.id}` : null,
+    imagem: newsItemImageUri(item),
     curtidas: 0,
     comentarios: 0,
     compartilhamentos: 0,
     curtido: false,
-    ...(createdByParsed.username ? { username: createdByParsed.username } : {}),
+    ...(username ? { username } : {}),
+    ...(createdByUserId ? { createdByUserId } : {}),
     tipo: 'post',
     categoria: mapNewsItemFeedCategory(item),
   };

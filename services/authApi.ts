@@ -244,6 +244,7 @@ export async function login(
 }
 
 export async function loginWithGoogle(idToken: string): Promise<GoogleLoginSuccess> {
+  const hostId = getWhitelabelHostId();
   const url = `${getApiBaseUrl()}${BASE_PATH}/auth/google-login`;
   const res = await fetch(url, {
     method: 'POST',
@@ -251,7 +252,7 @@ export async function loginWithGoogle(idToken: string): Promise<GoogleLoginSucce
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
-    body: JSON.stringify({ idToken }),
+    body: JSON.stringify({ idToken, hostId }),
   });
 
   if (!res.ok) {
@@ -270,14 +271,27 @@ export async function loginWithGoogle(idToken: string): Promise<GoogleLoginSucce
       ? (raw.user as Record<string, unknown>)
       : (raw as Record<string, unknown>);
 
+  let userId = String(userRaw.id ?? '').trim();
+  if (!userId) {
+    try {
+      const claims = parseJwtAccessTokenPayload(token);
+      userId = String((claims.userId ?? claims.sub) ?? '').trim();
+    } catch {
+      // ignore and fallback to empty string
+    }
+  }
+
   return {
     token,
     user: {
-      id: String(userRaw.id ?? ''),
-      email: String(userRaw.email ?? '').trim().toLowerCase(),
-      name: String(userRaw.name ?? '').trim(),
-      profile: String(userRaw.profile ?? 'CIDADAO'),
-      themeSlug: (userRaw.themeSlug as string | null | undefined) ?? null,
+      id: userId,
+      email: String(userRaw.email ?? raw.email ?? '').trim().toLowerCase(),
+      name: String(userRaw.name ?? raw.name ?? '').trim(),
+      profile: String(userRaw.profile ?? raw.profile ?? 'CIDADAO'),
+      themeSlug:
+        (userRaw.themeSlug as string | null | undefined) ??
+        (raw.themeSlug as string | null | undefined) ??
+        null,
       uf: (userRaw.uf as string | null | undefined) ?? undefined,
       govbrSub:
         (userRaw.govbrSub as string | null | undefined) ??

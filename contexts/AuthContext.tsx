@@ -1,7 +1,9 @@
 import { refreshAppThemeAfterLogin } from '@/services/appThemeBridge';
+import { clearAuthSession, getAuthSession, saveAuthSession } from '@/services/authSessionStore';
+import { disconnectGoogleAccount } from '@/services/googleAuth';
 import type { UpdateUserProfilePayload } from '@/services/authApi';
 import * as authApi from '@/services/authApi';
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 export type UserRole = 'client';
 
@@ -22,8 +24,9 @@ interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithSession: (session: { token: string; user: Partial<AuthUser> }) => Promise<void>;
   register: (name: string, email: string, password: string, cpf: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   updateProfile: (payload: UpdateUserProfilePayload) => Promise<void>;
   uploadProfilePhoto: (uri: string, options?: { mimeType?: string; fileName?: string }) => Promise<void>;
 }
@@ -42,13 +45,35 @@ function withPhotoCacheBust(url: string): string {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    const restoreSession = async () => {
+      try {
+        const session = await getAuthSession();
+        if (!mounted || !session) return;
+        authApi.setAuthToken(session.token);
+        setUser(session.user);
+      } catch {
+        // Se não conseguir ler sessão antiga, app segue como deslogado.
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+    void restoreSession();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const login = useCallback(async (email: string, password: string): Promise<void> => {
     const data = await authApi.login(email, password);
     authApi.setAuthToken(data.token);
     const emailNorm = email.trim().toLowerCase();
-    const baseUser: AuthUser = {
+    let nextUser: AuthUser = {
       id: data.userId,
       email: emailNorm,
       name: data.name?.trim() || '',
@@ -57,10 +82,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       themeSlug: data.themeSlug ?? null,
       photoUrl: data.photoUrl ?? null,
     };
-    setUser(baseUser);
+    setUser(nextUser);
     try {
       const details = await authApi.getUserById(data.userId);
-      setUser({
+      nextUser = {
         id: data.userId,
         email: details.email,
         name: (details.name ?? '').trim(),
@@ -71,9 +96,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         govbrSub: details.govbrSub ?? undefined,
         cpf: details.cpf ?? null,
         photoUrl: details.photoUrl ?? null,
-      });
+      };
+      setUser(nextUser);
     } catch {
-      setUser({
+      nextUser = {
         id: data.userId,
         email: email.trim().toLowerCase(),
         name: '',
@@ -82,13 +108,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         themeSlug: data.themeSlug ?? null,
         cpf: undefined,
         photoUrl: data.photoUrl ?? null,
-      });
+      };
+      setUser(nextUser);
+    }
+    try {
+      await saveAuthSession({ token: data.token, user: nextUser });
+    } catch {
     }
     try {
       await refreshAppThemeAfterLogin();
     } catch {
     }
   }, []);
+
+  const loginWithSession = useCallback(
+    async (session: { token: string; user: Partial<AuthUser> }): Promise<void> => {
+      authApi.setAuthToken(session.token);
+      const baseUser: AuthUser = {
+        id: String(session.user.id ?? ''),
+        email: String(session.user.email ?? '').trim().toLowerCase(),
+        name: String(session.user.name ?? '').trim(),
+        role: profileToRole(String(session.user.profile ?? 'CIDADAO')),
+        profile: String(session.user.profile ?? 'CIDADAO'),
+        themeSlug: session.user.themeSlug ?? null,
+        uf: session.user.uf ?? undefined,
+        govbrSub: session.user.govbrSub ?? undefined,
+        cpf: session.user.cpf ?? undefined,
+        photoUrl: session.user.photoUrl ?? null,
+      };
+      setUser(baseUser);
+      try {
+        await saveAuthSession({ token: session.token, user: baseUser });
+      } catch {
+      }
+      try {
+        await refreshAppThemeAfterLogin();
+      } catch {
+      }
+    },
+    [],
+  );
 
   const register = useCallback(
     async (name: string, email: string, password: string, cpf: string): Promise<void> => {
@@ -97,9 +156,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     authApi.setAuthToken(null);
     setUser(null);
+    try {
+      await clearAuthSession();
+    } catch {
+    }
+    await disconnectGoogleAccount();
   }, []);
 
   const uploadProfilePhoto = useCallback(
@@ -144,6 +208,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     isLoading,
     login,
+    loginWithSession,
     register,
     logout,
     updateProfile,

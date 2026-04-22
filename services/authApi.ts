@@ -24,6 +24,21 @@ export interface LoginSuccess {
   photoUrl: string | null;
 }
 
+export interface GoogleLoginSuccess {
+  token: string;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    profile: string;
+    themeSlug: string | null;
+    uf?: string | null;
+    govbrSub?: string | null;
+    cpf?: string | null;
+    photoUrl?: string | null;
+  };
+}
+
 export interface UserSummary {
   id: string;
   name: string;
@@ -225,6 +240,52 @@ export async function login(
     profile: data.profile,
     themeSlug: data.themeSlug ?? null,
     photoUrl: pickPhotoUrl(data as unknown as Record<string, unknown>) ?? null,
+  };
+}
+
+export async function loginWithGoogle(idToken: string): Promise<GoogleLoginSuccess> {
+  const url = `${getApiBaseUrl()}${BASE_PATH}/auth/google-login`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ idToken }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(parseApiErrorBody(text) || `Erro no login com Google: ${res.status}`);
+  }
+
+  const raw = (await res.json()) as Record<string, unknown>;
+  const token = String(raw.accessToken ?? raw.token ?? '').trim();
+  if (!token) {
+    throw new Error('Resposta inválida no login com Google: token ausente');
+  }
+
+  const userRaw =
+    raw.user && typeof raw.user === 'object'
+      ? (raw.user as Record<string, unknown>)
+      : (raw as Record<string, unknown>);
+
+  return {
+    token,
+    user: {
+      id: String(userRaw.id ?? ''),
+      email: String(userRaw.email ?? '').trim().toLowerCase(),
+      name: String(userRaw.name ?? '').trim(),
+      profile: String(userRaw.profile ?? 'CIDADAO'),
+      themeSlug: (userRaw.themeSlug as string | null | undefined) ?? null,
+      uf: (userRaw.uf as string | null | undefined) ?? undefined,
+      govbrSub:
+        (userRaw.govbrSub as string | null | undefined) ??
+        (userRaw.govbr_sub as string | null | undefined) ??
+        undefined,
+      cpf: (userRaw.cpf as string | null | undefined) ?? undefined,
+      photoUrl: pickPhotoUrl(userRaw) ?? null,
+    },
   };
 }
 

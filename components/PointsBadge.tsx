@@ -5,13 +5,14 @@ import Toast, { type ToastType } from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-    getRewardRedemptions,
-    getRewards,
-    getUserRewardPoints,
-    redeemReward,
-    RewardApiError,
-    type RewardRedemptionItem,
+  getRewardRedemptions,
+  getRewards,
+  getUserRewardPoints,
+  redeemReward,
+  RewardApiError,
+  type RewardRedemptionItem,
 } from '@/services/rewardService';
+import { registerRewardPointsRefresh } from '@/services/rewardPointsBridge';
 import type { CatalogReward, RewardsFilterTab } from '@/types/index';
 import {
     filterRewardsByTab,
@@ -118,6 +119,16 @@ export default function PointsBadge({
       }
     }
   };
+
+  const loadPointsRef = useRef(loadPoints);
+  loadPointsRef.current = loadPoints;
+
+  useEffect(() => {
+    registerRewardPointsRefresh(() => {
+      void loadPointsRef.current(false);
+    });
+    return () => registerRewardPointsRefresh(null);
+  }, []);
 
   const rewardsLengthRef = useRef(0);
   rewardsLengthRef.current = rewards.length;

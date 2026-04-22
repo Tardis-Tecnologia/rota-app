@@ -2,24 +2,23 @@ import CityAlerts from '@/components/CityAlerts';
 import CpfRequiredModal from '@/components/CpfRequiredModal';
 import EventCarousel from '@/components/EventCarousel';
 import Header from '@/components/Header';
-import { useNotificationUnreadCount } from '@/hooks/useNotificationUnreadCount';
-import JobSuggestionCard from '@/components/JobSuggestionCard';
 import NewsCarousel from '@/components/NewsCarousel';
 import NewsPosts from '@/components/NewsPosts';
 import OpinionCard from '@/components/OpinionCard';
 import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotificationUnreadCount } from '@/hooks/useNotificationUnreadCount';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 export default function NoticiasScreen() {
@@ -27,10 +26,17 @@ export default function NoticiasScreen() {
   const { user } = useAuth();
   const { unreadCount, refresh: refreshUnreadCount } = useNotificationUnreadCount();
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [showToast, setShowToast] = useState(false);
-  const [toastKey, setToastKey] = useState(0);
   const [cpfNoticeShown, setCpfNoticeShown] = useState(false);
   const [showCpfModal, setShowCpfModal] = useState(false);
+  const [voteToast, setVoteToast] = useState({ visible: false, message: '', key: 0 });
+
+  const handleVoteSuccessToast = useCallback((message: string) => {
+    setVoteToast((prev) => ({
+      visible: true,
+      message,
+      key: prev.key + 1,
+    }));
+  }, []);
 
   useEffect(() => {
     if (!user || cpfNoticeShown) {
@@ -56,16 +62,6 @@ export default function NoticiasScreen() {
     }, 1000);
   };
 
-  const handleVote = () => {
-    // Sempre reinicia o toast com nova key para reiniciar a animação
-    setShowToast(false);
-    setToastKey((prev) => prev + 1);
-    // Aguarda um frame para garantir que o estado foi atualizado
-    setTimeout(() => {
-      setShowToast(true);
-    }, 50);
-  };
-
   const ListHeader = () => (
     <View>
       {/* Componente Header */}
@@ -75,7 +71,7 @@ export default function NoticiasScreen() {
       {/* Componente Alertas da Cidade */}
       <CityAlerts />
       {/* Componente de Eventos (Carrossel) */}
-      {/* <OpinionCard onVote={handleVote} /> */}
+      <OpinionCard onVoteSuccess={handleVoteSuccessToast} />
       {/* Jobs and Opportunities Card */}
       {/* <JobSuggestionCard /> */}
       <EventCarousel />
@@ -102,24 +98,22 @@ export default function NoticiasScreen() {
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={[]}
-        renderItem={() => null}
-        ListHeaderComponent={ListHeader}
-        // ListFooterComponent={<NoticiasList onRefresh={onRefresh} renderAsItems={true} />}
+      <ScrollView
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
-      />
+      >
+        <ListHeader />
+      </ScrollView>
       <Toast
-        key={toastKey}
-        message="+25 pontos por participar!"
-        visible={showToast}
+        key={voteToast.key}
+        message={voteToast.message}
+        visible={voteToast.visible}
         type="success"
-        duration={3000}
-        onHide={() => setShowToast(false)}
+        duration={4000}
+        onHide={() => setVoteToast((prev) => ({ ...prev, visible: false }))}
       />
       <CpfRequiredModal
         visible={showCpfModal}

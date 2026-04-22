@@ -250,6 +250,19 @@ function parseHexRgb(hex: string): { r: number; g: number; b: number } | null {
   };
 }
 
+export function resolvePollAccentColor(brandColor: string | undefined): string {
+  const raw = (brandColor ?? '').trim();
+  const rgb = parseHexRgb(raw);
+  if (!rgb) {
+    return tintColorLight;
+  }
+  const y = 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b;
+  if (y > 220) {
+    return tintColorLight;
+  }
+  return raw;
+}
+
 /**
  * Escurece um `#rgb` ou `#rrggbb` misturando em direção ao preto (0 = inalterado, 1 = preto).
  * Útil para gradientes a partir da cor de marca da API.

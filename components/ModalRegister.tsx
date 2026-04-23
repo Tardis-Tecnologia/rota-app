@@ -142,7 +142,7 @@ export default function ModalRegister({
               <Text style={styles.successTitle}>Sucesso!</Text>
               <Text style={styles.successMessage}>
                 Sua solicitação de pré-matrícula foi enviada. Você pode acompanhar o
-                status na aba "Minhas Matrículas".
+                status na aba &quot;Minhas Matrículas&quot;.
               </Text>
               <Pressable
                 onPress={handleClose}

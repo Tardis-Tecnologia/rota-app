@@ -1,12 +1,12 @@
 import { AppColors } from '@/constants/theme';
 import React from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    FlatList,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import type { RewardRedemptionItem } from '@/services/rewardService';

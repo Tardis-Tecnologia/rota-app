@@ -85,7 +85,7 @@ export default function ProfileComponent({
     };
 
     const handleSair = () => {
-        logout();
+        void logout();
         router.replace('/(auth)/login');
     };
 

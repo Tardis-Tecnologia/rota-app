@@ -1,5 +1,6 @@
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -17,11 +18,31 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
-  const { user, login } = useAuth();
+  const { user, login, loginWithSession } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const { loginWithGoogle, isGoogleAuthAvailable } = useGoogleAuth(
+    async ({ user: u, token }) => {
+      setGoogleLoading(true);
+      try {
+        await loginWithSession({ token, user: u ?? {} });
+        router.replace('/(tabs)/home');
+      } catch (e) {
+        const message = e instanceof Error ? e.message : 'Não foi possível entrar com o Google.';
+        setError(message);
+      } finally {
+        setGoogleLoading(false);
+      }
+    },
+    (message) => {
+      setGoogleLoading(false);
+      setError(message);
+    },
+  );
 
   useEffect(() => {
     if (user) {
@@ -141,6 +162,35 @@ export default function LoginScreen() {
                   <>
                     <Ionicons name="log-in-outline" size={20} color="#FFFFFF" />
                     <Text style={styles.buttonText}>Entrar</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>ou</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.googleButton,
+                  (loading || googleLoading || !isGoogleAuthAvailable) && styles.buttonDisabled,
+                ]}
+                onPress={() => {
+                  setGoogleLoading(true);
+                  setError('');
+                  void loginWithGoogle();
+                }}
+                activeOpacity={0.85}
+                disabled={loading || googleLoading || !isGoogleAuthAvailable}
+              >
+                {googleLoading ? (
+                  <ActivityIndicator color={AppColors.text.secondary} />
+                ) : (
+                  <>
+                    <Ionicons name="logo-google" size={20} color={AppColors.text.secondary} />
+                    <Text style={styles.googleButtonText}>Entrar com Google</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -297,6 +347,42 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     letterSpacing: 0.3,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 18,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: AppColors.border.muted,
+  },
+  dividerText: {
+    fontSize: 13,
+    color: AppColors.gray[500],
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AppColors.background.default,
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginTop: 16,
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: AppColors.border.muted,
+  },
+  googleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: AppColors.text.secondary,
+    letterSpacing: 0.2,
   },
   footer: {
     flexDirection: 'row',

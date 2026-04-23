@@ -5,24 +5,24 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useMemo } from 'react';
 import {
-  Alert,
-  Dimensions,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Dimensions,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+    withTiming,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ModalReportPrefeituraProps {
   visible: boolean;
@@ -357,9 +357,7 @@ export function ModalReportPrefeitura({
               <View style={styles.successIcon}>
                 <Ionicons name="checkmark" size={44} color={AppColors.text.white} />
               </View>
-              <Text style={styles.successMessage}>
-                Relatório enviado à prefeitura! +50 Pontos Cidadão 🎉
-              </Text>
+              <Text style={styles.successMessage}>Relatório enviado à prefeitura!</Text>
               <TouchableOpacity
                 style={styles.closeSuccessButton}
                 onPress={handleClose}

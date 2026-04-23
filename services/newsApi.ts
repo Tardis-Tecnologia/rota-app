@@ -178,8 +178,7 @@ export function newsItemToPost(item: NewsItem): {
   const createdByUserId = extractCreatorUserId(item.createdBy);
   const username = optionalUsernameFromCreatedBy(item.createdBy);
   const photo = item.creatorPhotoUrl?.trim();
-  const avatar =
-    photo && photo.length > 0 ? photo : AVATAR_PLACEHOLDER;
+  const avatar = photo && photo.length > 0 ? photo : AVATAR_PLACEHOLDER;
 
   return {
     id: item.id,

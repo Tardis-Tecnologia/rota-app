@@ -1,8 +1,8 @@
 import { refreshAppThemeAfterLogin } from '@/services/appThemeBridge';
-import { clearAuthSession, getAuthSession, saveAuthSession } from '@/services/authSessionStore';
-import { disconnectGoogleAccount } from '@/services/googleAuth';
 import type { UpdateUserProfilePayload } from '@/services/authApi';
 import * as authApi from '@/services/authApi';
+import { clearAuthSession, getAuthSession, saveAuthSession } from '@/services/authSessionStore';
+import { disconnectGoogleAccount } from '@/services/googleAuth';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 export type UserRole = 'client';

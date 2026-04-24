@@ -1,7 +1,23 @@
 import { getApiBaseUrl, getAuthToken } from './authApi';
+import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
 
 const BASE_PATH = '/api/v1';
 const PUBLIC_HOST_ID = process.env.EXPO_PUBLIC_HOST_ID?.trim();
+
+function eventsHostIdForRequest(): string {
+  const token = getAuthToken();
+  if (token) {
+    try {
+      const c = parseJwtAccessTokenPayload(token);
+      const fromJwt = c.hostId != null && String(c.hostId).trim() ? String(c.hostId).trim() : null;
+      if (fromJwt) return fromJwt;
+    } catch {
+      /* token inválido ou não-JWT */
+    }
+  }
+  if (PUBLIC_HOST_ID) return PUBLIC_HOST_ID;
+  throw new Error('EXPO_PUBLIC_HOST_ID não definida');
+}
 
 export interface EventImage {
   id: string;
@@ -34,9 +50,6 @@ export interface EventItem {
 }
 
 async function fetchApi<T>(endpoint: string): Promise<T> {
-  if (!PUBLIC_HOST_ID) {
-    throw new Error('EXPO_PUBLIC_HOST_ID não definida');
-  }
   const url = `${getApiBaseUrl()}${BASE_PATH}${endpoint}`;
   const headers: Record<string, string> = { Accept: 'application/json' };
   const token = getAuthToken();
@@ -49,8 +62,9 @@ async function fetchApi<T>(endpoint: string): Promise<T> {
 }
 
 function appendHostIdToEventsPath(path: string): string {
+  const hostId = eventsHostIdForRequest();
   const join = path.includes('?') ? '&' : '?';
-  return `${path}${join}hostId=${encodeURIComponent(PUBLIC_HOST_ID!)}`;
+  return `${path}${join}hostId=${encodeURIComponent(hostId)}`;
 }
 
 export async function getEvents(options?: {

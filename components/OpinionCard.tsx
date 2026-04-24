@@ -1,4 +1,5 @@
 import CpfRequiredModal from '@/components/CpfRequiredModal';
+import { VisitanteLoginOverlay } from '@/components/VisitanteLoginOverlay';
 import { AppColors, hexToRgba, resolvePollAccentColor } from '@/constants/theme';
 import { useAppTheme } from '@/contexts/AppThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -220,112 +221,115 @@ export default function OpinionCard({ hostId, onVoteSuccess }: OpinionCardProps)
 
   return (
     <View style={styles.section}>
-      <View style={styles.pollCard}>
-        <View
-          style={styles.cardInner}
-          collapsable={Platform.OS === 'android' ? false : undefined}
-        >
-          <View style={styles.header}>
-            <Ionicons name="stats-chart" size={20} color={AppColors.primary} />
-            <Text style={styles.headerText}>Sua opinião importa!</Text>
-          </View>
-
-          <Text style={styles.question}>{poll.name}</Text>
-          {poll.description ? (
-            <Text style={styles.description} numberOfLines={4}>
-              {poll.description}
-            </Text>
-          ) : null}
-
-          {alreadyVoted ? (
-            <View style={styles.successBanner}>
-              <Ionicons name="checkmark-circle" size={20} color={AppColors.status.success} />
-              <Text style={styles.successText}>
-                Participação registrada. Toque em outra opção para alterar.
-              </Text>
+      <View style={styles.pollShell}>
+        <View style={styles.pollCard}>
+          <View
+            style={styles.cardInner}
+            collapsable={Platform.OS === 'android' ? false : undefined}
+          >
+            <View style={styles.header}>
+              <Ionicons name="stats-chart" size={20} color={AppColors.primary} />
+              <Text style={styles.headerText}>Sua opinião importa!</Text>
             </View>
-          ) : null}
 
-          {!canVote ? (
-            <View style={styles.cpfGateBox}>
-              <Ionicons name="alert-circle" size={22} color={AppColors.status.warning} />
-              <View style={styles.cpfGateContent}>
-                {cpfKnown ? (
-                  <>
-                    <Text style={styles.cpfGateTitle}>CPF obrigatório para votar</Text>
-                    <Text style={styles.cpfGateText}>
-                      Para participar da enquete e resgatar pontos é necessário informar um CPF válido no cadastro.
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => setShowCpfModal(true)}
-                      activeOpacity={0.75}
-                      accessibilityRole="button"
-                      accessibilityLabel="Abrir orientação para cadastrar CPF"
-                    >
-                      <Text style={styles.cpfGateLink}>Cadastrar CPF</Text>
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <Text style={styles.cpfGateText}>Verificando seu cadastro…</Text>
-                )}
+            <Text style={styles.question}>{poll.name}</Text>
+            {poll.description ? (
+              <Text style={styles.description} numberOfLines={4}>
+                {poll.description}
+              </Text>
+            ) : null}
+
+            {alreadyVoted ? (
+              <View style={styles.successBanner}>
+                <Ionicons name="checkmark-circle" size={20} color={AppColors.status.success} />
+                <Text style={styles.successText}>
+                  Participação registrada. Toque em outra opção para alterar.
+                </Text>
               </View>
-            </View>
-          ) : null}
+            ) : null}
 
-          {options.length === 0 ? (
-            <View style={styles.emptyOptionsBox}>
-              <Text style={styles.emptyOptionsTitle}>Opções indisponíveis</Text>
-              <Text style={styles.emptyOptionsText}>
-                Esta enquete não retornou opções no formato esperado. Tente atualizar a tela ou entre em contato com o
-                suporte.
-              </Text>
-            </View>
-          ) : null}
+            {!canVote ? (
+              <View style={styles.cpfGateBox}>
+                <Ionicons name="alert-circle" size={22} color={AppColors.status.warning} />
+                <View style={styles.cpfGateContent}>
+                  {cpfKnown ? (
+                    <>
+                      <Text style={styles.cpfGateTitle}>CPF obrigatório para votar</Text>
+                      <Text style={styles.cpfGateText}>
+                        Para participar da enquete e resgatar pontos é necessário informar um CPF válido no cadastro.
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => setShowCpfModal(true)}
+                        activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityLabel="Abrir orientação para cadastrar CPF"
+                      >
+                        <Text style={styles.cpfGateLink}>Cadastrar CPF</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <Text style={styles.cpfGateText}>Verificando seu cadastro…</Text>
+                  )}
+                </View>
+              </View>
+            ) : null}
 
-          <View style={styles.optionsList}>
-            {options.map((label, index) => {
-              const isSelected = selectedIndex === index;
-              const disabled = submitting || !canVote || !voteLookupDone;
-              return (
-                <TouchableOpacity
-                  key={`${index}-${label}`}
-                  style={[
-                    styles.optionButton,
-                    {
-                      backgroundColor: isSelected ? AppColors.background.default : optionBgIdle,
-                      borderColor: isSelected ? accentColor : optionBorderIdle,
-                      borderWidth: isSelected ? 2 : 1,
-                      opacity: disabled && !isSelected ? 0.5 : 1,
-                    },
-                  ]}
-                  onPress={() => void handleOptionPress(index)}
-                  activeOpacity={0.75}
-                  disabled={disabled}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Opção: ${label}`}
-                >
-                  <Text
+            {options.length === 0 ? (
+              <View style={styles.emptyOptionsBox}>
+                <Text style={styles.emptyOptionsTitle}>Opções indisponíveis</Text>
+                <Text style={styles.emptyOptionsText}>
+                  Esta enquete não retornou opções no formato esperado. Tente atualizar a tela ou entre em contato com o
+                  suporte.
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={styles.optionsList}>
+              {options.map((label, index) => {
+                const isSelected = selectedIndex === index;
+                const disabled = submitting || !canVote || !voteLookupDone;
+                return (
+                  <TouchableOpacity
+                    key={`${index}-${label}`}
                     style={[
-                      styles.optionButtonText,
-                      isSelected ? { color: accentColor, fontWeight: '700' } : styles.optionButtonTextIdle,
+                      styles.optionButton,
+                      {
+                        backgroundColor: isSelected ? AppColors.background.default : optionBgIdle,
+                        borderColor: isSelected ? accentColor : optionBorderIdle,
+                        borderWidth: isSelected ? 2 : 1,
+                        opacity: disabled && !isSelected ? 0.5 : 1,
+                      },
                     ]}
-                    numberOfLines={4}
+                    onPress={() => void handleOptionPress(index)}
+                    activeOpacity={0.75}
+                    disabled={disabled}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Opção: ${label}`}
                   >
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {submitting ? (
-            <View style={styles.inlineLoading}>
-              <ActivityIndicator size="small" color={AppColors.primary} />
-              <Text style={styles.inlineLoadingText}>Enviando...</Text>
+                    <Text
+                      style={[
+                        styles.optionButtonText,
+                        isSelected ? { color: accentColor, fontWeight: '700' } : styles.optionButtonTextIdle,
+                      ]}
+                      numberOfLines={4}
+                    >
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          ) : null}
-          {voteError ? <Text style={styles.voteErrorText}>{voteError}</Text> : null}
+
+            {submitting ? (
+              <View style={styles.inlineLoading}>
+                <ActivityIndicator size="small" color={AppColors.primary} />
+                <Text style={styles.inlineLoadingText}>Enviando...</Text>
+              </View>
+            ) : null}
+            {voteError ? <Text style={styles.voteErrorText}>{voteError}</Text> : null}
+          </View>
         </View>
+        <VisitanteLoginOverlay message="Para votar nas enquetes e acumular pontos, faça login com uma conta cadastrada." />
       </View>
       <CpfRequiredModal
         visible={showCpfModal}
@@ -341,19 +345,17 @@ export default function OpinionCard({ hostId, onVoteSuccess }: OpinionCardProps)
   );
 }
 
+// pollShell: overlay fora do cartão com position relative no shell (evita clip no Android).
 const styles = StyleSheet.create({
   section: {
     paddingHorizontal: 24,
     marginBottom: 16,
   },
+  pollShell: {
+    position: 'relative',
+  },
   pollCard: {
     borderRadius: 20,
-    backgroundColor: AppColors.background.default,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
   },
   loadingCard: {
     backgroundColor: AppColors.background.default,
@@ -439,6 +441,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: AppColors.border.muted,
     borderRadius: 20,
+    shadowColor: AppColors.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
   },
   header: {
     flexDirection: 'row',

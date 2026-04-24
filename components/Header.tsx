@@ -33,6 +33,7 @@ export default function Header({
   const { user } = useAuth();
   const displayName = user?.name?.trim() ? user.name : nomeUsuario;
   const resolvedAvatarUri = user?.photoUrl?.trim() || avatarUrl;
+  const isVisitante = user?.profile === 'VISITANTE';
 
   const handleNotificationPress = () => {
     if (onNotificationPress) {
@@ -58,14 +59,16 @@ export default function Header({
 
           <View style={styles.rightSection}>
             <View style={styles.actionsRow}>
-              <TouchableOpacity
-                style={styles.notificationButton}
-                onPress={handleNotificationPress}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="notifications-outline" size={20} color={AppColors.text.white} />
-                {hasNotifications ? <View style={styles.notificationDot} /> : null}
-              </TouchableOpacity>
+              {!isVisitante ? (
+                <TouchableOpacity
+                  style={styles.notificationButton}
+                  onPress={handleNotificationPress}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="notifications-outline" size={20} color={AppColors.text.white} />
+                  {hasNotifications ? <View style={styles.notificationDot} /> : null}
+                </TouchableOpacity>
+              ) : null}
 
             <TouchableOpacity
               style={styles.avatarButton}

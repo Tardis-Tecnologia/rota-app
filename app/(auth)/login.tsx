@@ -5,17 +5,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const VISITANTE_LOGIN_EMAIL = 'visitante@rota.com';
+const VISITANTE_LOGIN_PASSWORD = 'Cliente123';
 
 export default function LoginScreen() {
   const { user, login, loginWithSession } = useAuth();
@@ -75,6 +78,25 @@ export default function LoginScreen() {
           : e instanceof Error
             ? e.message
             : 'Não foi possível entrar. Tente novamente.';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVisitanteLogin = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      await login(VISITANTE_LOGIN_EMAIL, VISITANTE_LOGIN_PASSWORD);
+      router.replace('/(tabs)/home');
+    } catch (e) {
+      const message =
+        e instanceof Error && e.message === 'EMAIL_OU_SENHA_INCORRETOS'
+          ? 'Visitante: confira o seed do banco (visitante@rota.com / Cliente123).'
+          : e instanceof Error
+            ? e.message
+            : 'Não foi possível entrar como visitante.';
       setError(message);
     } finally {
       setLoading(false);
@@ -164,6 +186,16 @@ export default function LoginScreen() {
                     <Text style={styles.buttonText}>Entrar</Text>
                   </>
                 )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.visitanteButton, loading && styles.buttonDisabled]}
+                onPress={handleVisitanteLogin}
+                activeOpacity={0.85}
+                disabled={loading || googleLoading}
+              >
+                <Ionicons name="person-outline" size={20} color={AppColors.text.secondary} />
+                <Text style={styles.visitanteButtonText}>Entrar como visitante</Text>
               </TouchableOpacity>
 
               <View style={styles.dividerRow}>
@@ -347,6 +379,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     letterSpacing: 0.3,
+  },
+  visitanteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AppColors.background.default,
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginTop: 12,
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: AppColors.border.muted,
+  },
+  visitanteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: AppColors.text.secondary,
+    letterSpacing: 0.2,
   },
   dividerRow: {
     flexDirection: 'row',

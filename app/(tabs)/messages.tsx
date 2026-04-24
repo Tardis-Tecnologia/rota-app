@@ -1,3 +1,4 @@
+import { VisitanteLoginOverlay } from '@/components/VisitanteLoginOverlay';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { Conversation, useConversations } from '@/contexts/ConversationsContext';
@@ -95,6 +96,12 @@ export default function MensagensScreen() {
       setConversations([]);
       return;
     }
+    if (user.profile === 'VISITANTE') {
+      setConversations([]);
+      setLoadError(null);
+      setIsLoading(false);
+      return;
+    }
 
     const authToken = getAuthToken();
     if (!authToken) {
@@ -144,7 +151,7 @@ export default function MensagensScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [buildConversationFromChannel, user?.id, user?.name, user?.email]);
+  }, [buildConversationFromChannel, user?.id, user?.name, user?.email, user?.profile]);
 
   useFocusEffect(
     useCallback(() => {
@@ -311,6 +318,8 @@ export default function MensagensScreen() {
       <TouchableOpacity activeOpacity={0.85} style={styles.fab} onPress={() => void loadStreamConversations()}>
         <MaterialCommunityIcons name="whatsapp" size={28} color={AppColors.text.white} />
       </TouchableOpacity>
+
+      <VisitanteLoginOverlay message="As mensagens e o atendimento ficam disponíveis após o login com uma conta cadastrada." />
     </View>
   );
 }

@@ -72,6 +72,7 @@ export function ExploreFloatingCard({
 }: ExploreFloatingCardProps) {
   const { user } = useAuth();
   const resolvedAvatarUri = user?.photoUrl?.trim() || avatarUrl;
+  const isVisitante = user?.profile === 'VISITANTE';
   const items = useMemo(() => quickAccessItems, [quickAccessItems]);
 
   const goSearch = () => {
@@ -88,14 +89,16 @@ export function ExploreFloatingCard({
         </View>
 
         <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={styles.notificationButton}
-            onPress={() => router.push('/notifications')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="notifications-outline" size={22} color={AppColors.text.secondary} />
-            {hasNotifications ? <View style={styles.notificationDot} /> : null}
-          </TouchableOpacity>
+          {!isVisitante ? (
+            <TouchableOpacity
+              style={styles.notificationButton}
+              onPress={() => onPressNotifications?.() ?? router.push('/notifications')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="notifications-outline" size={22} color={AppColors.text.secondary} />
+              {hasNotifications ? <View style={styles.notificationDot} /> : null}
+            </TouchableOpacity>
+          ) : null}
 
           <TouchableOpacity
             style={styles.profileButton}

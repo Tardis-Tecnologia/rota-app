@@ -1,4 +1,5 @@
 import CpfRequiredModal from '@/components/CpfRequiredModal';
+import { VisitanteLoginOverlay } from '@/components/VisitanteLoginOverlay';
 import RewardsModalBody from '@/components/rewards/RewardsModalBody';
 import RewardsModalHeader from '@/components/rewards/RewardsModalHeader';
 import Toast, { type ToastType } from '@/components/Toast';
@@ -204,9 +205,11 @@ export default function PointsBadge({
     modalTranslateY.value = withTiming(0, { duration: 200 });
     setRewardActionError(null);
     setRewardsFilterTab('resgatar');
-    void loadRewards();
-    void loadPoints(false);
-    void loadRedemptions();
+    if (user?.profile !== 'VISITANTE') {
+      void loadRewards();
+      void loadPoints(false);
+      void loadRedemptions();
+    }
   };
 
   const closeModal = () => {
@@ -362,44 +365,47 @@ export default function PointsBadge({
           </Animated.View>
 
           <Animated.View style={[styles.modalPanel, modalAnimatedStyle]}>
-            <RewardsModalHeader
-              currentPoints={currentPoints}
-              needsCpf={needsCpf}
-              isLoadingPoints={isLoadingPoints}
-              pointsError={pointsError}
-              onClose={closeModal}
-              onRetryLoadPoints={() => {
-                void loadPoints();
-              }}
-              filterTab={rewardsFilterTab}
-              onFilterChange={setRewardsFilterTab}
-            />
-
-            <View style={styles.rewardsListContainer}>
-              <RewardsModalBody
-                filterTab={rewardsFilterTab}
+            <View style={styles.modalPanelInner}>
+              <RewardsModalHeader
                 currentPoints={currentPoints}
-                rewardActionError={rewardActionError}
-                redemptions={redemptions}
-                rewards={rewards}
-                filteredRewards={filteredRewardsForTab}
-                redeemedIds={redeemedRewards}
-                loadingRedeemId={loadingRedeemId}
-                isLoadingRewards={isLoadingRewards}
-                rewardsError={rewardsError}
-                loadingMore={loadingMoreRewards}
-                onEndReached={handleEndReached}
-                onRedeem={handleRedeem}
-                onLockedRewardPress={(reward) =>
-                  setInsufficientBalanceInfo({
-                    rewardName: reward.name,
-                    requiredPoints: Math.abs(reward.value ?? 0),
-                  })
-                }
-                onRetryLoadRewards={() => {
-                  void loadRewards();
+                needsCpf={needsCpf}
+                isLoadingPoints={isLoadingPoints}
+                pointsError={pointsError}
+                onClose={closeModal}
+                onRetryLoadPoints={() => {
+                  void loadPoints();
                 }}
+                filterTab={rewardsFilterTab}
+                onFilterChange={setRewardsFilterTab}
               />
+
+              <View style={styles.rewardsListContainer}>
+                <RewardsModalBody
+                  filterTab={rewardsFilterTab}
+                  currentPoints={currentPoints}
+                  rewardActionError={rewardActionError}
+                  redemptions={redemptions}
+                  rewards={rewards}
+                  filteredRewards={filteredRewardsForTab}
+                  redeemedIds={redeemedRewards}
+                  loadingRedeemId={loadingRedeemId}
+                  isLoadingRewards={isLoadingRewards}
+                  rewardsError={rewardsError}
+                  loadingMore={loadingMoreRewards}
+                  onEndReached={handleEndReached}
+                  onRedeem={handleRedeem}
+                  onLockedRewardPress={(reward) =>
+                    setInsufficientBalanceInfo({
+                      rewardName: reward.name,
+                      requiredPoints: Math.abs(reward.value ?? 0),
+                    })
+                  }
+                  onRetryLoadRewards={() => {
+                    void loadRewards();
+                  }}
+                />
+              </View>
+              <VisitanteLoginOverlay message="A loja de recompensas e o resgate de pontos exigem login com uma conta cadastrada." />
             </View>
           </Animated.View>
         </View>
@@ -576,6 +582,14 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 16,
     flexDirection: 'column',
+  },
+  modalPanelInner: {
+    flex: 1,
+    minHeight: 0,
+    position: 'relative',
+    overflow: 'hidden',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   rewardsListContainer: {
     flex: 1,

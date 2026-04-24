@@ -62,8 +62,9 @@ export default function ProfileComponent({
     const [showDocumentosModal, setShowDocumentosModal] = useState(false);
     const [showCurriculoModal, setShowCurriculoModal] = useState(false);
     const displayName = user ? streamAndUiDisplayName(user) || nomeUsuario : nomeUsuario;
-    const displaySubtitle = user ? 'Cidadão' : subtitulo;
+    const displaySubtitle = user ? (user.profile === 'VISITANTE' ? 'Visitante' : 'Cidadão') : subtitulo;
     const resolvedAvatarUri = user?.photoUrl?.trim() || avatarUrl;
+    const isVisitante = user?.profile === 'VISITANTE';
 
     const handleMenuPress = (item: string) => {
         if (item === 'Conta') {
@@ -108,14 +109,16 @@ export default function ProfileComponent({
             <View style={styles.profileSection}>
                 <View style={styles.avatarContainer}>
                     <Image source={{ uri: resolvedAvatarUri }} style={styles.avatar} />
-                    <TouchableOpacity
-                      style={styles.cameraButton}
-                      activeOpacity={0.8}
-                      onPress={() => router.push('/edit-account')}
-                      accessibilityLabel="Alterar foto de perfil"
-                    >
+                    {!isVisitante ? (
+                      <TouchableOpacity
+                        style={styles.cameraButton}
+                        activeOpacity={0.8}
+                        onPress={() => router.push('/edit-account')}
+                        accessibilityLabel="Alterar foto de perfil"
+                      >
                         <Ionicons name="camera" size={14} color={AppColors.text.white} />
-                    </TouchableOpacity>
+                      </TouchableOpacity>
+                    ) : null}
                 </View>
 
                 {/* Name and Subtitle */}
@@ -125,12 +128,14 @@ export default function ProfileComponent({
 
             {/* Menu Options */}
             <View style={styles.menuSection}>
-                <MenuItem
-                icon="person-circle-outline"
-                label="Conta"
-                iconColor={AppColors.gray[500]}
-                onPress={() => handleMenuPress('Conta')}
-                />
+                {!isVisitante ? (
+                  <MenuItem
+                    icon="person-circle-outline"
+                    label="Conta"
+                    iconColor={AppColors.gray[500]}
+                    onPress={() => handleMenuPress('Conta')}
+                  />
+                ) : null}
                 {/* <MenuItem
                 icon="folder-outline"
                 label="Meus Documentos"

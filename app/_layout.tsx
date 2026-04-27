@@ -51,6 +51,7 @@ export default function RootLayout() {
           <Stack.Screen name="ChatTab" options={{ headerShown: false }} />
           <Stack.Screen name="Profile" options={{ headerShown: false }} />
           <Stack.Screen name="edit-account" options={{ headerShown: false }} />
+          <Stack.Screen name="pulso" options={{ headerShown: false }} />
         </Stack>
             <StatusBar style="dark" />
           </ThemeProvider>

@@ -79,7 +79,7 @@ export default function NoticiasScreen() {
             style={styles.quickAccessCard}
             accessibilityRole="button"
             accessibilityLabel="Missões"
-            onPress={() => {}}
+            onPress={() => router.push('/missions')}
           >
             <View style={[styles.quickAccessIconWrap, { backgroundColor: '#7C3AED' }]}>
               <Feather name="target" size={22} color={AppColors.text.white} />

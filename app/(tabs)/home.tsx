@@ -70,6 +70,50 @@ export default function NoticiasScreen() {
       <NewsCarousel />
       {/* Componente Alertas da Cidade */}
       <CityAlerts />
+      {/* Acesso rápido */}
+      <View style={styles.quickAccessSection}>
+        <Text style={styles.quickAccessTitle}>ACESSO RÁPIDO</Text>
+        <View style={styles.quickAccessRow}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.quickAccessCard}
+            accessibilityRole="button"
+            accessibilityLabel="Missões"
+            onPress={() => {}}
+          >
+            <View style={[styles.quickAccessIconWrap, { backgroundColor: '#7C3AED' }]}>
+              <Feather name="target" size={22} color={AppColors.text.white} />
+            </View>
+            <Text style={styles.quickAccessLabel}>Missões</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.quickAccessCard}
+            accessibilityRole="button"
+            accessibilityLabel="Pulso"
+            onPress={() => router.push('/pulso')}
+          >
+            <View style={[styles.quickAccessIconWrap, { backgroundColor: '#10B981' }]}>
+              <Feather name="activity" size={22} color={AppColors.text.white} />
+            </View>
+            <Text style={styles.quickAccessLabel}>Pulso</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.quickAccessCard}
+            accessibilityRole="button"
+            accessibilityLabel="Emergência"
+            onPress={() => {}}
+          >
+            <View style={[styles.quickAccessIconWrap, { backgroundColor: '#EF4444' }]}>
+              <Feather name="phone-call" size={22} color={AppColors.text.white} />
+            </View>
+            <Text style={styles.quickAccessLabel}>Emergência</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
       {/* Componente de Eventos (Carrossel) */}
       <OpinionCard onVoteSuccess={handleVoteSuccessToast} />
       {/* Jobs and Opportunities Card */}
@@ -158,6 +202,51 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: AppColors.primary,
+  },
+
+  quickAccessSection: {
+    paddingHorizontal: 24,
+    marginBottom: 16,
+  },
+  quickAccessTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    color: AppColors.text.tertiary,
+    marginBottom: 12,
+  },
+  quickAccessRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  quickAccessCard: {
+    flex: 1,
+    backgroundColor: AppColors.background.default,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: AppColors.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: AppColors.border.muted,
+  },
+  quickAccessIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  quickAccessLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: AppColors.text.secondary,
   },
 });
 

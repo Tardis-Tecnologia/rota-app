@@ -19,7 +19,7 @@ type EmergencyContact = {
   dotColor: string;
 };
 
-const EMERGENCY_CONTACTS: EmergencyContact[] = [
+export const EMERGENCY_CONTACTS: EmergencyContact[] = [
   {
     id: 'police',
     label: 'Polícia',

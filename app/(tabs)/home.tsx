@@ -6,6 +6,7 @@ import NewsCarousel from '@/components/NewsCarousel';
 import NewsPosts from '@/components/NewsPosts';
 import OpinionCard from '@/components/OpinionCard';
 import Toast from '@/components/Toast';
+import { ModalEmergencyPhones } from '@/components/ModalEmergencyPhones';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotificationUnreadCount } from '@/hooks/useNotificationUnreadCount';
@@ -28,6 +29,7 @@ export default function NoticiasScreen() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [cpfNoticeShown, setCpfNoticeShown] = useState(false);
   const [showCpfModal, setShowCpfModal] = useState(false);
+  const [showEmergencyPhones, setShowEmergencyPhones] = useState(false);
   const [voteToast, setVoteToast] = useState({ visible: false, message: '', key: 0 });
 
   const handleVoteSuccessToast = useCallback((message: string) => {
@@ -105,7 +107,7 @@ export default function NoticiasScreen() {
             style={styles.quickAccessCard}
             accessibilityRole="button"
             accessibilityLabel="Emergência"
-            onPress={() => {}}
+            onPress={() => setShowEmergencyPhones(true)}
           >
             <View style={[styles.quickAccessIconWrap, { backgroundColor: '#EF4444' }]}>
               <Feather name="phone-call" size={22} color={AppColors.text.white} />
@@ -166,6 +168,10 @@ export default function NoticiasScreen() {
           setShowCpfModal(false);
           router.push('/edit-account');
         }}
+      />
+      <ModalEmergencyPhones
+        visible={showEmergencyPhones}
+        onClose={() => setShowEmergencyPhones(false)}
       />
     </View>
   );

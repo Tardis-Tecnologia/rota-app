@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { router } from 'expo-router';
 import React, { useMemo } from 'react';
 import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -171,6 +172,7 @@ export default function TabLayout() {
         name="services"
         options={{ href: null }}
       />
+      {/*
       <Tabs.Screen
         name="messages"
         options={({ navigation }) => ({
@@ -197,12 +199,41 @@ export default function TabLayout() {
           headerRight: () => <View style={styles.headerSpacer} />,
           title: 'Mensagens',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name="chatbubbles-outline" 
-              size={24} 
-              color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
+            <Ionicons
+              name="chatbubbles-outline"
+              size={24}
+              color={focused ? AppColors.tab.active : AppColors.tab.inactive}
             />
           ),
+        })}
+      />
+      */}
+      <Tabs.Screen
+        name="messages"
+        options={() => ({
+          href: null,
+          headerShown: true,
+          headerTitleAlign: 'center',
+          headerTitleStyle: {
+            fontSize: 18,
+            fontWeight: '600',
+            color: AppColors.text.secondary,
+          },
+          headerLeft: () => (
+            <TouchableOpacity
+              style={styles.headerButton}
+              activeOpacity={0.7}
+              onPress={() => router.push('/(tabs)/home')}
+            >
+              <Ionicons
+                name="arrow-back-outline"
+                size={24}
+                color={AppColors.text.secondary}
+              />
+            </TouchableOpacity>
+          ),
+          headerRight: () => <View style={styles.headerSpacer} />,
+          title: 'Mensagens',
         })}
       />
       <Tabs.Screen

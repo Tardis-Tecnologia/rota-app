@@ -20,7 +20,7 @@ import {
     getRequiredBalanceForRedeem,
     mapRewardFromApi,
 } from '@/utils/rewardHelpers';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -340,21 +340,32 @@ export default function PointsBadge({
 
   return (
     <>
-      <TouchableOpacity onPress={openModal} activeOpacity={0.8} style={styles.badgeContainer}>
+      <TouchableOpacity onPress={openModal} activeOpacity={0.85} style={styles.container}>
         <LinearGradient
-          colors={['#667eea', '#764ba2']}
+          colors={['rgba(255,255,255,0.22)', 'rgba(255,255,255,0.12)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.badge}
+          style={styles.card}
         >
-          {isLoadingPoints ? (
-            <ActivityIndicator size="small" color={AppColors.text.white} />
-          ) : (
-            <>
-              <Ionicons name="star-outline" size={12} color={AppColors.text.white} />
-              <Text style={styles.badgeText}>{currentPoints.toLocaleString('pt-BR')}</Text>
-            </>
-          )}
+          <View style={styles.left}>
+            <View style={styles.iconWrap}>
+              <MaterialCommunityIcons name="crown-outline" size={18} color={AppColors.text.white} />
+            </View>
+            <View style={styles.textBlock}>
+              <Text style={styles.label}>Seus pontos</Text>
+              {isLoadingPoints ? (
+                <ActivityIndicator size="small" color={AppColors.text.white} />
+              ) : (
+                <Text style={styles.points}>{currentPoints.toLocaleString('pt-BR')}</Text>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.right}>
+            <View style={styles.giftWrap}>
+              <Ionicons name="gift-outline" size={18} color={AppColors.text.white} />
+            </View>
+          </View>
         </LinearGradient>
       </TouchableOpacity>
 
@@ -543,22 +554,70 @@ export default function PointsBadge({
 }
 
 const styles = StyleSheet.create({
-  badgeContainer: {
-    borderRadius: 9999,
+  container: {
+    borderRadius: 18,
     overflow: 'hidden',
   },
-  badge: {
+  card: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 9999,
-    gap: 4,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
   },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: 'bold',
+  left: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    minWidth: 0,
+  },
+  iconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(251, 191, 36, 0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(253, 230, 138, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: AppColors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  textBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: 2,
+  },
+  points: {
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: -0.6,
     color: AppColors.text.white,
+  },
+  right: {
+    marginLeft: 12,
+  },
+  giftWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.55)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContainer: {
     flex: 1,

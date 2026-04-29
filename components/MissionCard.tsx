@@ -2,6 +2,7 @@ import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import type {
   CitizenMissionListItem,
   CitizenMissionSubmissionStatus,
@@ -13,7 +14,7 @@ function clamp01(value: number) {
 }
 
 export type MissionCardSubmission =
-  | { status: CitizenMissionSubmissionStatus; note?: string | null }
+  | { status: CitizenMissionSubmissionStatus; note?: string | null; evidenceImageUri?: string | null }
   | null;
 
 export type MissionCardStatus = 'idle' | 'accepted' | 'active' | 'approved' | 'rejected';
@@ -114,6 +115,7 @@ export function MissionCard({
   const isRejected = status === 'rejected';
   const accents = useMemo(() => accentFromMissionId(mission.id), [mission.id]);
   const icon = useMemo(() => missionIconFromTitle(mission.title), [mission.title]);
+  const evidenceImageUri = submission?.evidenceImageUri?.trim() ? submission.evidenceImageUri.trim() : null;
 
   return (
     <View style={styles.card}>
@@ -153,6 +155,21 @@ export function MissionCard({
             </View>
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
+            </View>
+          </View>
+        ) : null}
+
+        {evidenceImageUri ? (
+          <View style={styles.evidenceThumbWrap}>
+            <Image
+              source={{ uri: evidenceImageUri }}
+              style={styles.evidenceThumb}
+              contentFit="cover"
+              transition={150}
+            />
+            <View style={styles.evidenceThumbBadge}>
+              <Ionicons name="image-outline" size={14} color={AppColors.text.secondary} />
+              <Text style={styles.evidenceThumbBadgeText}>Comprovação</Text>
             </View>
           </View>
         ) : null}
@@ -417,6 +434,38 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: AppColors.text.tertiary,
     lineHeight: 18,
+  },
+  evidenceThumbWrap: {
+    marginTop: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: AppColors.border.muted,
+    backgroundColor: AppColors.background.muted,
+    position: 'relative',
+  },
+  evidenceThumb: {
+    width: '100%',
+    height: 140,
+  },
+  evidenceThumbBadge: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    borderWidth: 1,
+    borderColor: AppColors.border.muted,
+  },
+  evidenceThumbBadgeText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: AppColors.text.secondary,
   },
   primaryButton: {
     flex: 1,

@@ -1,4 +1,4 @@
-import { getApiBaseUrl, getAuthToken } from './authApi';
+import { getApiBaseUrl, getAuthToken, getWhitelabelHostId } from './authApi';
 
 const BASE_PATH = '/api/v1';
 
@@ -106,8 +106,51 @@ async function requestApi<T>(
   return res.json();
 }
 
+async function requestApiOptionalAuth<T>(
+  endpoint: string,
+  options: {
+    method?: 'GET' | 'POST';
+    body?: unknown;
+    headers?: Record<string, string>;
+  } = {},
+): Promise<T> {
+  const url = `${getApiBaseUrl()}${BASE_PATH}${endpoint}`;
+  const token = getAuthToken();
+  const res = await fetch(url, {
+    method: options.method ?? 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : null),
+      ...(options.body ? { 'Content-Type': 'application/json' } : null),
+      ...(options.headers ?? {}),
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(parseApiErrorMessage(text) || `Erro HTTP: ${res.status}`);
+  }
+  if (res.status === 204) return undefined as T;
+  return res.json();
+}
+
 export async function listMissions(): Promise<CitizenMissionListItem[]> {
-  const data = await requestApi<CitizenMissionListItem[]>('/missions');
+  const token = getAuthToken();
+
+  // Visitante: por padrão o backend retorna só globais.
+  // Passamos hostId do app para retornar globais + host.
+  let endpoint = '/missions';
+  if (!token) {
+    try {
+      const hostId = getWhitelabelHostId();
+      endpoint = `/missions?hostId=${encodeURIComponent(hostId)}`;
+    } catch {
+      // sem hostId configurado, segue globais
+    }
+  }
+
+  const data = await requestApiOptionalAuth<CitizenMissionListItem[]>(endpoint);
   return Array.isArray(data) ? data : [];
 }
 

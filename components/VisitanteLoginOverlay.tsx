@@ -8,10 +8,11 @@ const DEFAULT_MESSAGE =
   'Nesta visualização de visitante esta área não está disponível. Faça login com uma conta cadastrada para usar todos os recursos.';
 
 type VisitanteLoginOverlayProps = {
+  visible?: boolean;
   message?: string;
 };
 
-export function VisitanteLoginOverlay({ message }: VisitanteLoginOverlayProps) {
+export function VisitanteLoginOverlay({ visible = true, message }: VisitanteLoginOverlayProps) {
   const { user, logout } = useAuth();
   const [busy, setBusy] = React.useState(false);
 
@@ -25,7 +26,7 @@ export function VisitanteLoginOverlay({ message }: VisitanteLoginOverlayProps) {
     }
   }, [logout]);
 
-  if (user?.profile !== 'VISITANTE') {
+  if (!visible || user?.profile !== 'VISITANTE') {
     return null;
   }
 

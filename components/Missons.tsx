@@ -14,6 +14,8 @@ import type { CitizenMissionListItem, CitizenMissionSubmissionStatus, MySubmissi
 import * as citizenMissionsApi from '@/services/citizenMissionsApi';
 import { getApiBaseUrl } from '@/services/authApi';
 import { Popout } from '@/components/Popout';
+import { useAuth } from '@/contexts/AuthContext';
+import { VisitanteLoginOverlay } from '@/components/VisitanteLoginOverlay';
 
 function Chip({
   label,
@@ -102,11 +104,14 @@ function RankingCard({
 
 export function Missons() {
     const insets = useSafeAreaInsets();
+    const { user } = useAuth();
+    const isVisitante = user?.profile === 'VISITANTE';
     const [selectedCategory, setSelectedCategory] = useState<MissionCategory>('Todas');
     const [missions, setMissions] = useState<CitizenMissionListItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [submissionsCache, setSubmissionsCache] = useState<MySubmissionItem[] | null>(null);
+    const [showVisitanteOverlay, setShowVisitanteOverlay] = useState(false);
 
     const [popout, setPopout] = useState<{
       visible: boolean;
@@ -156,6 +161,7 @@ export function Missons() {
     );
 
     const ensureMySubmissionsLoaded = useCallback(async (): Promise<MySubmissionItem[]> => {
+      if (isVisitante) return [];
       if (submissionsCache) return submissionsCache;
       try {
         const rows = await citizenMissionsApi.listMySubmissions();
@@ -165,7 +171,7 @@ export function Missons() {
         // silencioso; o usuário ainda pode ver status pela lista de missões.
         return [];
       }
-    }, [submissionsCache]);
+    }, [isVisitante, submissionsCache]);
 
     useEffect(() => {
       let mounted = true;
@@ -173,7 +179,9 @@ export function Missons() {
         try {
           await loadMissions();
           // Carrega submissões para exibir notas (rejeição) e comprovação.
-          void ensureMySubmissionsLoaded();
+          if (!isVisitante) {
+            void ensureMySubmissionsLoaded();
+          }
         } finally {
           if (mounted) setLoading(false);
         }
@@ -181,7 +189,7 @@ export function Missons() {
       return () => {
         mounted = false;
       };
-    }, [ensureMySubmissionsLoaded, loadMissions]);
+    }, [ensureMySubmissionsLoaded, isVisitante, loadMissions]);
 
     const filteredMissions = useMemo(() => {
       // Backend ainda não tem categorias; mantemos chip "Todas" apenas.
@@ -270,6 +278,10 @@ export function Missons() {
         const st = mission.mySubmission?.status ?? null;
 
         if (!st) {
+          if (isVisitante) {
+            setShowVisitanteOverlay(true);
+            return;
+          }
           try {
             await citizenMissionsApi.acceptMission(mission.id);
             await loadMissions();
@@ -326,6 +338,7 @@ export function Missons() {
       },
       [
         ensureMySubmissionsLoaded,
+        isVisitante,
         findCachedSubmissionForMission,
         loadMissions,
         openEvidenceModal,
@@ -447,11 +460,24 @@ export function Missons() {
             const submissionStatus = (mission.mySubmission?.status ?? null) as CitizenMissionSubmissionStatus | null;
             const cached = submissionsCache?.find((s) => s.mission.id === mission.id) ?? null;
             const note = cached?.note ?? null;
+            const evidenceImageUri =
+              cached?.evidenceImage?.publicUrl?.trim() ||
+              (cached?.evidenceImage?.id
+                ? `${getApiBaseUrl()}/api/v1/upload/files/${cached.evidenceImage.id}`
+                : null);
             return (
               <MissionCard
                 key={mission.id}
                 mission={mission}
-                submission={mission.mySubmission ? { status: submissionStatus!, note } : null}
+                submission={
+                  mission.mySubmission
+                    ? {
+                        status: submissionStatus!,
+                        note,
+                        evidenceImageUri,
+                      }
+                    : null
+                }
                 onPressPrimary={() => void onPressMissionPrimary(mission)}
               />
             );
@@ -559,6 +585,11 @@ export function Missons() {
         message={popout.message}
         primaryLabel="OK"
         onClose={() => setPopout((prev) => ({ ...prev, visible: false }))}
+      />
+
+      <VisitanteLoginOverlay
+        visible={showVisitanteOverlay}
+        message="Para aceitar missões e enviar comprovação, faça login com uma conta cadastrada."
       />
     </View>
   );

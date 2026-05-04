@@ -28,15 +28,37 @@ export type CitizenMissionListItem = {
   } | null;
 };
 
-export type UploadImageResult = {
+export type SubmitMissionSupabaseEvidenceImage = {
   id: string;
   publicUrl: string;
   path: string;
 };
 
-export type SubmitMissionResult = {
+export type SubmitMissionSupabaseResult = {
   id: string;
   status: CitizenMissionSubmissionStatus;
+  evidenceImageId: string;
+  evidenceImage: SubmitMissionSupabaseEvidenceImage;
+};
+
+export type WeeklyMissionsRankingMy = {
+  userId: string;
+  weeklyPoints: number;
+  position: number | null;
+};
+
+export type WeeklyMissionsRankingLeaderboardEntry = {
+  userId: string;
+  name: string;
+  weeklyPoints: number;
+  position: number;
+};
+
+export type WeeklyMissionsRankingResponse = {
+  weekStart: string;
+  weekEnd: string;
+  my: WeeklyMissionsRankingMy;
+  leaderboard: WeeklyMissionsRankingLeaderboardEntry[];
 };
 
 export type MySubmissionItem = {
@@ -72,7 +94,6 @@ function parseApiErrorMessage(text: string): string {
     if (typeof json.message === 'string' && json.message.trim()) return json.message;
     if (typeof json.error === 'string' && json.error.trim()) return json.error;
   } catch {
-    // ignore
   }
   return text.trim() || 'Erro na requisição';
 }
@@ -135,33 +156,99 @@ async function requestApiOptionalAuth<T>(
   return res.json();
 }
 
-export async function listMissions(): Promise<CitizenMissionListItem[]> {
-  const token = getAuthToken();
-
-  // Visitante: por padrão o backend retorna só globais.
-  // Passamos hostId do app para retornar globais + host.
-  let endpoint = '/missions';
-  if (!token) {
-    try {
-      const hostId = getWhitelabelHostId();
-      endpoint = `/missions?hostId=${encodeURIComponent(hostId)}`;
-    } catch {
-      // sem hostId configurado, segue globais
-    }
+/** Lista missões. Use `init`/`end` para paginação (intervalo [init, end) no backend). */
+export async function listMissions(params?: {
+  init?: number;
+  end?: number;
+}): Promise<CitizenMissionListItem[]> {
+  const qs = new URLSearchParams();
+  if (params?.init != null && Number.isFinite(params.init)) {
+    qs.set('init', String(Math.max(0, Math.floor(params.init))));
+  }
+  if (params?.end != null && Number.isFinite(params.end)) {
+    qs.set('end', String(Math.max(0, Math.floor(params.end))));
   }
 
-  const data = await requestApiOptionalAuth<CitizenMissionListItem[]>(endpoint);
+  const token = getAuthToken();
+  if (token) {
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    const data = await requestApi<CitizenMissionListItem[]>(`/missions${suffix}`);
+    return Array.isArray(data) ? data : [];
+  }
+
+  try {
+    const hostId = getWhitelabelHostId();
+    if (hostId) qs.set('hostId', hostId);
+  } catch {
+    /* visitante / sem host: só missões globais */
+  }
+
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  const data = await requestApiOptionalAuth<CitizenMissionListItem[]>(`/missions${suffix}`);
   return Array.isArray(data) ? data : [];
 }
 
-export async function submitMission(
+export async function submitMissionEvidenceSupabaseFromUri(
   missionId: string,
-  payload: { evidenceImageId: string },
-): Promise<SubmitMissionResult> {
-  return requestApi<SubmitMissionResult>(`/missions/${encodeURIComponent(missionId)}/submissions`, {
+  uri: string,
+  options?: { mimeType?: string; fileName?: string },
+): Promise<SubmitMissionSupabaseResult> {
+  const token = requireAuthToken();
+  const mime = options?.mimeType?.trim() || 'image/jpeg';
+  const name = options?.fileName?.trim() || 'mission-evidence.jpg';
+
+  const form = new FormData();
+  form.append('file', { uri, name, type: mime } as unknown as Blob);
+
+  const url = `${getApiBaseUrl()}${BASE_PATH}/missions/${encodeURIComponent(missionId)}/submissions/supabase`;
+  const res = await fetch(url, {
     method: 'POST',
-    body: payload,
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: form,
   });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(parseApiErrorMessage(text) || `Erro no envio da comprovação: ${res.status}`);
+  }
+
+  const raw = (await res.json()) as Partial<SubmitMissionSupabaseResult> & {
+    evidenceImage?: Partial<SubmitMissionSupabaseEvidenceImage> | null;
+  };
+
+  if (!raw?.id || typeof raw.status !== 'string') {
+    throw new Error('Resposta inválida do servidor');
+  }
+
+  const evidenceImageId = String(raw.evidenceImageId ?? raw.evidenceImage?.id ?? '').trim();
+  const img = raw.evidenceImage;
+  const publicUrl =
+    typeof img?.publicUrl === 'string' && img.publicUrl.trim() ? img.publicUrl.trim() : '';
+
+  if (!publicUrl) {
+    throw new Error(
+      'A comprovação foi registrada, mas a imagem não tem URL pública. Verifique a configuração do armazenamento (Supabase).',
+    );
+  }
+
+  const evidenceId = String(img?.id ?? evidenceImageId).trim();
+  if (!evidenceImageId && !evidenceId) {
+    throw new Error('Resposta inválida: evidenceImageId ausente');
+  }
+
+  return {
+    id: String(raw.id),
+    status: raw.status as CitizenMissionSubmissionStatus,
+    evidenceImageId: evidenceImageId || evidenceId,
+    evidenceImage: {
+      id: evidenceId || evidenceImageId,
+      publicUrl,
+      path: typeof img?.path === 'string' ? img.path : '',
+    },
+  };
 }
 
 export async function acceptMission(missionId: string): Promise<{ id: string; status: CitizenMissionSubmissionStatus }> {
@@ -176,36 +263,13 @@ export async function listMySubmissions(): Promise<MySubmissionItem[]> {
   return Array.isArray(data) ? data : [];
 }
 
-export async function uploadEvidenceImageFromUri(
-  uri: string,
-  options?: { mimeType?: string; fileName?: string },
-): Promise<UploadImageResult> {
-  const token = requireAuthToken();
-  const mime = options?.mimeType?.trim() || 'image/jpeg';
-  const name = options?.fileName?.trim() || 'mission-evidence.jpg';
-
-  const form = new FormData();
-  form.append('file', { uri, name, type: mime } as unknown as Blob);
-
-  const url = `${getApiBaseUrl()}${BASE_PATH}/upload/image`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: form,
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(parseApiErrorMessage(text) || `Erro no upload: ${res.status}`);
-  }
-
-  const raw = (await res.json()) as Partial<UploadImageResult>;
-  if (!raw?.id) {
-    throw new Error('Resposta inválida do upload');
-  }
-  return { id: String(raw.id), publicUrl: String(raw.publicUrl ?? ''), path: String(raw.path ?? '') };
+export async function getWeeklyMissionsRanking(params?: {
+  init?: number;
+  end?: number;
+}): Promise<WeeklyMissionsRankingResponse> {
+  const init = Math.max(0, Number(params?.init ?? 0));
+  const endDefault = init + 10;
+  const end = Math.max(init, Number(params?.end ?? endDefault));
+  const qs = new URLSearchParams({ init: String(init), end: String(end) }).toString();
+  return requestApi<WeeklyMissionsRankingResponse>(`/me/missions-ranking/weekly?${qs}`);
 }
-

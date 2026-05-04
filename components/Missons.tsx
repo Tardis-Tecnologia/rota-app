@@ -1,21 +1,51 @@
-import { View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator, Alert, Modal, TouchableOpacity } from 'react-native';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { router } from 'expo-router';
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import { router } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Modal,
+    Pressable,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { MissionCategory, RankingEntry } from '@/data/mockMissions';
 import { MissionCard } from '@/components/MissionCard';
-import { mockRankingEntries } from '@/data/mockMissions';
+import { Popout } from '@/components/Popout';
+import { RankingCard } from '@/components/RankingCard';
+import { VisitanteLoginOverlay } from '@/components/VisitanteLoginOverlay';
+import { useAuth } from '@/contexts/AuthContext';
+import { getApiBaseUrl } from '@/services/authApi';
+import type {
+    CitizenMissionListItem,
+    CitizenMissionSubmissionStatus,
+    MySubmissionItem,
+    WeeklyMissionsRankingResponse,
+} from '@/services/citizenMissionsApi';
+import * as citizenMissionsApi from '@/services/citizenMissionsApi';
+import { notifyRewardPointsChanged } from '@/services/rewardPointsBridge';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import type { CitizenMissionListItem, CitizenMissionSubmissionStatus, MySubmissionItem } from '@/services/citizenMissionsApi';
-import * as citizenMissionsApi from '@/services/citizenMissionsApi';
-import { getApiBaseUrl } from '@/services/authApi';
-import { Popout } from '@/components/Popout';
-import { useAuth } from '@/contexts/AuthContext';
-import { VisitanteLoginOverlay } from '@/components/VisitanteLoginOverlay';
+
+type MissionCategory = 'Todas';
+
+/** Deve coincidir com o default do backend (init..init+10). */
+const MISSIONS_PAGE_SIZE = 10;
+
+const MISSION_CATEGORIES: MissionCategory[] = ['Todas'];
+
+const VISITANTE_MSG_MISSIONS =
+  'Para aceitar missões e enviar comprovação, faça login com uma conta cadastrada.';
+const VISITANTE_MSG_RANKING =
+  'Para ver o ranking semanal do bairro, faça login com uma conta cadastrada.';
 
 function Chip({
   label,
@@ -42,76 +72,29 @@ function Chip({
   );
 }
 
-function RankingCard({
-  weekLabel,
-  rankPosition,
-  entries,
-}: {
-  weekLabel: string;
-  rankPosition: number;
-  entries: RankingEntry[];
-}) {
-  return (
-    <View style={styles.rankingWrap}>
-      <View style={styles.rankingHeaderRow}>
-        <Text style={styles.rankingTitle}>RANKING DO BAIRRO</Text>
-        <View style={styles.rankPill}>
-          <Ionicons name="trophy-outline" size={16} color={AppColors.palette.amber.base} />
-          <Text style={styles.rankPillText}>{`#${rankPosition}`}</Text>
-        </View>
-      </View>
-
-      <View style={styles.rankingCard}>
-        <View style={styles.rankingTopRow}>
-          <View style={styles.rankingWeekRow}>
-            <Ionicons name="people-outline" size={18} color={AppColors.text.tertiary} />
-            <Text style={styles.rankingWeekText}>{weekLabel}</Text>
-          </View>
-          <Text style={styles.rankingPointsHeader}>Pontos por missões</Text>
-        </View>
-
-        <View style={styles.rankingDivider} />
-
-        {entries.map((entry, index) => {
-          const position = index + 1;
-          const medalBg =
-            position === 1
-              ? AppColors.palette.amber.light
-              : position === 2
-                ? '#EEF2FF'
-                : position === 3
-                  ? '#FEE2E2'
-                  : AppColors.background.muted;
-          return (
-            <View key={entry.id} style={styles.rankingRow}>
-              <View style={[styles.positionBadge, { backgroundColor: medalBg }]}>
-                <Text style={styles.positionBadgeText}>{position}</Text>
-              </View>
-              <Text style={styles.rankingName} numberOfLines={1}>
-                {entry.name}
-              </Text>
-              <View style={styles.rankingPointsRow}>
-                <Ionicons name="star" size={16} color={AppColors.text.yellow} />
-                <Text style={styles.rankingPointsText}>{entry.points}</Text>
-              </View>
-            </View>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
 export function Missons() {
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
     const isVisitante = user?.profile === 'VISITANTE';
     const [selectedCategory, setSelectedCategory] = useState<MissionCategory>('Todas');
     const [missions, setMissions] = useState<CitizenMissionListItem[]>([]);
+    const [missionsHasMore, setMissionsHasMore] = useState(true);
+    const [missionsLoadingMore, setMissionsLoadingMore] = useState(false);
+    const [listRefreshing, setListRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [submissionsCache, setSubmissionsCache] = useState<MySubmissionItem[] | null>(null);
     const [showVisitanteOverlay, setShowVisitanteOverlay] = useState(false);
+    const [visitantePromptMessage, setVisitantePromptMessage] = useState(VISITANTE_MSG_MISSIONS);
+    const [rankingModalVisible, setRankingModalVisible] = useState(false);
+    const [weeklyRanking, setWeeklyRanking] = useState<WeeklyMissionsRankingResponse | null>(null);
+    const [missionActionLoadingId, setMissionActionLoadingId] = useState<string | null>(null);
+    const [localSubmissionStatusByMissionId, setLocalSubmissionStatusByMissionId] = useState<
+      Record<string, CitizenMissionSubmissionStatus>
+    >({});
+    const previousSubmissionStatusRef = useRef<Record<string, CitizenMissionSubmissionStatus | null>>({});
+    const missionsListGenRef = useRef(0);
+    const loadMoreInFlightRef = useRef(false);
 
     const [popout, setPopout] = useState<{
       visible: boolean;
@@ -133,25 +116,87 @@ export function Missons() {
         router.replace('/(tabs)/home');
       }, []);
 
-    const categories: MissionCategory[] = ['Todas'];
+    const closeRankingModal = useCallback(() => {
+      setRankingModalVisible(false);
+    }, []);
 
-    const activeCount = useMemo(() => {
-      return missions.filter((m) => {
-        const st = m.mySubmission?.status;
-        return st === 'ACCEPTED' || st === 'PENDING' || st === 'UNDER_REVIEW';
-      }).length;
-    }, [missions]);
+    const categories = MISSION_CATEGORIES;
 
-    const loadMissions = useCallback(async () => {
+    const resolveStatus = useCallback(
+      (mission: CitizenMissionListItem): CitizenMissionSubmissionStatus | null => {
+        return (
+          mission.mySubmission?.status ??
+          submissionsCache?.find((s) => s.mission.id === mission.id)?.status ??
+          localSubmissionStatusByMissionId[mission.id] ??
+          null
+        );
+      },
+      [localSubmissionStatusByMissionId, submissionsCache],
+    );
+
+    const hasMissionsUnderReview = useMemo(
+      () =>
+        missions.some((m) => {
+          const st = resolveStatus(m);
+          return st === 'PENDING' || st === 'UNDER_REVIEW';
+        }),
+      [missions, resolveStatus],
+    );
+
+    const loadMissionsInitial = useCallback(async () => {
+      missionsListGenRef.current += 1;
+      const gen = missionsListGenRef.current;
+      loadMoreInFlightRef.current = false;
+      setMissionsLoadingMore(false);
       setErrorMessage(null);
       try {
-        const data = await citizenMissionsApi.listMissions();
+        const data = await citizenMissionsApi.listMissions({ init: 0, end: MISSIONS_PAGE_SIZE });
+        if (gen !== missionsListGenRef.current) return;
         setMissions(data);
+        setMissionsHasMore(data.length === MISSIONS_PAGE_SIZE);
       } catch (e) {
+        if (gen !== missionsListGenRef.current) return;
         const msg = e instanceof Error ? e.message : 'Não foi possível carregar as missões.';
         setErrorMessage(msg);
+        setMissionsHasMore(false);
       }
     }, []);
+
+    const loadMoreMissions = useCallback(async () => {
+      if (!missionsHasMore || loading || errorMessage) return;
+      if (missions.length === 0) return;
+      if (loadMoreInFlightRef.current) return;
+      const genAtStart = missionsListGenRef.current;
+      loadMoreInFlightRef.current = true;
+      setMissionsLoadingMore(true);
+      try {
+        const init = missions.length;
+        const end = init + MISSIONS_PAGE_SIZE;
+        const data = await citizenMissionsApi.listMissions({ init, end });
+        if (genAtStart !== missionsListGenRef.current) return;
+        if (data.length === 0) {
+          setMissionsHasMore(false);
+          return;
+        }
+        setMissions((prev) => {
+          const seen = new Set(prev.map((m) => m.id));
+          const merged = [...prev];
+          for (const row of data) {
+            if (!seen.has(row.id)) {
+              merged.push(row);
+              seen.add(row.id);
+            }
+          }
+          return merged;
+        });
+        setMissionsHasMore(data.length === MISSIONS_PAGE_SIZE);
+      } catch {
+        if (genAtStart !== missionsListGenRef.current) return;
+      } finally {
+        loadMoreInFlightRef.current = false;
+        setMissionsLoadingMore(false);
+      }
+    }, [missions.length, missionsHasMore, loading, errorMessage]);
 
     const showPopout = useCallback(
       (params: { type: 'success' | 'error' | 'info' | 'warning'; title: string; message?: string | null }) => {
@@ -160,28 +205,57 @@ export function Missons() {
       [],
     );
 
-    const ensureMySubmissionsLoaded = useCallback(async (): Promise<MySubmissionItem[]> => {
+    /** Sempre busca do servidor (após aceitar/enviar/aprovar). */
+    const refreshMySubmissions = useCallback(async (): Promise<MySubmissionItem[]> => {
       if (isVisitante) return [];
-      if (submissionsCache) return submissionsCache;
       try {
         const rows = await citizenMissionsApi.listMySubmissions();
         setSubmissionsCache(rows);
         return rows;
       } catch {
-        // silencioso; o usuário ainda pode ver status pela lista de missões.
         return [];
       }
-    }, [isVisitante, submissionsCache]);
+    }, [isVisitante]);
+
+    const loadWeeklyRanking = useCallback(async () => {
+      if (isVisitante) {
+        setWeeklyRanking(null);
+        return;
+      }
+      try {
+        const data = await citizenMissionsApi.getWeeklyMissionsRanking({ init: 0, end: 10 });
+        setWeeklyRanking(data);
+      } catch {
+        // ranking é complementar; não bloqueia a tela
+        setWeeklyRanking(null);
+      }
+    }, [isVisitante]);
+
+    const onPressRankingHeader = useCallback(() => {
+      if (isVisitante) {
+        setVisitantePromptMessage(VISITANTE_MSG_RANKING);
+        setShowVisitanteOverlay(true);
+        return;
+      }
+      setRankingModalVisible(true);
+      if (!weeklyRanking) {
+        void loadWeeklyRanking();
+      }
+    }, [isVisitante, loadWeeklyRanking, weeklyRanking]);
+
+    const refreshAll = useCallback(async () => {
+      await loadMissionsInitial();
+      if (!isVisitante) {
+        await refreshMySubmissions();
+        await loadWeeklyRanking();
+      }
+    }, [isVisitante, loadMissionsInitial, loadWeeklyRanking, refreshMySubmissions]);
 
     useEffect(() => {
       let mounted = true;
       (async () => {
         try {
-          await loadMissions();
-          // Carrega submissões para exibir notas (rejeição) e comprovação.
-          if (!isVisitante) {
-            void ensureMySubmissionsLoaded();
-          }
+          await refreshAll();
         } finally {
           if (mounted) setLoading(false);
         }
@@ -189,14 +263,100 @@ export function Missons() {
       return () => {
         mounted = false;
       };
-    }, [ensureMySubmissionsLoaded, isVisitante, loadMissions]);
+    }, [refreshAll]);
+
+    useFocusEffect(
+      useCallback(() => {
+        if (isVisitante) return;
+        void refreshAll();
+      }, [isVisitante, refreshAll]),
+    );
+
+    useEffect(() => {
+      if (isVisitante || !hasMissionsUnderReview) return;
+      const timer = setInterval(() => {
+        void refreshAll();
+      }, 15000);
+      return () => clearInterval(timer);
+    }, [hasMissionsUnderReview, isVisitante, refreshAll]);
+
+    useEffect(() => {
+      const previousStatuses = previousSubmissionStatusRef.current;
+      const newlyApproved = missions.filter((mission) => {
+        const nextStatus = resolveStatus(mission);
+        const previousStatus = previousStatuses[mission.id] ?? null;
+        return (
+          nextStatus === 'APPROVED' &&
+          (previousStatus === 'PENDING' || previousStatus === 'UNDER_REVIEW')
+        );
+      });
+
+      const currentStatuses: Record<string, CitizenMissionSubmissionStatus | null> = {};
+      missions.forEach((mission) => {
+        currentStatuses[mission.id] = resolveStatus(mission);
+      });
+      previousSubmissionStatusRef.current = currentStatuses;
+
+      if (newlyApproved.length === 0) return;
+
+      setSubmissionsCache(null);
+      void refreshMySubmissions();
+      notifyRewardPointsChanged();
+      showPopout({
+        type: 'success',
+        title: 'Missão aprovada!',
+        message:
+          newlyApproved.length > 1
+            ? 'Suas comprovações foram aprovadas. Seus pontos já foram atualizados.'
+            : 'Sua comprovação foi aprovada. Seus pontos já foram atualizados.',
+      });
+    }, [missions, refreshMySubmissions, resolveStatus, showPopout]);
+
+    // Servidor passou a enviar mySubmission na lista: remove overlay local para não divergir.
+    useEffect(() => {
+      setLocalSubmissionStatusByMissionId((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        for (const id of Object.keys(next)) {
+          const m = missions.find((x) => x.id === id);
+          if (m?.mySubmission?.status) {
+            delete next[id];
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }, [missions]);
 
     const filteredMissions = useMemo(() => {
       // Backend ainda não tem categorias; mantemos chip "Todas" apenas.
       if (selectedCategory === 'Todas') return missions;
       return missions;
     }, [missions, selectedCategory]);
-    const rankingEntries = mockRankingEntries;
+
+    const getEffectiveSubmissionStatus = useCallback(
+      (mission: CitizenMissionListItem): CitizenMissionSubmissionStatus | null => {
+        return resolveStatus(mission);
+      },
+      [resolveStatus],
+    );
+
+    const evidenceModalEffectiveStatus = useMemo(() => {
+      const m = evidenceModal.mission;
+      if (!m) return null;
+      return getEffectiveSubmissionStatus(m);
+    }, [evidenceModal.mission, getEffectiveSubmissionStatus]);
+
+    const weekLabel = useMemo(() => {
+      const startIso = weeklyRanking?.weekStart ?? null;
+      const endIso = weeklyRanking?.weekEnd ?? null;
+      if (!startIso || !endIso) return 'Semana';
+      const start = new Date(startIso);
+      const end = new Date(endIso);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 'Semana';
+      const fmt = (d: Date) => String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+      return `Semana ${fmt(start)} - ${fmt(end)}`;
+    }, [weeklyRanking?.weekEnd, weeklyRanking?.weekStart]);
 
     const openEvidenceModal = useCallback((mission: CitizenMissionListItem) => {
       setEvidenceModal({ visible: true, mission, uri: null, submitting: false });
@@ -275,25 +435,70 @@ export function Missons() {
 
     const onPressMissionPrimary = useCallback(
       async (mission: CitizenMissionListItem) => {
-        const st = mission.mySubmission?.status ?? null;
+        const st = getEffectiveSubmissionStatus(mission);
 
         if (!st) {
           if (isVisitante) {
+            setVisitantePromptMessage(VISITANTE_MSG_MISSIONS);
             setShowVisitanteOverlay(true);
             return;
           }
+          setMissionActionLoadingId(mission.id);
+          setLocalSubmissionStatusByMissionId((prev) => ({ ...prev, [mission.id]: 'ACCEPTED' }));
+          const nowIso = new Date().toISOString();
+          setMissions((prev) =>
+            prev.map((row) =>
+              row.id === mission.id
+                ? {
+                    ...row,
+                    mySubmission: row.mySubmission ?? {
+                      id: `local-${mission.id}`,
+                      status: 'ACCEPTED',
+                      createdAt: nowIso,
+                      updatedAt: nowIso,
+                    },
+                  }
+                : row,
+            ),
+          );
           try {
-            await citizenMissionsApi.acceptMission(mission.id);
-            await loadMissions();
+            const accepted = await citizenMissionsApi.acceptMission(mission.id);
+            const ts = new Date().toISOString();
+            setMissions((prev) =>
+              prev.map((row) =>
+                row.id === mission.id
+                  ? {
+                      ...row,
+                      mySubmission: {
+                        id: accepted.id,
+                        status: accepted.status,
+                        createdAt: row.mySubmission?.createdAt ?? ts,
+                        updatedAt: ts,
+                      },
+                    }
+                  : row,
+              ),
+            );
+            setLocalSubmissionStatusByMissionId((prev) => ({ ...prev, [mission.id]: accepted.status }));
+            await loadMissionsInitial();
+            await refreshMySubmissions();
           } catch (e) {
+            setLocalSubmissionStatusByMissionId((prev) => {
+              const next = { ...prev };
+              delete next[mission.id];
+              return next;
+            });
+            await loadMissionsInitial();
             const msg = e instanceof Error ? e.message : 'Não foi possível aceitar a missão.';
             showPopout({ type: 'error', title: 'Não foi possível aceitar', message: msg });
+          } finally {
+            setMissionActionLoadingId((current) => (current === mission.id ? null : current));
           }
           return;
         }
 
         if (st === 'APPROVED') {
-          const rows = await ensureMySubmissionsLoaded();
+          const rows = await refreshMySubmissions();
           const sub = rows.find((s) => s.mission.id === mission.id) ?? findCachedSubmissionForMission(mission.id);
           if (!sub?.evidenceImage?.id && !sub?.evidenceImage?.publicUrl) {
             showPopout({
@@ -337,10 +542,11 @@ export function Missons() {
         openEvidenceModal(mission);
       },
       [
-        ensureMySubmissionsLoaded,
+        refreshMySubmissions,
+        getEffectiveSubmissionStatus,
         isVisitante,
         findCachedSubmissionForMission,
-        loadMissions,
+        loadMissionsInitial,
         openEvidenceModal,
         showPopout,
       ],
@@ -358,16 +564,55 @@ export function Missons() {
         });
         return;
       }
+
+      const st = getEffectiveSubmissionStatus(mission);
+      // Só envia comprovação após accept (ACCEPTED) ou reenvio após reprovação (REJECTED).
+      if (st !== 'ACCEPTED' && st !== 'REJECTED') {
+        showPopout({
+          type: 'warning',
+          title: 'Envio não disponível',
+          message:
+            'Aceite a missão antes de enviar a comprovação, ou aguarde a análise da comprovação anterior.',
+        });
+        return;
+      }
+
       setEvidenceModal((prev) => ({ ...prev, submitting: true }));
       try {
-        const up = await citizenMissionsApi.uploadEvidenceImageFromUri(uri, {
+        const result = await citizenMissionsApi.submitMissionEvidenceSupabaseFromUri(mission.id, uri, {
           mimeType: evidenceModal.mimeType ?? undefined,
           fileName: evidenceModal.fileName ?? undefined,
         });
-        await citizenMissionsApi.submitMission(mission.id, { evidenceImageId: up.id });
-        closeEvidenceModal();
+
+        const ts = new Date().toISOString();
+        setLocalSubmissionStatusByMissionId((prev) => ({ ...prev, [mission.id]: result.status }));
+        setMissions((prev) =>
+          prev.map((row) => {
+            if (row.id !== mission.id) return row;
+            const prevSub = row.mySubmission;
+            return {
+              ...row,
+              mySubmission: prevSub
+                ? {
+                    ...prevSub,
+                    id: result.id,
+                    status: result.status,
+                    updatedAt: ts,
+                  }
+                : {
+                    id: result.id,
+                    status: result.status,
+                    createdAt: ts,
+                    updatedAt: ts,
+                  },
+            };
+          }),
+        );
+
         setSubmissionsCache(null);
-        await loadMissions();
+        await refreshMySubmissions();
+        await loadMissionsInitial();
+        closeEvidenceModal();
         showPopout({
           type: 'success',
           title: 'Enviado!',
@@ -380,14 +625,95 @@ export function Missons() {
       } finally {
         setEvidenceModal((prev) => ({ ...prev, submitting: false }));
       }
-    }, [closeEvidenceModal, evidenceModal.fileName, evidenceModal.mimeType, evidenceModal.mission, evidenceModal.uri, loadMissions, showPopout]);
+    }, [
+      closeEvidenceModal,
+      evidenceModal.fileName,
+      evidenceModal.mimeType,
+      evidenceModal.mission,
+      evidenceModal.uri,
+      getEffectiveSubmissionStatus,
+      loadMissionsInitial,
+      refreshMySubmissions,
+      showPopout,
+    ]);
 
     const onRefresh = useCallback(async () => {
       try {
-        await loadMissions();
+        await refreshAll();
       } finally {
       }
-    }, [loadMissions]);
+    }, [refreshAll]);
+
+    const onPullRefresh = useCallback(async () => {
+      setListRefreshing(true);
+      try {
+        await refreshAll();
+      } finally {
+        setListRefreshing(false);
+      }
+    }, [refreshAll]);
+
+    const onMissionsEndReached = useCallback(() => {
+      void loadMoreMissions();
+    }, [loadMoreMissions]);
+
+    const missionListHeader = useMemo(
+      () => (
+        <View>
+          {categories.length > 1 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chipsRow}
+            >
+              {categories.map((cat) => (
+                <Chip
+                  key={cat}
+                  label={cat}
+                  active={selectedCategory === cat}
+                  onPress={() => setSelectedCategory(cat)}
+                />
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={{ height: 12 }} />
+          )}
+
+          {loading && missions.length === 0 ? (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator color={AppColors.primary} />
+              <Text style={styles.loadingText}>Carregando missões…</Text>
+            </View>
+          ) : null}
+
+          {errorMessage ? (
+            <View style={styles.errorWrap}>
+              <Ionicons name="alert-circle" size={18} color={AppColors.status.error} />
+              <Text style={styles.errorText}>{errorMessage}</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Tentar novamente"
+                onPress={() => void onRefresh()}
+                style={({ pressed }) => [styles.retryButton, pressed && { opacity: 0.9 }]}
+              >
+                <Text style={styles.retryButtonText}>Tentar novamente</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
+      ),
+      [categories, selectedCategory, loading, errorMessage, missions.length, onRefresh],
+    );
+
+    const missionListFooter = useMemo(
+      () =>
+        missionsLoadingMore ? (
+          <View style={styles.missionListFooterLoading}>
+            <ActivityIndicator color={AppColors.primary} />
+          </View>
+        ) : null,
+      [missionsLoadingMore],
+    );
 
   return (
     <View style={styles.container}>
@@ -406,86 +732,81 @@ export function Missons() {
           <Text style={styles.title}>Missões Cidadãs</Text>
         </View>
 
-        <View style={styles.headerRight}>
-          <Ionicons name="flame-outline" size={18} color={AppColors.report.orange} />
-          <Text style={styles.headerRightText}>{`${activeCount} ativas`}</Text>
-        </View>
+        <Pressable
+          onPress={onPressRankingHeader}
+          style={({ pressed }) => [styles.headerRankingPress, pressed && styles.headerRankingPressPressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Ver ranking semanal do bairro"
+          hitSlop={8}
+        >
+          <Ionicons name="trophy-outline" size={20} color={AppColors.palette.amber.base} />
+          <Text style={styles.headerRankingLabel}>Ranking</Text>
+        </Pressable>
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.contentContainer}
-      >
-        {categories.length > 1 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipsRow}
-          >
-            {categories.map((cat) => (
-              <Chip
-                key={cat}
-                label={cat}
-                active={selectedCategory === cat}
-                onPress={() => setSelectedCategory(cat)}
-              />
-            ))}
-          </ScrollView>
-        ) : (
-          <View style={{ height: 12 }} />
-        )}
-
-        {loading ? (
-          <View style={styles.loadingWrap}>
-            <ActivityIndicator color={AppColors.primary} />
-            <Text style={styles.loadingText}>Carregando missões…</Text>
-          </View>
-        ) : errorMessage ? (
-          <View style={styles.errorWrap}>
-            <Ionicons name="alert-circle" size={18} color={AppColors.status.error} />
-            <Text style={styles.errorText}>{errorMessage}</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Tentar novamente"
-              onPress={() => void onRefresh()}
-              style={({ pressed }) => [styles.retryButton, pressed && { opacity: 0.9 }]}
-            >
-              <Text style={styles.retryButtonText}>Tentar novamente</Text>
-            </Pressable>
-          </View>
-        ) : null}
-
-        <View style={styles.list}>
-          {filteredMissions.map((mission) => {
-            const submissionStatus = (mission.mySubmission?.status ?? null) as CitizenMissionSubmissionStatus | null;
-            const cached = submissionsCache?.find((s) => s.mission.id === mission.id) ?? null;
-            const note = cached?.note ?? null;
-            const evidenceImageUri =
-              cached?.evidenceImage?.publicUrl?.trim() ||
-              (cached?.evidenceImage?.id
-                ? `${getApiBaseUrl()}/api/v1/upload/files/${cached.evidenceImage.id}`
-                : null);
-            return (
+      <FlatList
+        data={filteredMissions}
+        extraData={{
+          submissionsCache,
+          missionActionLoadingId,
+          localSubmissionStatusByMissionId,
+        }}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={missionListHeader}
+        ListFooterComponent={missionListFooter}
+        ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
+        renderItem={({ item: mission }) => {
+          const submissionStatus = getEffectiveSubmissionStatus(mission);
+          const isAtCapacity =
+            typeof mission.maxParticipants === 'number' &&
+            mission.maxParticipants > 0 &&
+            Number(mission.participantsCount ?? 0) >= mission.maxParticipants;
+          const disableAccept = !submissionStatus && isAtCapacity;
+          const cached = submissionsCache?.find((s) => s.mission.id === mission.id) ?? null;
+          const note = cached?.note ?? null;
+          const evidenceImageUri =
+            cached?.evidenceImage?.publicUrl?.trim() ||
+            (cached?.evidenceImage?.id
+              ? `${getApiBaseUrl()}/api/v1/upload/files/${cached.evidenceImage.id}`
+              : null);
+          return (
+            <View style={styles.missionRow}>
               <MissionCard
-                key={mission.id}
                 mission={mission}
                 submission={
-                  mission.mySubmission
+                  submissionStatus
                     ? {
-                        status: submissionStatus!,
+                        status: submissionStatus,
                         note,
                         evidenceImageUri,
                       }
                     : null
                 }
-                onPressPrimary={() => void onPressMissionPrimary(mission)}
+                onPressPrimary={() => {
+                  if (disableAccept) return;
+                  void onPressMissionPrimary(mission);
+                }}
+                primaryLoading={missionActionLoadingId === mission.id}
+                primaryDisabled={disableAccept}
+                primaryLabelOverride={disableAccept ? 'Lotada' : undefined}
               />
-            );
-          })}
-        </View>
-
-        <RankingCard weekLabel="Semana 2026-W18" rankPosition={2} entries={rankingEntries} />
-      </ScrollView>
+            </View>
+          );
+        }}
+        contentContainerStyle={[styles.contentContainer, styles.missionFlatListContent]}
+        showsVerticalScrollIndicator={false}
+        onEndReached={onMissionsEndReached}
+        onEndReachedThreshold={0.35}
+        refreshControl={
+          <RefreshControl
+            refreshing={listRefreshing}
+            onRefresh={onPullRefresh}
+            tintColor={AppColors.primary}
+            colors={[AppColors.primary]}
+          />
+        }
+        keyboardShouldPersistTaps="handled"
+      />
 
       <Modal visible={evidenceModal.visible} transparent animationType="slide" onRequestClose={closeEvidenceModal}>
         <View style={styles.modalBackdrop}>
@@ -493,9 +814,7 @@ export function Missons() {
           <View style={[styles.bottomSheet, { paddingBottom: Math.max(insets.bottom, 20) + 8 }]}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>
-                {evidenceModal.mission?.mySubmission?.status === 'APPROVED'
-                  ? 'Comprovação'
-                  : 'Enviar comprovação'}
+                {evidenceModalEffectiveStatus === 'APPROVED' ? 'Comprovação' : 'Enviar comprovação'}
               </Text>
               <TouchableOpacity
                 style={styles.closeButton}
@@ -514,7 +833,7 @@ export function Missons() {
                   contentFit="cover"
                   transition={150}
                 />
-                {evidenceModal.mission?.mySubmission?.status !== 'APPROVED' ? (
+                {evidenceModalEffectiveStatus !== 'APPROVED' ? (
                   <TouchableOpacity
                     style={styles.removeImageButton}
                     onPress={() => setEvidenceModal((prev) => ({ ...prev, uri: null }))}
@@ -534,7 +853,7 @@ export function Missons() {
               </View>
             )}
 
-            {evidenceModal.mission?.mySubmission?.status !== 'APPROVED' ? (
+            {evidenceModalEffectiveStatus !== 'APPROVED' ? (
               <View style={styles.imageActions}>
                 <TouchableOpacity
                   style={styles.imageActionButton}
@@ -557,7 +876,7 @@ export function Missons() {
               </View>
             ) : null}
 
-            {evidenceModal.mission?.mySubmission?.status !== 'APPROVED' ? (
+            {evidenceModalEffectiveStatus !== 'APPROVED' ? (
               <TouchableOpacity
                 style={[styles.submitButton, evidenceModal.submitting && styles.submitButtonDisabled]}
                 onPress={() => void submitEvidence()}
@@ -578,6 +897,50 @@ export function Missons() {
         </View>
       </Modal>
 
+      <Modal
+        visible={rankingModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeRankingModal}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.backdropTouchableArea} onPress={closeRankingModal} />
+          <View style={[styles.bottomSheet, styles.rankingModalSheet, { paddingBottom: Math.max(insets.bottom, 20) + 8 }]}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Ranking da semana</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={closeRankingModal}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityLabel="Fechar ranking"
+              >
+                <Ionicons name="close" size={24} color={AppColors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.rankingModalScrollContent}
+            >
+              {weeklyRanking ? (
+                <RankingCard
+                  weekLabel={weekLabel}
+                  rankPosition={weeklyRanking.my?.position ?? null}
+                  entries={Array.isArray(weeklyRanking.leaderboard) ? weeklyRanking.leaderboard : []}
+                />
+              ) : (
+                <View style={styles.rankingModalEmpty}>
+                  <Ionicons name="podium-outline" size={36} color={AppColors.text.tertiary} />
+                  <Text style={styles.rankingModalEmptyText}>
+                    Ranking não disponível no momento. Puxe para atualizar a lista.
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       <Popout
         visible={popout.visible}
         type={popout.type}
@@ -587,10 +950,7 @@ export function Missons() {
         onClose={() => setPopout((prev) => ({ ...prev, visible: false }))}
       />
 
-      <VisitanteLoginOverlay
-        visible={showVisitanteOverlay}
-        message="Para aceitar missões e enviar comprovação, faça login com uma conta cadastrada."
-      />
+      <VisitanteLoginOverlay visible={showVisitanteOverlay} message={visitantePromptMessage} />
     </View>
   );
 }
@@ -632,18 +992,25 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: AppColors.text.secondary,
   },
-  headerRight: {
+  headerRankingPress: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingTop: 10,
+    paddingTop: 8,
+    paddingLeft: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  headerRightText: {
-    fontSize: 13,
+  headerRankingPressPressed: {
+    opacity: 0.88,
+  },
+  headerRankingLabel: {
+    fontSize: 14,
     fontWeight: '800',
-    color: AppColors.report.orange,
+    color: AppColors.text.secondary,
   },
   contentContainer: {
+    paddingTop: 8,
     paddingBottom: 32,
   },
   chipsRow: {
@@ -718,113 +1085,37 @@ const styles = StyleSheet.create({
   chipLabelActive: {
     color: AppColors.text.white,
   },
-  list: {
-    paddingHorizontal: 16,
-    gap: 16,
+  missionFlatListContent: {
+    flexGrow: 1,
+    paddingTop: 4,
     paddingBottom: 10,
   },
-  rankingWrap: {
+  missionRow: {
     paddingHorizontal: 16,
-    marginTop: 8,
   },
-  rankingHeaderRow: {
-    flexDirection: 'row',
+  missionListFooterLoading: {
+    paddingVertical: 16,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
   },
-  rankingTitle: {
-    fontSize: 13,
-    fontWeight: '900',
-    letterSpacing: 1.2,
-    color: AppColors.text.tertiary,
+  rankingModalSheet: {
+    maxHeight: '88%',
   },
-  rankPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: AppColors.background.default,
-    borderWidth: 1,
-    borderColor: AppColors.border.muted,
+  rankingModalScrollContent: {
+    paddingBottom: 12,
   },
-  rankPillText: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: AppColors.text.secondary,
-  },
-  rankingCard: {
-    backgroundColor: AppColors.background.default,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: AppColors.border.muted,
-    overflow: 'hidden',
-  },
-  rankingTopRow: {
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  rankingWeekRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  rankingWeekText: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: AppColors.text.secondary,
-  },
-  rankingPointsHeader: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: AppColors.text.tertiary,
-  },
-  rankingDivider: {
-    height: 1,
-    backgroundColor: 'rgba(148, 163, 184, 0.25)',
-  },
-  rankingRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
+  rankingModalEmpty: {
+    paddingHorizontal: 20,
+    paddingVertical: 28,
     alignItems: 'center',
     gap: 12,
   },
-  positionBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+  rankingModalEmptyText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: AppColors.text.tertiary,
+    textAlign: 'center',
+    lineHeight: 22,
   },
-  positionBadgeText: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: AppColors.text.secondary,
-  },
-  rankingName: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '900',
-    color: AppColors.text.secondary,
-  },
-  rankingPointsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  rankingPointsText: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: AppColors.text.secondary,
-  },
-
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

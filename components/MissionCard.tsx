@@ -1,12 +1,12 @@
 import { AppColors } from '@/constants/theme';
+import type {
+    CitizenMissionListItem,
+    CitizenMissionSubmissionStatus,
+} from '@/services/citizenMissionsApi';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Image } from 'expo-image';
-import type {
-  CitizenMissionListItem,
-  CitizenMissionSubmissionStatus,
-} from '@/services/citizenMissionsApi';
 
 function clamp01(value: number) {
   if (Number.isNaN(value)) return 0;
@@ -47,7 +47,6 @@ function accentFromMissionId(id: string): {
   tagBg: string;
   tagText: string;
 } {
-  // Paleta determinística para manter consistência visual sem depender do backend.
   const palettes = [
     { iconBg: '#10B981', topAccent: '#10B981', tagBg: '#D1FAE5', tagText: '#047857' },
     { iconBg: '#0EA5E9', topAccent: '#06B6D4', tagBg: '#CFFAFE', tagText: '#0E7490' },
@@ -64,6 +63,9 @@ export function MissionCard({
   mission,
   submission,
   onPressPrimary,
+  primaryLoading = false,
+  primaryDisabled = false,
+  primaryLabelOverride,
 }: {
   mission: Pick<
     CitizenMissionListItem,
@@ -71,6 +73,9 @@ export function MissionCard({
   >;
   submission: MissionCardSubmission;
   onPressPrimary: () => void;
+  primaryLoading?: boolean;
+  primaryDisabled?: boolean;
+  primaryLabelOverride?: string;
 }) {
   const status = mapCardStatus(submission?.status ?? mission.mySubmission?.status ?? null);
 
@@ -81,7 +86,6 @@ export function MissionCard({
       const percent = total > 0 ? clamp01(current / total) * 100 : 0;
       return { kind: 'participants' as const, current, total, percent };
     }
-    // Para missões individuais, default 0/1 (até o usuário enviar).
     if (status === 'approved') return { kind: 'percent' as const, current: 1, total: 1 };
     if (status === 'idle' || status === 'active' || status === 'rejected') {
       return { kind: 'percent' as const, current: 0, total: 1 };
@@ -211,7 +215,11 @@ export function MissionCard({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={
-              isApproved
+              primaryLoading
+                ? 'Aguarde, processando missão'
+                : primaryDisabled
+                  ? 'Missão indisponível para aceitar'
+                : isApproved
                 ? 'Ver comprovação'
                 : isAccepted
                   ? 'Enviar comprovação'
@@ -223,12 +231,26 @@ export function MissionCard({
             }
             style={({ pressed }) => [
               isApproved ? styles.secondaryButton : styles.primaryButton,
+              primaryLoading && styles.buttonDisabled,
+              primaryDisabled && styles.buttonDisabled,
               pressed && styles.buttonPressed,
             ]}
             onPress={onPressPrimary}
+            disabled={primaryLoading || primaryDisabled}
           >
-            <Text style={isApproved ? styles.secondaryButtonText : styles.primaryButtonText}>
-              {isApproved
+            <Text
+              style={isApproved ? styles.secondaryButtonText : styles.primaryButtonText}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.82}
+            >
+              {primaryLabelOverride
+                ? primaryLabelOverride
+                : primaryLoading
+                ? isAccepted
+                  ? 'Abrindo...'
+                  : 'Aceitando...'
+                : isApproved
                 ? 'Ver comprovação'
                 : isAccepted
                   ? 'Enviar comprovação'
@@ -371,7 +393,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    flex: 1,
+    flexShrink: 1,
     minHeight: 22,
   },
   approvedText: {
@@ -383,7 +405,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    flex: 1,
+    flexShrink: 1,
     minHeight: 22,
   },
   activeText: {
@@ -395,7 +417,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    flex: 1,
+    flexShrink: 1,
     minHeight: 22,
   },
   acceptedText: {
@@ -407,7 +429,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    flex: 1,
+    flexShrink: 1,
     minHeight: 22,
   },
   rejectedText: {
@@ -471,12 +493,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AppColors.primary,
     paddingVertical: 14,
+    paddingHorizontal: 10,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 150,
   },
   primaryButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
     color: AppColors.text.white,
   },
@@ -484,11 +508,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#EEF2FF',
     paddingVertical: 14,
+    paddingHorizontal: 10,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(79, 70, 229, 0.2)',
+    minWidth: 150,
   },
   secondaryButtonText: {
     fontSize: 15,
@@ -498,5 +524,7 @@ const styles = StyleSheet.create({
   buttonPressed: {
     opacity: 0.9,
   },
+  buttonDisabled: {
+    opacity: 0.75,
+  },
 });
-

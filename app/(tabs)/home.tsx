@@ -1,12 +1,13 @@
 import CityAlerts from '@/components/CityAlerts';
 import CpfRequiredModal from '@/components/CpfRequiredModal';
 import EventCarousel from '@/components/EventCarousel';
+import HomeReportedProblemsSection from '@/components/HomeReportedProblemsSection';
 import Header from '@/components/Header';
+import { ModalEmergencyPhones } from '@/components/ModalEmergencyPhones';
 import NewsCarousel from '@/components/NewsCarousel';
 import NewsPosts from '@/components/NewsPosts';
 import OpinionCard from '@/components/OpinionCard';
 import Toast from '@/components/Toast';
-import { ModalEmergencyPhones } from '@/components/ModalEmergencyPhones';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotificationUnreadCount } from '@/hooks/useNotificationUnreadCount';
@@ -27,6 +28,7 @@ export default function NoticiasScreen() {
   const { user } = useAuth();
   const { unreadCount, refresh: refreshUnreadCount } = useNotificationUnreadCount();
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [homePulseRefreshKey, setHomePulseRefreshKey] = useState(0);
   const [cpfNoticeShown, setCpfNoticeShown] = useState(false);
   const [showCpfModal, setShowCpfModal] = useState(false);
   const [showEmergencyPhones, setShowEmergencyPhones] = useState(false);
@@ -59,6 +61,7 @@ export default function NoticiasScreen() {
   const onRefresh = async (): Promise<void> => {
     setRefreshing(true);
     void refreshUnreadCount();
+    setHomePulseRefreshKey((k) => k + 1);
     setTimeout(() => {
       setRefreshing(false);
     }, 1000);
@@ -120,6 +123,7 @@ export default function NoticiasScreen() {
       <OpinionCard onVoteSuccess={handleVoteSuccessToast} />
       {/* Jobs and Opportunities Card */}
       {/* <JobSuggestionCard /> */}
+      <HomeReportedProblemsSection refreshKey={homePulseRefreshKey} />
       <EventCarousel />
       <View>
         <View style={styles.sectionHeaderRow}>

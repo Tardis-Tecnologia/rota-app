@@ -16,16 +16,26 @@ export function TrendsCard({ trends }: { trends: PulseTrend[] }) {
 
       <View style={styles.list}>
         {trends.map((t) => {
-          const positive = t.delta >= 0;
-          const color = positive ? AppColors.status.success : AppColors.status.error;
-          const icon = positive ? 'trending-up-outline' : 'trending-down-outline';
+          const delta = t.delta;
+          const hasDelta = delta !== null && !Number.isNaN(delta);
+          const positive = hasDelta && (delta as number) >= 0;
+          const color = !hasDelta
+            ? AppColors.text.quaternary
+            : positive
+              ? AppColors.status.success
+              : AppColors.status.error;
+          const icon = !hasDelta
+            ? 'remove-outline'
+            : positive
+              ? 'trending-up-outline'
+              : 'trending-down-outline';
           return (
             <View key={t.key} style={styles.row}>
               <Text style={styles.label}>{t.label}</Text>
               <View style={styles.deltaWrap}>
                 <Ionicons name={icon} size={16} color={color} />
                 <Text style={[styles.delta, { color }]}>
-                  {formatDelta(t.delta)} vs semana passada
+                  {!hasDelta ? 'Sem dados na semana' : `${formatDelta(delta as number)} vs semana passada`}
                 </Text>
               </View>
             </View>

@@ -10,17 +10,21 @@ export function ProblemsCard({ problems }: { problems: PulseProblem[] }) {
       <Text style={styles.title}>PROBLEMAS MAIS REPORTADOS</Text>
 
       <View style={styles.list}>
-        {problems.map((p) => (
-          <View key={p.id} style={styles.row}>
-            <View style={styles.left}>
-              <View style={styles.iconWrap}>
-                <Ionicons name="warning-outline" size={18} color={AppColors.palette.orange.base} />
+        {problems.length === 0 ? (
+          <Text style={styles.empty}>Nenhum problema reportado ainda nesta região.</Text>
+        ) : (
+          problems.map((p) => (
+            <View key={p.id} style={styles.row}>
+              <View style={styles.left}>
+                <View style={styles.iconWrap}>
+                  <Ionicons name="warning-outline" size={18} color={AppColors.palette.orange.base} />
+                </View>
+                <Text style={styles.label}>{p.label}</Text>
               </View>
-              <Text style={styles.label}>{p.label}</Text>
+              <Text style={styles.count}>{p.reports} relatos</Text>
             </View>
-            <Text style={styles.count}>{p.reports} relatos</Text>
-          </View>
-        ))}
+          ))
+        )}
       </View>
     </View>
   );
@@ -49,6 +53,13 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: 10,
+  },
+  empty: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppColors.text.tertiary,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
   },
   row: {
     flexDirection: 'row',

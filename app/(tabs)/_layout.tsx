@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
-import { router } from 'expo-router';
+import { Tabs, router } from 'expo-router';
 import React, { useMemo } from 'react';
 import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -210,8 +209,11 @@ export default function TabLayout() {
       */}
       <Tabs.Screen
         name="messages"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="forum"
         options={() => ({
-          href: null,
           headerShown: true,
           headerTitleAlign: 'center',
           headerTitleStyle: {
@@ -233,7 +235,14 @@ export default function TabLayout() {
             </TouchableOpacity>
           ),
           headerRight: () => <View style={styles.headerSpacer} />,
-          title: 'Mensagens',
+          title: 'Fórum do bairro',
+          tabBarIcon: ({ focused }) => (
+            <Ionicons
+              name="chatbubbles-outline"
+              size={24}
+              color={focused ? AppColors.tab.active : AppColors.tab.inactive}
+            />
+          ),
         })}
       />
       <Tabs.Screen

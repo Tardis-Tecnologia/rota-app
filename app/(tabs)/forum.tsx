@@ -154,19 +154,30 @@ export default function ForumScreen() {
 
   const onLike = useCallback(async (postId: string) => {
     setItems((prev) =>
-      prev.map((p) =>
-        p.id === postId ? { ...p, likesCount: Math.max(0, p.likesCount + 1) } : p,
-      ),
+      prev.map((p) => {
+        if (p.id !== postId) return p;
+        const wasLiked = !!p.liked;
+        return {
+          ...p,
+          liked: !wasLiked,
+          likesCount: Math.max(0, p.likesCount + (wasLiked ? -1 : 1)),
+        };
+      }),
     );
     try {
       await likeForumPost(postId);
     } catch (e) {
       setItems((prev) =>
-        prev.map((p) =>
-          p.id === postId ? { ...p, likesCount: Math.max(0, p.likesCount - 1) } : p,
-        ),
+        prev.map((p) => {
+          if (p.id !== postId) return p;
+          return {
+            ...p,
+            liked: !p.liked,
+            likesCount: Math.max(0, p.likesCount + (p.liked ? -1 : 1)),
+          };
+        }),
       );
-      setError(e instanceof Error ? e.message : 'Não foi possível registrar o like.');
+      setError(e instanceof Error ? e.message : 'Não foi possível atualizar o like.');
     }
   }, []);
 
@@ -247,7 +258,12 @@ export default function ForumScreen() {
                     onPress={() => void onLike(post.id)}
                     style={({ pressed }) => [styles.likeBtn, pressed && styles.likeBtnPressed]}
                   >
-                    <Text style={styles.metaText}>♡ {post.likesCount}</Text>
+                    <Ionicons
+                      name={post.liked ? 'heart' : 'heart-outline'}
+                      size={18}
+                      color={post.liked ? '#e11d48' : AppColors.text.secondary}
+                    />
+                    <Text style={styles.metaText}>{post.likesCount}</Text>
                   </Pressable>
                   <Text style={styles.metaText}>💬 {post.commentsCount} opiniões</Text>
                 </View>
@@ -413,6 +429,9 @@ const styles = StyleSheet.create({
   },
   metaText: { color: AppColors.text.tertiary, fontWeight: '600' },
   likeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 4,
     paddingVertical: 2,
     borderRadius: 8,

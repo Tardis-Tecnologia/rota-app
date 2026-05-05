@@ -16,6 +16,7 @@ export interface ForumPostListItemDto {
   title: string;
   postType: string;
   likesCount: number;
+  liked: boolean;
   commentsCount: number;
   locationDescription: string | null;
   mediaId: string | null;
@@ -207,6 +208,16 @@ export async function uploadForumImageFromUri(
 export async function likeForumPost(postId: string): Promise<void> {
   const base = getApiBaseUrl();
   const url = `${base}${BASE_PATH}/forum/posts/${encodeURIComponent(postId)}/like`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+}
+
+export async function likeForumComment(commentId: string): Promise<void> {
+  const base = getApiBaseUrl();
+  const url = `${base}${BASE_PATH}/forum/comments/${encodeURIComponent(commentId)}/like`;
   const res = await fetch(url, {
     method: 'POST',
     headers: authHeaders(),

@@ -29,6 +29,16 @@ export interface ForumPostResponseDto extends ForumPostListItemDto {
   updatedAt: string;
 }
 
+export interface ForumPostCommentListItemDto {
+  id: string;
+  userId: string;
+  content: string;
+  likesCount: number;
+  liked: boolean;
+  createdAt: string;
+  author?: ForumAuthorDto;
+}
+
 export interface CreateForumPostBody {
   title: string;
   content: string;
@@ -112,6 +122,35 @@ export async function getForumPost(postId: string): Promise<ForumPostResponseDto
   const res = await fetch(url, { method: 'GET', headers: authHeaders() });
   if (!res.ok) throw new Error(await readErrorMessage(res));
   return (await res.json()) as ForumPostResponseDto;
+}
+
+export async function listForumComments(
+  postId: string,
+  options?: { init?: number; end?: number },
+): Promise<ForumPostCommentListItemDto[]> {
+  const base = getApiBaseUrl();
+  const params = new URLSearchParams();
+  if (typeof options?.init === 'number') params.set('init', String(options.init));
+  if (typeof options?.end === 'number') params.set('end', String(options.end));
+  const qs = params.toString();
+  const url = `${base}${BASE_PATH}/forum/posts/${encodeURIComponent(postId)}/comments${
+    qs ? `?${qs}` : ''
+  }`;
+  const res = await fetch(url, { method: 'GET', headers: authHeaders() });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+  const data = (await res.json()) as unknown;
+  return Array.isArray(data) ? (data as ForumPostCommentListItemDto[]) : [];
+}
+
+export async function createForumComment(postId: string, content: string): Promise<void> {
+  const base = getApiBaseUrl();
+  const url = `${base}${BASE_PATH}/forum/posts/${encodeURIComponent(postId)}/comments`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ content: content.trim() }),
+  });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
 }
 
 export async function createForumPost(

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Tabs, router } from 'expo-router';
 import React, { useMemo } from 'react';
 import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -236,6 +236,44 @@ export default function TabLayout() {
         })}
       />
       */}
+      <Tabs.Screen
+        name="messages"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="forum"
+        options={() => ({
+          headerShown: true,
+          headerTitleAlign: 'center',
+          headerTitleStyle: {
+            fontSize: 18,
+            fontWeight: '600',
+            color: AppColors.text.secondary,
+          },
+          headerLeft: () => (
+            <TouchableOpacity
+              style={styles.headerButton}
+              activeOpacity={0.7}
+              onPress={() => router.push('/(tabs)/home')}
+            >
+              <Ionicons
+                name="arrow-back-outline"
+                size={24}
+                color={AppColors.text.secondary}
+              />
+            </TouchableOpacity>
+          ),
+          headerRight: () => <View style={styles.headerSpacer} />,
+          title: 'Fórum do bairro',
+          tabBarIcon: ({ focused }) => (
+            <Ionicons
+              name="chatbubbles-outline"
+              size={24}
+              color={focused ? AppColors.tab.active : AppColors.tab.inactive}
+            />
+          ),
+        })}
+      />
       <Tabs.Screen
         name="feed"
         options={({ navigation }) => ({

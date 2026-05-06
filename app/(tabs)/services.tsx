@@ -1,10 +1,10 @@
-import { EmergencyPhones } from '@/components/EmergencyPhones';
 import { ModalAnimals } from '@/components/ModalAnimals';
 import { ModalMarketplace } from '@/components/ModalMarketplace';
 import { ModalReportPrefeitura } from '@/components/ModalReportPrefeitura';
 import { ModalResolvedProblems } from '@/components/ModalResolvedProblems';
 import { ModalSecurity } from '@/components/ModalSecurity';
-import { ModalWorksInProgress } from '@/components/ModalWorksInProgress';
+import { DemandsView } from '@/components/DemandsView';
+import { WorksInProgressView } from '@/components/WorksInProgressView';
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -124,6 +124,7 @@ const servicesCards: ServiceCard[] = [
 
 export default function ServicosScreen() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'catalogo' | 'obras' | 'demandas'>('catalogo');
 
   const handleCardPress = (serviceId: string, title: string) => {
     const routes = {
@@ -135,18 +136,17 @@ export default function ServicosScreen() {
     } as const;
 
     if (serviceId in routes) {
-      router.push(routes[serviceId as keyof typeof routes]);
+      const pathname = routes[serviceId as keyof typeof routes] as string;
+      router.push({ pathname } as any);
       return;
     }
   
-    const modals = [
-      'security',
-      'workInProgess',
-      'resolvedProblems',
-      'marketplace',
-      'animals',
-      'municipalContact',
-    ];
+    if (serviceId === 'workInProgess') {
+      setActiveTab('obras');
+      return;
+    }
+
+    const modals = ['security', 'resolvedProblems', 'marketplace', 'animals', 'municipalContact'];
   
     if (modals.includes(serviceId)) {
       setActiveModal(serviceId);
@@ -168,10 +168,6 @@ export default function ServicosScreen() {
         visible={activeModal === 'marketplace'}
         onClose={() => setActiveModal(null)}
       />
-      <ModalWorksInProgress
-        visible={activeModal === 'workInProgess'}
-        onClose={() => setActiveModal(null)}
-      />
       <ModalResolvedProblems
         visible={activeModal === 'resolvedProblems'}
         onClose={() => setActiveModal(null)}
@@ -184,63 +180,89 @@ export default function ServicosScreen() {
         visible={activeModal === 'municipalContact'}
         onClose={() => setActiveModal(null)}
       />
-      <Text style={styles.sectionTitle}>Serviços</Text>
-      <FlatList
-        data={servicesCards}
-        numColumns={2}
-        keyExtractor={(item) => item.id}
-        columnWrapperStyle={styles.columnWrapper}
-        contentContainerStyle={styles.listContent}
-        ListFooterComponent={<EmergencyPhones />}
-        renderItem={({ item }) => {
-          const webCardProps = isWeb
-            ? ({ className: `service-card ${item.gradientClass}` } as any)
-            : {};
-          const webIconProps = isWeb ? ({ className: 'service-card__icon' } as any) : {};
-
-          const cardContent = (
-            <>
-              <View style={styles.iconContainer} {...webIconProps}>
-                <Ionicons name={item.icon as any} size={26} color={AppColors.text.white} />
-              </View>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-            </>
+      <View style={styles.segment}>
+        {(
+          [
+            { id: 'catalogo', label: 'CATÁLOGO' },
+            { id: 'obras', label: 'OBRAS' },
+            { id: 'demandas', label: 'DEMANDAS' },
+          ] as const
+        ).map((t) => {
+          const active = activeTab === t.id;
+          return (
+            <TouchableOpacity
+              key={t.id}
+              activeOpacity={0.85}
+              onPress={() => setActiveTab(t.id)}
+              style={[styles.segmentItem, active ? styles.segmentItemActive : styles.segmentItemInactive]}
+            >
+              <Text style={[styles.segmentText, active ? styles.segmentTextActive : styles.segmentTextInactive]}>
+                {t.label}
+              </Text>
+            </TouchableOpacity>
           );
+        })}
+      </View>
 
-          if (isWeb) {
+      {activeTab === 'catalogo' ? (
+        <FlatList
+          data={servicesCards.filter((c) => c.id !== 'workInProgess' && c.id !== 'resolvedProblems')}
+          numColumns={2}
+          keyExtractor={(item) => item.id}
+          columnWrapperStyle={styles.columnWrapper}
+          contentContainerStyle={styles.listContent}
+          renderItem={({ item }) => {
+            const webCardProps = isWeb ? ({ className: `service-card ${item.gradientClass}` } as any) : {};
+            const webIconProps = isWeb ? ({ className: 'service-card__icon' } as any) : {};
+
+            const cardContent = (
+              <>
+                <View style={styles.iconContainer} {...webIconProps}>
+                  <Ionicons name={item.icon as any} size={26} color={AppColors.text.white} />
+                </View>
+                <Text style={styles.cardTitle}>{item.title}</Text>
+              </>
+            );
+
+            if (isWeb) {
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  activeOpacity={0.85}
+                  style={[styles.cardWrapper, styles.webCardWrapper]}
+                  onPress={() => handleCardPress(item.id, item.title)}
+                  {...webCardProps}
+                >
+                  {cardContent}
+                </TouchableOpacity>
+              );
+            }
+
+            const gradientColors: [string, string] =
+              item.colors && item.colors[0] && item.colors[1]
+                ? [String(item.colors[0]).trim(), String(item.colors[1]).trim()]
+                : [AppColors.gradients.services.transport[0], AppColors.gradients.services.transport[1]];
+
             return (
               <TouchableOpacity
                 key={item.id}
                 activeOpacity={0.85}
-                style={[styles.cardWrapper, styles.webCardWrapper]}
+                style={styles.cardWrapper}
                 onPress={() => handleCardPress(item.id, item.title)}
-                {...webCardProps}
               >
-                {cardContent}
+                <LinearGradient colors={gradientColors} style={styles.gradient}>
+                  {cardContent}
+                </LinearGradient>
               </TouchableOpacity>
             );
-          }
-
-          const gradientColors: [string, string] =
-            item.colors && item.colors[0] && item.colors[1]
-              ? [String(item.colors[0]).trim(), String(item.colors[1]).trim()]
-              : [AppColors.gradients.services.transport[0], AppColors.gradients.services.transport[1]];
-
-          return (
-            <TouchableOpacity
-              key={item.id}
-              activeOpacity={0.85}
-              style={styles.cardWrapper}
-              onPress={() => handleCardPress(item.id, item.title)}
-            >
-              <LinearGradient colors={gradientColors} style={styles.gradient}>
-                {cardContent}
-              </LinearGradient>
-            </TouchableOpacity>
-          );
-        }}
-        showsVerticalScrollIndicator={false}
-      />
+          }}
+          showsVerticalScrollIndicator={false}
+        />
+      ) : activeTab === 'obras' ? (
+        <WorksInProgressView />
+      ) : (
+        <DemandsView />
+      )}
     </View>
   );
 }
@@ -249,14 +271,41 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 24,
+    paddingTop: 12,
     backgroundColor: AppColors.background.default,
   },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: AppColors.text.secondary,
-    marginBottom: 16,
+  segment: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 999,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 10,
+  },
+  segmentItem: {
+    flex: 1,
+    borderRadius: 999,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentItemActive: {
+    backgroundColor: '#0F172A',
+  },
+  segmentItemInactive: {
+    backgroundColor: 'transparent',
+  },
+  segmentText: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  segmentTextActive: {
+    color: '#fff',
+  },
+  segmentTextInactive: {
+    color: '#334155',
   },
   listContent: {
     paddingBottom: 32,

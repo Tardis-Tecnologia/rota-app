@@ -1,9 +1,9 @@
 import { AppColors } from '@/constants/theme';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import type { RewardsFilterTab } from '../../types/index';
-import { FILTER_CHIPS } from '../../types/index';
+import { REWARDS_STORE_TABS } from '../../types/index';
 
 interface RewardFilterChipsProps {
   selected: RewardsFilterTab;
@@ -12,58 +12,58 @@ interface RewardFilterChipsProps {
 
 export default function RewardFilterChips({ selected, onSelect }: RewardFilterChipsProps) {
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.scrollContent}
-      style={styles.row}
-    >
-      {FILTER_CHIPS.map((chip) => (
-        <TouchableOpacity
-          key={chip.key}
-          onPress={() => onSelect(chip.key)}
-          style={[styles.chip, selected === chip.key && styles.chipActive]}
-          activeOpacity={0.85}
-        >
-          <Text style={[styles.chipText, selected === chip.key && styles.chipTextActive]}>
-            {chip.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
+    <View style={styles.segment}>
+      {REWARDS_STORE_TABS.map((tab) => {
+        const isActive = selected === tab.key;
+        return (
+          <TouchableOpacity
+            key={tab.key}
+            style={[styles.segmentItem, isActive && styles.segmentItemActive]}
+            onPress={() => onSelect(tab.key)}
+            activeOpacity={0.88}
+          >
+            <Text style={[styles.segmentLabel, isActive && styles.segmentLabelActive]}>
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
+  segment: {
     marginTop: 12,
-    maxHeight: 52,
-  },
-  scrollContent: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 4,
-    paddingRight: 8,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 12,
+    padding: 4,
+    gap: 0,
   },
-  chip: {
-    paddingHorizontal: 14,
+  segmentItem: {
+    flex: 1,
     paddingVertical: 8,
-    borderRadius: 9999,
-    borderWidth: 1,
-    borderColor: AppColors.gray[300],
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentItemActive: {
     backgroundColor: AppColors.background.default,
-    marginRight: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  chipActive: {
-    borderColor: AppColors.palette.purple.base,
-    backgroundColor: 'rgba(147, 51, 234, 0.1)',
-  },
-  chipText: {
-    fontSize: 13,
+  segmentLabel: {
+    fontSize: 14,
     fontWeight: '600',
-    color: AppColors.text.secondary,
+    color: '#4b5563',
+    textAlign: 'center',
   },
-  chipTextActive: {
-    color: AppColors.palette.purple.base,
+  segmentLabelActive: {
+    color: '#1f2937',
   },
 });

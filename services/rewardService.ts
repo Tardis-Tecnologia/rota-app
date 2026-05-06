@@ -23,6 +23,7 @@ export interface RewardItem {
 export interface RedeemRewardResponse {
   rewardPoints?: number;
   pointsDelta?: number;
+  couponCode?: string;
   rewardId?: string;
   value?: number;
   id?: string;
@@ -34,6 +35,8 @@ export interface RewardRedemptionItem {
   userId: string;
   value: number;
   createdAt: string;
+  redeemedAt?: string;
+  couponCode?: string;
   reward?: RewardItem;
 }
 

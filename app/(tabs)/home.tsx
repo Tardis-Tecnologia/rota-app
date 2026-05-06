@@ -7,6 +7,7 @@ import { ModalEmergencyPhones } from '@/components/ModalEmergencyPhones';
 import NewsCarousel from '@/components/NewsCarousel';
 import NewsPosts from '@/components/NewsPosts';
 import OpinionCard from '@/components/OpinionCard';
+import Realtime from '@/components/Realtime';
 import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
@@ -73,6 +74,7 @@ export default function NoticiasScreen() {
       <Header hasNotifications={unreadCount > 0} />
       {/* Componente Novidades (Carrossel) */}
       <NewsCarousel />
+      <Realtime />
       {/* Componente Alertas da Cidade */}
       <CityAlerts />
       {/* Acesso rápido */}

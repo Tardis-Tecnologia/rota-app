@@ -23,7 +23,7 @@ export default function RewardsModalBalance({
     <View style={styles.container}>
       <Text style={styles.label}>Seu Saldo</Text>
       <View style={styles.valueRow}>
-        <Ionicons name="star-outline" size={20} color={AppColors.palette.purple.base} />
+        <Ionicons name="star" size={20} color={AppColors.palette.purple.base} />
         <Text style={styles.value}>{currentPoints.toLocaleString('pt-BR')}</Text>
       </View>
       {needsCpf ? (
@@ -68,8 +68,8 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: AppColors.text.tertiary,
-    marginBottom: 4,
+    color: '#4b5563',
+    marginBottom: 2,
   },
   valueRow: {
     flexDirection: 'row',
@@ -78,7 +78,8 @@ const styles = StyleSheet.create({
   },
   value: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    letterSpacing: -0.3,
     color: AppColors.palette.purple.base,
   },
   cpfWarning: {

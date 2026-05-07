@@ -16,9 +16,10 @@ import {
 import { registerRewardPointsRefresh } from '@/services/rewardPointsBridge';
 import type { CatalogReward, RewardsFilterTab } from '@/types/index';
 import {
-    filterRewardsByTab,
-    getRequiredBalanceForRedeem,
-    mapRewardFromApi,
+  filterRewardsByTab,
+  getRequiredBalanceForRedeem,
+  latestCouponCodeForReward,
+  mapRewardFromApi,
 } from '@/utils/rewardHelpers';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -83,7 +84,8 @@ export default function PointsBadge({
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<ToastType>('info');
   const [toastKey, setToastKey] = useState(0);
-  const [rewardsFilterTab, setRewardsFilterTab] = useState<RewardsFilterTab>('resgatar');
+  const [rewardsFilterTab, setRewardsFilterTab] = useState<RewardsFilterTab>('cupons_lojas');
+  const [couponCodesFromRedeem, setCouponCodesFromRedeem] = useState<Record<string, string>>({});
   const [pendingRedeemConfirmation, setPendingRedeemConfirmation] =
     useState<PendingRedeemConfirmation | null>(null);
   const [insufficientBalanceInfo, setInsufficientBalanceInfo] =
@@ -160,7 +162,6 @@ export default function PointsBadge({
 
   const loadMoreRewards = useCallback(async () => {
     if (loadingMoreRewards || isLoadingRewards || !hasMoreRewards) return;
-    if (rewardsFilterTab === 'historico') return;
     setLoadingMoreRewards(true);
     try {
       const offset = rewardsLengthRef.current;
@@ -176,13 +177,12 @@ export default function PointsBadge({
     } finally {
       setLoadingMoreRewards(false);
     }
-  }, [fetchRewardsPage, hasMoreRewards, isLoadingRewards, loadingMoreRewards, rewardsFilterTab]);
+  }, [fetchRewardsPage, hasMoreRewards, isLoadingRewards, loadingMoreRewards]);
 
   const handleEndReached = useCallback(() => {
     if (loadingMoreRewards || isLoadingRewards || !hasMoreRewards) return;
-    if (rewardsFilterTab === 'historico') return;
     void loadMoreRewards();
-  }, [hasMoreRewards, isLoadingRewards, loadMoreRewards, loadingMoreRewards, rewardsFilterTab]);
+  }, [hasMoreRewards, isLoadingRewards, loadMoreRewards, loadingMoreRewards]);
 
   const loadRedemptions = async () => {
     if (!user?.id) {
@@ -204,7 +204,8 @@ export default function PointsBadge({
     modalOpacity.value = withTiming(1, { duration: 200 });
     modalTranslateY.value = withTiming(0, { duration: 200 });
     setRewardActionError(null);
-    setRewardsFilterTab('resgatar');
+    setCouponCodesFromRedeem({});
+    setRewardsFilterTab('cupons_lojas');
     if (user?.profile !== 'VISITANTE') {
       void loadRewards();
       void loadPoints(false);
@@ -220,10 +221,19 @@ export default function PointsBadge({
     }, 200);
   };
 
-  const filteredRewardsForTab = useMemo(
-    () => filterRewardsByTab(rewards, redeemedRewards, rewardsFilterTab),
-    [rewards, redeemedRewards, rewardsFilterTab],
+  const earnRewardsFiltered = useMemo(
+    () => filterRewardsByTab(rewards, redeemedRewards, 'meus_resgates'),
+    [rewards, redeemedRewards],
   );
+
+  const couponCodeByRewardId = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const r of rewards) {
+      const code = latestCouponCodeForReward(r.id, redemptions);
+      if (code) out[r.id] = code;
+    }
+    return { ...out, ...couponCodesFromRedeem };
+  }, [rewards, redemptions, couponCodesFromRedeem]);
 
   const executeRedeem = async (rewardId: string, cost: number) => {
     setLoadingRedeemId(rewardId);
@@ -233,6 +243,10 @@ export default function PointsBadge({
         typeof result.rewardPoints === 'number' ? result.rewardPoints : currentPoints - cost;
       setCurrentPoints(newBalance);
       setRedeemedRewards((prev) => new Set(prev).add(rewardId));
+      const cc = typeof result.couponCode === 'string' ? result.couponCode.trim() : '';
+      if (cc) {
+        setCouponCodesFromRedeem((prev) => ({ ...prev, [rewardId]: cc }));
+      }
       await loadRedemptions();
       if (cost < 0) {
         showActionToast(
@@ -395,10 +409,10 @@ export default function PointsBadge({
                   filterTab={rewardsFilterTab}
                   currentPoints={currentPoints}
                   rewardActionError={rewardActionError}
-                  redemptions={redemptions}
                   rewards={rewards}
-                  filteredRewards={filteredRewardsForTab}
+                  filteredRewards={earnRewardsFiltered}
                   redeemedIds={redeemedRewards}
+                  couponCodeByRewardId={couponCodeByRewardId}
                   loadingRedeemId={loadingRedeemId}
                   isLoadingRewards={isLoadingRewards}
                   rewardsError={rewardsError}
@@ -413,6 +427,9 @@ export default function PointsBadge({
                   }
                   onRetryLoadRewards={() => {
                     void loadRewards();
+                  }}
+                  onCouponCopied={() => {
+                    showActionToast('Código copiado!', 'success');
                   }}
                 />
               </View>
@@ -520,7 +537,7 @@ export default function PointsBadge({
                 style={styles.confirmAcceptButton}
                 onPress={() => {
                   setInsufficientBalanceInfo(null);
-                  setRewardsFilterTab('ganhar');
+                  setRewardsFilterTab('meus_resgates');
                 }}
                 activeOpacity={0.8}
               >
@@ -631,7 +648,7 @@ const styles = StyleSheet.create({
   modalPanel: {
     width: '100%',
     maxWidth: 448,
-    backgroundColor: AppColors.background.light,
+    backgroundColor: '#f1f5f9',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     height: '70%',
@@ -649,6 +666,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    backgroundColor: '#f1f5f9',
   },
   rewardsListContainer: {
     flex: 1,

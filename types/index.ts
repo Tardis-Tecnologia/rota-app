@@ -115,13 +115,10 @@ export interface CatalogReward {
   disabled?: boolean;
 }
 
-export type RewardsFilterTab =
-  | 'resgatar'
-  | 'ganhar'
-  | 'historico';
+/** Abas da Loja de Recompensas (UI segmentada). */
+export type RewardsFilterTab = 'meus_resgates' | 'cupons_lojas';
 
-export const FILTER_CHIPS: { key: RewardsFilterTab; label: string }[] = [
-  { key: 'resgatar', label: 'Resgatar recompensas' },
-  { key: 'ganhar', label: 'Ganhe pontos' },
-  { key: 'historico', label: 'Histórico' },
+export const REWARDS_STORE_TABS: { key: RewardsFilterTab; label: string }[] = [
+  { key: 'meus_resgates', label: 'Meus Resgates' },
+  { key: 'cupons_lojas', label: 'Cupons de Lojas' },
 ];

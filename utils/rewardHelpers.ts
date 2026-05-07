@@ -29,13 +29,27 @@ export function filterRewardsByTab(
 ): CatalogReward[] {
   const v = (r: CatalogReward) => r.value ?? 0;
   switch (tab) {
-    case 'resgatar':
+    case 'cupons_lojas':
       return rewards.filter((r) => !redeemedIds.has(r.id) && v(r) < 0);
-    case 'ganhar':
+    case 'meus_resgates':
       return rewards.filter((r) => !redeemedIds.has(r.id) && v(r) > 0);
     default:
       return [];
   }
+}
+
+/** Cupons de loja (custo em pontos): comprados primeiro, depois por menor custo. */
+export function listStoreCouponsForDisplay(
+  rewards: CatalogReward[],
+  redeemedIds: Set<string>,
+): CatalogReward[] {
+  const store = rewards.filter((r) => (r.value ?? 0) < 0);
+  return [...store].sort((a, b) => {
+    const aRed = redeemedIds.has(a.id) ? 0 : 1;
+    const bRed = redeemedIds.has(b.id) ? 0 : 1;
+    if (aRed !== bRed) return aRed - bRed;
+    return Math.abs(a.value ?? 0) - Math.abs(b.value ?? 0);
+  });
 }
 
 export function resolveRedemptionDelta(
@@ -56,11 +70,28 @@ export function resolveRedemptionDelta(
 
 export function emptyFilterMessage(tab: RewardsFilterTab): string {
   switch (tab) {
-    case 'resgatar':
-      return 'Não há recompensas de resgate disponíveis no momento.';
-    case 'ganhar':
-      return 'Não há opções disponíveis para ganhar pontos no momento.';
+    case 'cupons_lojas':
+      return 'Não há cupons de lojas disponíveis no momento.';
+    case 'meus_resgates':
+      return 'Não há resgates de pontos disponíveis no momento.';
     default:
       return '';
   }
+}
+
+function redemptionSortTime(item: RewardRedemptionItem): number {
+  const raw = item.redeemedAt ?? item.createdAt;
+  const t = new Date(raw).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+export function latestCouponCodeForReward(
+  rewardId: string,
+  redemptions: RewardRedemptionItem[],
+): string | undefined {
+  const sorted = [...redemptions].sort(
+    (a, b) => redemptionSortTime(b) - redemptionSortTime(a),
+  );
+  const found = sorted.find((r) => r.rewardId === rewardId);
+  return found?.couponCode?.trim() || undefined;
 }

@@ -16,6 +16,8 @@ interface RewardsModalHeaderProps {
   onRetryLoadPoints: () => void;
   filterTab: RewardsFilterTab;
   onFilterChange: (tab: RewardsFilterTab) => void;
+  /** Atalho para a aba de cupons (ícone da lojinha). */
+  onStorePress?: () => void;
 }
 
 export default function RewardsModalHeader({
@@ -27,14 +29,33 @@ export default function RewardsModalHeader({
   onRetryLoadPoints,
   filterTab,
   onFilterChange,
+  onStorePress,
 }: RewardsModalHeaderProps) {
   return (
     <View style={styles.header}>
       <View style={styles.headerTop}>
         <Text style={styles.title}>Loja de Recompensas</Text>
-        <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.7}>
-          <Ionicons name="close" size={20} color={AppColors.text.tertiary} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.iconBadge}
+            onPress={() => {
+              if (onStorePress) {
+                onStorePress();
+              } else {
+                onFilterChange('cupons_lojas');
+              }
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir loja de cupons"
+            accessibilityHint="Lojinha de cupons"
+            activeOpacity={0.75}
+          >
+            <Ionicons name="storefront-outline" size={20} color="#7e22ce" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.7}>
+            <Ionicons name="close" size={22} color="#4b5563" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <RewardsModalBalance
@@ -65,8 +86,21 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: AppColors.text.secondary,
+    fontWeight: '700',
+    color: '#1f2937',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  iconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f3e8ff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   closeButton: {
     padding: 8,

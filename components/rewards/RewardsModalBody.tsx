@@ -1,28 +1,27 @@
 import { AppColors } from '@/constants/theme';
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
-import type { RewardRedemptionItem } from '@/services/rewardService';
 import type { CatalogReward, RewardsFilterTab } from '../../types/index';
-import { emptyFilterMessage } from '../../utils/rewardHelpers';
-import RewardCatalogCard from './RewardCatalogCard';
-import RewardRedemptionHistory from './RewardRedemptionHistory';
+import { emptyFilterMessage, listStoreCouponsForDisplay } from '../../utils/rewardHelpers';
+import RewardEarnPointsCard from './RewardEarnPointsCard';
+import RewardStoreCouponCard from './RewardStoreCouponCard';
 
 interface RewardsModalBodyProps {
   filterTab: RewardsFilterTab;
   currentPoints: number;
   rewardActionError: string | null;
-  redemptions: RewardRedemptionItem[];
   rewards: CatalogReward[];
   filteredRewards: CatalogReward[];
   redeemedIds: Set<string>;
+  couponCodeByRewardId: Record<string, string>;
   loadingRedeemId: string | null;
   isLoadingRewards: boolean;
   rewardsError: string | null;
@@ -31,16 +30,17 @@ interface RewardsModalBodyProps {
   onRedeem: (rewardId: string, cost: number) => void;
   onLockedRewardPress: (reward: CatalogReward) => void;
   onRetryLoadRewards: () => void;
+  onCouponCopied?: () => void;
 }
 
 export default function RewardsModalBody({
   filterTab,
   currentPoints,
   rewardActionError,
-  redemptions,
   rewards,
   filteredRewards,
   redeemedIds,
+  couponCodeByRewardId,
   loadingRedeemId,
   isLoadingRewards,
   rewardsError,
@@ -49,9 +49,18 @@ export default function RewardsModalBody({
   onRedeem,
   onLockedRewardPress,
   onRetryLoadRewards,
+  onCouponCopied,
 }: RewardsModalBodyProps) {
+  const storeCoupons = useMemo(
+    () => listStoreCouponsForDisplay(rewards, redeemedIds),
+    [rewards, redeemedIds],
+  );
+
+  const listData =
+    filterTab === 'cupons_lojas' ? storeCoupons : filteredRewards;
+
   const listHeader =
-    filterTab !== 'historico' && rewardActionError ? (
+    rewardActionError && (filterTab === 'cupons_lojas' || filterTab === 'meus_resgates') ? (
       <View style={styles.feedback}>
         <Text style={styles.feedbackError}>{rewardActionError}</Text>
       </View>
@@ -84,46 +93,42 @@ export default function RewardsModalBody({
           <Text style={styles.retryButtonText}>Tentar novamente</Text>
         </TouchableOpacity>
       </View>
-    ) : filterTab === 'historico' ? (
-      <RewardRedemptionHistory redemptions={redemptions} catalog={rewards} />
     ) : rewards.length === 0 ? (
       <View style={styles.feedback}>
         <Text style={styles.feedbackText}>Nenhuma recompensa disponível no momento.</Text>
       </View>
-    ) : filteredRewards.length === 0 ? (
+    ) : listData.length === 0 ? (
       <View style={styles.feedback}>
         <Text style={styles.feedbackText}>{emptyFilterMessage(filterTab)}</Text>
       </View>
     ) : null;
 
-  if (filterTab === 'historico') {
-    return (
-      <View style={styles.list}>
-        <FlatList
-          data={[]}
-          renderItem={() => null}
-          ListEmptyComponent={empty ?? <RewardRedemptionHistory redemptions={redemptions} catalog={rewards} />}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator
-        />
-      </View>
-    );
-  }
-
   return (
     <FlatList
-      data={filteredRewards}
+      data={listData}
       keyExtractor={(r) => r.id}
-      renderItem={({ item }) => (
-        <RewardCatalogCard
-          reward={item}
-          isRedeemed={redeemedIds.has(item.id)}
-          isLoading={loadingRedeemId === item.id}
-          canRedeemWithBalance={(item.value ?? 0) >= 0 || Math.abs(item.value ?? 0) <= currentPoints}
-          onLockedPress={onLockedRewardPress}
-          onRedeem={onRedeem}
-        />
-      )}
+      renderItem={({ item }) =>
+        filterTab === 'cupons_lojas' ? (
+          <RewardStoreCouponCard
+            reward={item}
+            isPurchased={redeemedIds.has(item.id)}
+            couponCode={couponCodeByRewardId[item.id]}
+            isLoading={loadingRedeemId === item.id}
+            canBuyWithBalance={
+              (item.value ?? 0) >= 0 || Math.abs(item.value ?? 0) <= currentPoints
+            }
+            onLockedPress={onLockedRewardPress}
+            onRedeem={onRedeem}
+            onCopySuccess={onCouponCopied}
+          />
+        ) : (
+          <RewardEarnPointsCard
+            reward={item}
+            isLoading={loadingRedeemId === item.id}
+            onRedeem={onRedeem}
+          />
+        )
+      }
       ListHeaderComponent={listHeader}
       ListEmptyComponent={empty}
       ListFooterComponent={listFooter}

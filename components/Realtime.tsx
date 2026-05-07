@@ -1,5 +1,11 @@
 import { AppColors } from '@/constants/theme';
 import { distanceMeters, getNearbyPlaces, type NearbyPlace } from '@/services/placesService';
+import {
+  getNeighborhoodSummary,
+  type NeighborhoodEvent,
+  type NeighborhoodTraffic,
+} from '@/services/trafficApi';
+import { getCurrentWeather, type CurrentWeather } from '@/services/weatherApi';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import React from 'react';
@@ -9,6 +15,8 @@ const DEFAULT_CENTER = {
   latitude: -22.9189,
   longitude: -42.8186,
 };
+
+const REALTIME_REFRESH_DISTANCE_METERS = 300;
 
 type RealtimeTileProps = {
   label: string;
@@ -36,113 +44,263 @@ function RealtimeTile({ label, value, iconName, iconBg, iconColor }: RealtimeTil
   );
 }
 
+const allowedNearbyCategories = new Set<string>([
+  'hospital',
+  'pharmacy',
+  'atm',
+  'bank',
+  'market',
+  'supermarket',
+  'gas_station',
+  'restaurant',
+  'fast_food',
+  'bakery',
+  'cafe',
+  'shopping_center',
+  'shopping',
+  'gym',
+  'park',
+  'school',
+  'hotel',
+]);
+
+const nearbyCategoryLabel: Record<string, string> = {
+  hospital: 'Hospital',
+  pharmacy: 'Farmácia',
+  atm: 'Caixa',
+  bank: 'Banco',
+  market: 'Mercado',
+  supermarket: 'Supermercado',
+  gas_station: 'Posto',
+  restaurant: 'Restaurante',
+  fast_food: 'Fast-food',
+  bakery: 'Padaria',
+  cafe: 'Café',
+  shopping_center: 'Shopping',
+  shopping: 'Shopping',
+  gym: 'Academia',
+  park: 'Parque',
+  school: 'Escola',
+  hotel: 'Hotel',
+};
+
+function formatTrafficText(traffic: NeighborhoodTraffic): string {
+  const currentSpeed = Number.isFinite(traffic.currentSpeed)
+    ? `${Math.round(traffic.currentSpeed)} km/h`
+    : null;
+  const freeFlowSpeed = Number.isFinite(traffic.freeFlowSpeed)
+    ? `${Math.round(traffic.freeFlowSpeed)} km/h livre`
+    : null;
+
+  return [traffic.status, currentSpeed, freeFlowSpeed].filter(Boolean).join(' • ');
+}
+
+function formatWeatherText(weather: CurrentWeather): string {
+  const temp = Math.round(weather.temperature);
+  const rainText = weather.precipitationProbability > 40 ? 'chance de chuva' : 'sem chuva';
+
+  return `${temp}°C, ${rainText}`;
+}
+
+function formatEventText(event: NeighborhoodEvent | null): string {
+  if (!event) return 'Sem eventos próximos';
+
+  const [, month, day] = event.date.split('-');
+  const dateText = day && month ? `${day}/${month}` : event.date;
+  const timeText = event.time ? event.time.slice(0, 5) : '';
+  const scheduleText = timeText ? `${dateText} às ${timeText}` : dateText;
+
+  return `${event.name} • ${scheduleText}`;
+}
+
+function formatNearbyServiceText(places: NearbyPlace[], lat: number, lon: number): string {
+  const candidates = places.filter((p) => allowedNearbyCategories.has(p.category));
+  if (candidates.length === 0) {
+    if (places.length > 0) {
+      const p = places[0];
+      const prettyType = nearbyCategoryLabel[p.category] ?? 'Local';
+      const prettyName = p.name?.trim() ? p.name.trim() : 'perto de você';
+      return `${prettyType}: ${prettyName}`;
+    }
+
+    return 'Nenhum serviço encontrado por perto';
+  }
+
+  const closest = candidates.reduce((best, cur) => {
+    const dBest = distanceMeters([lon, lat], [best.longitude, best.latitude]);
+    const dCur = distanceMeters([lon, lat], [cur.longitude, cur.latitude]);
+    return dCur < dBest ? cur : best;
+  });
+  const prettyType = nearbyCategoryLabel[closest.category] ?? 'Serviço';
+  const prettyName = closest.name?.trim() ? closest.name.trim() : 'perto de você';
+  const meters = Math.round(distanceMeters([lon, lat], [closest.longitude, closest.latitude]));
+  const suffix = Number.isFinite(meters) ? ` • a ~${meters}m` : '';
+
+  return `${prettyType}: ${prettyName}${suffix}`;
+}
+
+async function getRealtimeCoordinates(): Promise<{ lat: number; lon: number }> {
+  let lat = DEFAULT_CENTER.latitude;
+  let lon = DEFAULT_CENTER.longitude;
+
+  try {
+    if (Platform.OS === 'web') {
+      const geolocation = globalThis.navigator?.geolocation;
+      if (!geolocation) return { lat, lon };
+
+      await new Promise<void>((resolve) => {
+        geolocation.getCurrentPosition(
+          ({ coords }) => {
+            lat = coords.latitude;
+            lon = coords.longitude;
+            resolve();
+          },
+          () => resolve(),
+          { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 },
+        );
+      });
+
+      return { lat, lon };
+    }
+
+    const perm = await Location.requestForegroundPermissionsAsync();
+    if (perm.status !== 'granted') return { lat, lon };
+
+    const loc = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    lat = loc.coords.latitude;
+    lon = loc.coords.longitude;
+  } catch {
+    return { lat, lon };
+  }
+
+  return { lat, lon };
+}
+
 export default function Realtime() {
+  const [weatherText, setWeatherText] = React.useState<string>('A consultar clima…');
+  const [trafficText, setTrafficText] = React.useState<string>('A consultar trânsito…');
   const [nearbyServiceText, setNearbyServiceText] = React.useState<string>('A procurar serviços…');
+  const [eventText, setEventText] = React.useState<string>('A procurar eventos…');
+  const lastLoadedCoordsRef = React.useRef<{ lat: number; lon: number } | null>(null);
+  const requestSeqRef = React.useRef(0);
 
   React.useEffect(() => {
     let cancelled = false;
+    let nativeSubscription: Location.LocationSubscription | null = null;
+    let webWatchId: number | null = null;
 
-    async function loadNearbyService(): Promise<void> {
-      if (Platform.OS === 'web') return;
+    function shouldLoadCoords(lat: number, lon: number): boolean {
+      const last = lastLoadedCoordsRef.current;
+      if (!last) return true;
+
+      const meters = distanceMeters([last.lon, last.lat], [lon, lat]);
+      return !Number.isFinite(meters) || meters >= REALTIME_REFRESH_DISTANCE_METERS;
+    }
+
+    async function loadRealtimeData(lat: number, lon: number): Promise<void> {
+      if (!shouldLoadCoords(lat, lon)) return;
+
+      lastLoadedCoordsRef.current = { lat, lon };
+      const requestSeq = ++requestSeqRef.current;
 
       try {
-        let lat = DEFAULT_CENTER.latitude;
-        let lon = DEFAULT_CENTER.longitude;
+        await Promise.all([
+          getCurrentWeather({ lat, lon })
+            .then((weather) => {
+              if (cancelled || requestSeq !== requestSeqRef.current) return;
+              setWeatherText(formatWeatherText(weather));
+            })
+            .catch(() => {
+              if (cancelled || requestSeq !== requestSeqRef.current) return;
+              setWeatherText('Não foi possível carregar o clima agora');
+            }),
+          getNeighborhoodSummary({ lat, lon })
+            .then((summary) => {
+              if (cancelled || requestSeq !== requestSeqRef.current) return;
 
-        const perm = await Location.requestForegroundPermissionsAsync();
-        if (perm.status === 'granted') {
-          const loc = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          lat = loc.coords.latitude;
-          lon = loc.coords.longitude;
-        }
-
-        const allowed = new Set<string>([
-          'hospital',
-          'pharmacy',
-          'atm',
-          'bank',
-          'market',
-          'supermarket',
-          'gas_station',
-          'restaurant',
-          'fast_food',
-          'bakery',
-          'cafe',
-          'shopping_center',
-          'shopping',
-          'gym',
-          'park',
-          'school',
-          'hotel',
+              setTrafficText(
+                summary.traffic
+                  ? formatTrafficText(summary.traffic)
+                  : 'Não foi possível carregar o trânsito agora',
+              );
+              setEventText(
+                summary.errors.events
+                  ? 'Não foi possível carregar eventos agora'
+                  : formatEventText(summary.events.event),
+              );
+            })
+            .catch(() => {
+              if (cancelled || requestSeq !== requestSeqRef.current) return;
+              setTrafficText('Não foi possível carregar o trânsito agora');
+              setEventText('Não foi possível carregar eventos agora');
+            }),
+          getNearbyPlaces({
+            lat,
+            lon,
+            radius: 7000,
+            limit: 40,
+          })
+            .then((places) => {
+              if (cancelled || requestSeq !== requestSeqRef.current) return;
+              setNearbyServiceText(formatNearbyServiceText(places, lat, lon));
+            })
+            .catch(() => {
+              if (cancelled || requestSeq !== requestSeqRef.current) return;
+              setNearbyServiceText('Não foi possível carregar serviços agora');
+            }),
         ]);
-        const categoryLabel: Record<string, string> = {
-          hospital: 'Hospital',
-          pharmacy: 'Farmácia',
-          atm: 'Caixa',
-          bank: 'Banco',
-          market: 'Mercado',
-          supermarket: 'Supermercado',
-          gas_station: 'Posto',
-          restaurant: 'Restaurante',
-          fast_food: 'Fast-food',
-          bakery: 'Padaria',
-          cafe: 'Café',
-          shopping_center: 'Shopping',
-          shopping: 'Shopping',
-          gym: 'Academia',
-          park: 'Parque',
-          school: 'Escola',
-          hotel: 'Hotel',
-        };
-
-        const places = await getNearbyPlaces({
-          lat,
-          lon,
-          radius: 7000,
-          limit: 40,
-        });
-
-        const candidates = places.filter((p) => allowed.has(p.category));
-        if (candidates.length === 0) {
-          if (cancelled) return;
-          if (places.length > 0) {
-            const p = places[0];
-            const prettyType = categoryLabel[p.category] ?? 'Local';
-            const prettyName = p.name?.trim() ? p.name.trim() : 'perto de você';
-            setNearbyServiceText(`${prettyType}: ${prettyName}`);
-            return;
-          }
-          setNearbyServiceText('Nenhum serviço encontrado por perto');
-          return;
-        }
-
-        const pickClosest = (items: NearbyPlace[]): NearbyPlace => {
-          return items.reduce((best, cur) => {
-            const dBest = distanceMeters([lon, lat], [best.longitude, best.latitude]);
-            const dCur = distanceMeters([lon, lat], [cur.longitude, cur.latitude]);
-            return dCur < dBest ? cur : best;
-          });
-        };
-
-        const closest = pickClosest(candidates);
-        const prettyType = categoryLabel[closest.category] ?? 'Serviço';
-        const prettyName = closest.name?.trim() ? closest.name.trim() : 'perto de você';
-        const meters = Math.round(distanceMeters([lon, lat], [closest.longitude, closest.latitude]));
-        const suffix = Number.isFinite(meters) ? ` • a ~${meters}m` : '';
-
-        if (cancelled) return;
-        setNearbyServiceText(`${prettyType}: ${prettyName}${suffix}`);
       } catch {
-        if (cancelled) return;
+        if (cancelled || requestSeq !== requestSeqRef.current) return;
+        setWeatherText('Não foi possível carregar o clima agora');
+        setTrafficText('Não foi possível carregar o trânsito agora');
         setNearbyServiceText('Não foi possível carregar serviços agora');
+        setEventText('Não foi possível carregar eventos agora');
       }
     }
 
-    void loadNearbyService();
+    async function startRealtimeLocationWatch(): Promise<void> {
+      const initial = await getRealtimeCoordinates();
+      if (cancelled) return;
+
+      void loadRealtimeData(initial.lat, initial.lon);
+
+      if (Platform.OS === 'web') {
+        const geolocation = globalThis.navigator?.geolocation;
+        if (!geolocation) return;
+
+        webWatchId = geolocation.watchPosition(
+          ({ coords }) => {
+            void loadRealtimeData(coords.latitude, coords.longitude);
+          },
+          () => undefined,
+          { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 },
+        );
+        return;
+      }
+
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (cancelled || perm.status !== 'granted') return;
+
+      nativeSubscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          distanceInterval: REALTIME_REFRESH_DISTANCE_METERS,
+        },
+        ({ coords }) => {
+          void loadRealtimeData(coords.latitude, coords.longitude);
+        },
+      );
+    }
+
+    void startRealtimeLocationWatch();
     return () => {
       cancelled = true;
+      nativeSubscription?.remove();
+      if (webWatchId != null) {
+        globalThis.navigator?.geolocation?.clearWatch(webWatchId);
+      }
     };
   }, []);
 
@@ -164,14 +322,14 @@ export default function Realtime() {
         <View style={styles.grid}>
           <RealtimeTile
             label="CLIMA"
-            value="27°C, chance de chuva"
+            value={weatherText}
             iconName="partly-sunny-outline"
             iconBg="rgba(2, 132, 199, 0.12)"
             iconColor={AppColors.palette.sky.base}
           />
           <RealtimeTile
             label="TRÂNSITO"
-            value="Fluxo moderado"
+            value={trafficText}
             iconName="car-outline"
             iconBg="rgba(99, 102, 241, 0.12)"
             iconColor={AppColors.palette.indigo.base}
@@ -184,8 +342,8 @@ export default function Realtime() {
             iconColor={AppColors.status.error}
           />
           <RealtimeTile
-            label="EVENTO HOJE"
-            value="Feira local às 18h"
+            label="EVENTO PRÓXIMO"
+            value={eventText}
             iconName="calendar-outline"
             iconBg="rgba(245, 158, 11, 0.14)"
             iconColor={AppColors.status.warning}

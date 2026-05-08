@@ -72,7 +72,7 @@ export default function ProfileComponent({
             return;
         }
         if (item === 'Ajuda') {
-            router.push('/(tabs)/messages');
+            router.push('/ajuda');
             return;
         }
         else if (item === 'Meus Documentos') {

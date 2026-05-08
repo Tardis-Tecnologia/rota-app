@@ -72,11 +72,10 @@ export default function NoticiasScreen() {
     <View>
       {/* Componente Header */}
       <Header hasNotifications={unreadCount > 0} />
-      {/* Componente Novidades (Carrossel) */}
-      <NewsCarousel />
-      <Realtime />
       {/* Componente Alertas da Cidade */}
       <CityAlerts />
+      {/* Componente Agora no seu bairro */}
+      <Realtime />
       {/* Acesso rápido */}
       <View style={styles.quickAccessSection}>
         <Text style={styles.quickAccessTitle}>ACESSO RÁPIDO</Text>
@@ -121,6 +120,8 @@ export default function NoticiasScreen() {
           </TouchableOpacity>
         </View>
       </View>
+      {/* Componente Novidades (Carrossel) */}
+      <NewsCarousel />
       {/* Componente de Eventos (Carrossel) */}
       <OpinionCard onVoteSuccess={handleVoteSuccessToast} />
       {/* Jobs and Opportunities Card */}
@@ -128,19 +129,24 @@ export default function NoticiasScreen() {
       <HomeReportedProblemsSection refreshKey={homePulseRefreshKey} />
       <EventCarousel />
       <View>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle} numberOfLines={1}>
-            Últimas Notícias
-          </Text>
+        <View style={styles.newsHeaderRow}>
+          <View style={styles.newsHeaderLeft}>
+            <View style={styles.newsKickerRow}>
+              <Text style={styles.newsKicker}>CANAL OFICIAL</Text>
+              <Feather name="file-text" size={14} color={AppColors.text.tertiary} />
+            </View>
+            <Text style={styles.newsTitle} numberOfLines={1}>
+              Últimas notícias
+            </Text>
+          </View>
           <TouchableOpacity
-            style={styles.seeMoreRow}
+            style={styles.newsHeaderCta}
             onPress={() => router.push('/(tabs)/feed')}
             activeOpacity={0.75}
             accessibilityRole="button"
-            accessibilityLabel="Ver mais notícias no feed"
+            accessibilityLabel="Ver todas as notícias"
           >
-            <Text style={styles.seeMoreLabel}>Ver mais</Text>
-            <Feather name="chevron-right" size={18} color={AppColors.primary} />
+            <Text style={styles.newsHeaderCtaText}>Ver todos</Text>
           </TouchableOpacity>
         </View>
         <NewsPosts maxItems={2} />
@@ -191,29 +197,46 @@ const styles = StyleSheet.create({
   contentContainer: {
     flexGrow: 1,
   },
-  sectionHeaderRow: {
+  newsHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 24,
     marginBottom: 16,
+    gap: 16,
   },
-  sectionTitle: {
+  newsHeaderLeft: {
     flex: 1,
-    marginRight: 12,
+  },
+  newsKicker: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    color: AppColors.text.tertiary,
+    marginBottom: 6,
+  },
+  newsKickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  newsTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: AppColors.text.secondary,
   },
-  seeMoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+  newsHeaderCta: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 210, 200, 0.35)',
+    backgroundColor: 'rgba(0, 210, 200, 0.10)',
   },
-  seeMoreLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: AppColors.primary,
+  newsHeaderCtaText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: AppColors.tab.active,
   },
 
   quickAccessSection: {

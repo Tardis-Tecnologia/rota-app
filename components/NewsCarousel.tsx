@@ -1,6 +1,7 @@
 import { AppColors } from '@/constants/theme';
+import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
   Image,
@@ -12,7 +13,10 @@ import {
 } from 'react-native';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = width - 48; // Largura com padding
+const SIDE_PADDING = 24;
+const CARD_SPACING = 12;
+const CARD_WIDTH = Math.round(width * 0.78);
+const SNAP_INTERVAL = CARD_WIDTH + CARD_SPACING;
 
 interface Novidade {
   id: string;
@@ -25,7 +29,8 @@ export default function NewsCarousel() {
   const scrollViewRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
 
-  const novidades: Novidade[] = [
+  const novidades: Novidade[] = useMemo(
+    () => [
     {
       id: '1',
       titulo: 'Novo Parque da Cidade Inaugurado!',
@@ -44,14 +49,16 @@ export default function NewsCarousel() {
       descricao: 'Garanta já a vaga do seu filho na rede pública.',
       imagem: 'https://vitrinemadri.cdn.magazord.com.br/img/2025/02/blog/15613/crianca-escola-mochila-livros.jpg',
     },
-  ];
+    ],
+    []
+  );
 
   useEffect(() => {
     const interval = setInterval(() => {
       const nextIndex = (currentIndex + 1) % novidades.length;
       setCurrentIndex(nextIndex);
       scrollViewRef.current?.scrollTo({
-        x: nextIndex * CARD_WIDTH,
+        x: nextIndex * SNAP_INTERVAL,
         animated: true,
       });
     }, 5000); // Muda a cada 5 segundos
@@ -61,7 +68,7 @@ export default function NewsCarousel() {
 
   const handleScroll = (event: any) => {
     const scrollPosition = event.nativeEvent.contentOffset.x;
-    const index = Math.round(scrollPosition / CARD_WIDTH);
+    const index = Math.round(scrollPosition / SNAP_INTERVAL);
     if (index !== currentIndex) {
       setCurrentIndex(index);
     }
@@ -70,32 +77,52 @@ export default function NewsCarousel() {
   const handleDotPress = (index: number) => {
     setCurrentIndex(index);
     scrollViewRef.current?.scrollTo({
-      x: index * CARD_WIDTH,
+      x: index * SNAP_INTERVAL,
       animated: true,
     });
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Novidades</Text>
+      <View style={styles.headerRow}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.kicker}>EM DESTAQUE</Text>
+          <Text style={styles.title}>Novidades</Text>
+        </View>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Ver novidades"
+          activeOpacity={0.85}
+          style={styles.headerAction}
+          onPress={() => {
+            // placeholder: mantém o layout do botão conforme design
+            void 0;
+          }}
+        >
+          <Feather name="star" size={18} color={AppColors.primary} />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.carouselContainer}>
         <ScrollView
           ref={scrollViewRef}
           horizontal
-          pagingEnabled
           showsHorizontalScrollIndicator={false}
           onScroll={handleScroll}
           scrollEventThrottle={16}
           decelerationRate="fast"
-          snapToInterval={CARD_WIDTH}
+          snapToInterval={SNAP_INTERVAL}
+          snapToAlignment="start"
+          contentContainerStyle={styles.scrollContent}
         >
-          {novidades.map((novidade) => (
+          {novidades.map((novidade, index) => (
             <View
               key={novidade.id}
-              style={[styles.carouselItem, { width: CARD_WIDTH }]}
+              style={[
+                styles.carouselItem,
+                { width: CARD_WIDTH },
+                index !== novidades.length - 1 && { marginRight: CARD_SPACING },
+              ]}
             >
               <Image
                 source={{ uri: novidade.imagem }}
@@ -117,19 +144,6 @@ export default function NewsCarousel() {
             </View>
           ))}
         </ScrollView>
-
-        <View style={styles.dotsContainer}>
-          {novidades.map((_, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.dot,
-                index === currentIndex && styles.dotActive,
-              ]}
-              onPress={() => handleDotPress(index)}
-            />
-          ))}
-        </View>
       </View>
     </View>
   );
@@ -139,9 +153,38 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: 16,
   },
-  header: {
-    paddingHorizontal: 24,
+  headerRow: {
+    paddingHorizontal: SIDE_PADDING,
     marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  kicker: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    color: AppColors.text.tertiary,
+    marginBottom: 6,
+  },
+  headerAction: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: AppColors.background.default,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: AppColors.border.muted,
+    shadowColor: AppColors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 4,
   },
   title: {
     fontSize: 20,
@@ -149,12 +192,15 @@ const styles = StyleSheet.create({
     color: AppColors.text.secondary,
   },
   carouselContainer: {
-    paddingHorizontal: 24,
     position: 'relative',
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingRight: SIDE_PADDING,
   },
   carouselItem: {
     height: 208, // h-52 = 208px
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: AppColors.gray[300],
     shadowColor: AppColors.shadow,
@@ -192,24 +238,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
     marginTop: 4,
-  },
-  dotsContainer: {
-    position: 'absolute',
-    bottom: 16,
-    right: 28,
-    flexDirection: 'row',
-    gap: 8,
-    zIndex: 10,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-  },
-  dotActive: {
-    backgroundColor: AppColors.text.white,
-    width: 24,
   },
 });
 

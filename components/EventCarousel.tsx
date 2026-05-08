@@ -6,6 +6,7 @@ import {
   formatEventCardDateLine,
   startOfLocalDay,
 } from '@/utils/eventsCarousel';
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -20,6 +21,9 @@ import {
 } from 'react-native';
 
 const CARD_WIDTH = 240;
+const SIDE_PADDING = 24;
+const CARD_SPACING = 16;
+const SNAP_INTERVAL = CARD_WIDTH + CARD_SPACING;
 
 export default function EventCarousel() {
   const router = useRouter();
@@ -61,8 +65,11 @@ export default function EventCarousel() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Eventos da Cidade</Text>
+      <View style={styles.headerRow}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.kicker}>AGENDA</Text>
+          <Text style={styles.title}>Eventos na cidade</Text>
+        </View>
         <Pressable
           hitSlop={8}
           style={styles.viewAllButton}
@@ -75,14 +82,18 @@ export default function EventCarousel() {
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.carousel}
-        snapToInterval={CARD_WIDTH + 16}
+        snapToInterval={SNAP_INTERVAL}
         decelerationRate="fast"
-        pagingEnabled
+        snapToAlignment="start"
       >
-        {eventos.map((evento) => (
+        {eventos.map((evento, index) => (
           <TouchableOpacity
             key={evento.id}
-            style={[styles.card, { width: CARD_WIDTH }]}
+            style={[
+              styles.card,
+              { width: CARD_WIDTH },
+              index !== eventos.length - 1 && { marginRight: CARD_SPACING },
+            ]}
             activeOpacity={0.7}
             onPress={() =>
               router.push({
@@ -91,23 +102,36 @@ export default function EventCarousel() {
               })
             }
           >
-            {evento.imagem && (
-              <Image
-                source={{ uri: evento.imagem }}
-                style={styles.cardImage}
-                resizeMode="cover"
-              />
-            )}
+            <View style={styles.imageWrap}>
+              {evento.imagem && (
+                <Image
+                  source={{ uri: evento.imagem }}
+                  style={styles.cardImage}
+                  resizeMode="cover"
+                />
+              )}
+              <View style={styles.dateBadge}>
+                <Feather name="calendar" size={14} color={AppColors.tab.active} />
+                <Text style={styles.dateBadgeText} numberOfLines={2}>
+                  {formatEventCardDateLine(evento)}
+                </Text>
+              </View>
+            </View>
             <View style={styles.cardContent}>
-              <Text style={styles.dataHorario}>
-                {formatEventCardDateLine(evento)}
-              </Text>
               <Text style={styles.titulo} numberOfLines={2}>
                 {evento.titulo}
               </Text>
-              <Text style={styles.local} numberOfLines={1}>
-                {evento.local}
-              </Text>
+              <View style={styles.locationRow}>
+                <Feather
+                  name="map-pin"
+                  size={14}
+                  color={AppColors.tab.active}
+                  style={styles.locationIcon}
+                />
+                <Text style={styles.local} numberOfLines={1}>
+                  {evento.local}
+                </Text>
+              </View>
             </View>
           </TouchableOpacity>
         ))}
@@ -125,27 +149,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
+  headerRow: {
+    paddingHorizontal: SIDE_PADDING,
+    marginBottom: 16,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  kicker: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    color: AppColors.text.tertiary,
+    marginBottom: 6,
   },
   title: {
-    marginLeft: 10,
     fontSize: 20,
     fontWeight: 'bold',
     color: AppColors.text.secondary,
   },
   carousel: {
-    paddingHorizontal: 24,
-    gap: 16,
+    paddingHorizontal: SIDE_PADDING,
+    paddingRight: SIDE_PADDING,
     paddingBottom: 8,
   },
   card: {
     backgroundColor: AppColors.background.default,
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
     shadowColor: AppColors.shadow,
     shadowOffset: { width: 0, height: 4 },
@@ -154,19 +188,43 @@ const styles = StyleSheet.create({
     elevation: 5,
     flexShrink: 0,
   },
+  imageWrap: {
+    position: 'relative',
+    backgroundColor: AppColors.gray[300],
+  },
   cardImage: {
     width: '100%',
     height: 112, // h-28 = 112px
     backgroundColor: AppColors.gray[300],
   },
+  dateBadge: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 10,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: AppColors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  dateBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: AppColors.text.secondary,
+    flex: 1,
+    flexWrap: 'wrap',
+    lineHeight: 16,
+  },
   cardContent: {
     padding: 16,
-  },
-  dataHorario: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: AppColors.tab.active, // cyan-600
-    marginBottom: 4,
   },
   titulo: {
     fontSize: 16,
@@ -175,17 +233,31 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 4,
   },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  locationIcon: {
+    marginTop: 1,
+  },
   local: {
     fontSize: 14,
     color: AppColors.text.tertiary, // gray-500
+    flexShrink: 1,
   },
   viewAllText: {
     fontSize: 13,
     fontWeight: '600',
-    color: AppColors.accent,
+    color: AppColors.tab.active,
   },
   viewAllButton: {
-    paddingHorizontal: 4,
-    paddingVertical: 2,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 210, 200, 0.35)',
+    backgroundColor: 'rgba(0, 210, 200, 0.10)',
   },
 });

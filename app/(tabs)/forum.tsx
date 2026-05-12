@@ -17,6 +17,7 @@ import {
     type ForumPostResponseDto,
 } from '@/services/forumApi';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -57,6 +58,10 @@ function forumPostImageUrl(mediaId: string | null): string | null {
   return `${getApiBaseUrl()}/api/v1/upload/files/${encodeURIComponent(mediaId)}`;
 }
 
+function withListImageCacheBust(url: string, epoch: number): string {
+  return url.includes('?') ? `${url}&v=${epoch}` : `${url}?v=${epoch}`;
+}
+
 function forumDisplayHandle(
   author: { id: string; name: string | null } | null | undefined,
 ): string {
@@ -86,6 +91,7 @@ export default function ForumScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<ForumPostResponseDto[]>([]);
+  const [imageCacheEpoch, setImageCacheEpoch] = useState(() => Date.now());
 
   const [publishOpen, setPublishOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -123,6 +129,7 @@ export default function ForumScreen() {
         setCommentsByPost(Object.fromEntries(commentEntries));
         setItems(detailed);
         setCommentsExpandedByPost({});
+        setImageCacheEpoch(Date.now());
       } catch (e) {
         setItems([]);
         setCommentsByPost({});
@@ -136,9 +143,11 @@ export default function ForumScreen() {
     [activeFilter],
   );
 
-  React.useEffect(() => {
-    void load(false);
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      void load(false);
+    }, [load]),
+  );
 
   const onPublish = useCallback(async () => {
     if (!title.trim() || !content.trim()) return;
@@ -296,7 +305,14 @@ export default function ForumScreen() {
           ? items.map((post) => {
               const comments = commentsByPost[post.id] ?? [];
               const draft = commentDraftByPost[post.id] ?? '';
-              const authorPhoto = post.author?.photoUrl?.trim();
+              const authorPhotoRaw = post.author?.photoUrl?.trim();
+              const authorPhoto = authorPhotoRaw
+                ? withListImageCacheBust(authorPhotoRaw, imageCacheEpoch)
+                : '';
+              const postImageRaw = forumPostImageUrl(post.mediaId);
+              const postImageUri = postImageRaw
+                ? withListImageCacheBust(postImageRaw, imageCacheEpoch)
+                : null;
               const displayName = (post.author?.name || 'Morador(a)').trim();
               const initial = displayName.charAt(0).toUpperCase() || 'A';
               const sending = commentSendingPostId === post.id;
@@ -306,7 +322,11 @@ export default function ForumScreen() {
                 <View key={post.id} style={styles.card}>
                   <View style={styles.postTop}>
                     {authorPhoto ? (
-                      <Image source={{ uri: authorPhoto }} style={styles.avatarImage} />
+                      <Image
+                        key={`a-${post.id}-${imageCacheEpoch}`}
+                        source={{ uri: authorPhoto }}
+                        style={styles.avatarImage}
+                      />
                     ) : (
                       <View style={styles.avatar}>
                         <Text style={styles.avatarText}>{initial}</Text>
@@ -327,9 +347,10 @@ export default function ForumScreen() {
                     </View>
                   </View>
 
-                  {post.mediaId ? (
+                  {post.mediaId && postImageUri ? (
                     <Image
-                      source={{ uri: forumPostImageUrl(post.mediaId) ?? '' }}
+                      key={`m-${post.id}-${imageCacheEpoch}`}
+                      source={{ uri: postImageUri }}
                       style={styles.postImage}
                       resizeMode="cover"
                     />

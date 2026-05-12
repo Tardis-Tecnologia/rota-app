@@ -3,9 +3,9 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import type { RewardsFilterTab } from '../../types/index';
 import RewardFilterChips from './RewardFilterChips';
 import RewardsModalBalance from './RewardsModalBalance';
-import type { RewardsFilterTab } from '../../types/index';
 
 interface RewardsModalHeaderProps {
   currentPoints: number;
@@ -16,8 +16,9 @@ interface RewardsModalHeaderProps {
   onRetryLoadPoints: () => void;
   filterTab: RewardsFilterTab;
   onFilterChange: (tab: RewardsFilterTab) => void;
-  /** Atalho para a aba de cupons (ícone da lojinha). */
-  onStorePress?: () => void;
+  onHistoryPress: () => void;
+  isHistoryView?: boolean;
+  showFilterTabs?: boolean;
 }
 
 export default function RewardsModalHeader({
@@ -29,7 +30,9 @@ export default function RewardsModalHeader({
   onRetryLoadPoints,
   filterTab,
   onFilterChange,
-  onStorePress,
+  onHistoryPress,
+  isHistoryView = false,
+  showFilterTabs = true,
 }: RewardsModalHeaderProps) {
   return (
     <View style={styles.header}>
@@ -38,19 +41,23 @@ export default function RewardsModalHeader({
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={styles.iconBadge}
-            onPress={() => {
-              if (onStorePress) {
-                onStorePress();
-              } else {
-                onFilterChange('cupons_lojas');
-              }
-            }}
+            onPress={onHistoryPress}
             accessibilityRole="button"
-            accessibilityLabel="Abrir loja de cupons"
-            accessibilityHint="Lojinha de cupons"
+            accessibilityLabel={
+              isHistoryView ? 'Voltar para a loja de recompensas' : 'Ver histórico de resgates'
+            }
+            accessibilityHint={
+              isHistoryView
+                ? 'Retorna à lista de recompensas e cupons'
+                : 'Abre o histórico de pontos e resgates'
+            }
             activeOpacity={0.75}
           >
-            <Ionicons name="storefront-outline" size={20} color="#7e22ce" />
+            <Ionicons
+              name={isHistoryView ? 'chevron-back' : 'time-outline'}
+              size={22}
+              color="#7e22ce"
+            />
           </TouchableOpacity>
           <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.7}>
             <Ionicons name="close" size={22} color="#4b5563" />
@@ -66,7 +73,9 @@ export default function RewardsModalHeader({
         onRetryLoadPoints={onRetryLoadPoints}
       />
 
-      <RewardFilterChips selected={filterTab} onSelect={onFilterChange} />
+      {showFilterTabs ? (
+        <RewardFilterChips selected={filterTab} onSelect={onFilterChange} />
+      ) : null}
     </View>
   );
 }

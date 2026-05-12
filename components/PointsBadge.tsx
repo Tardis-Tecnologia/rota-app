@@ -2,6 +2,7 @@ import CpfRequiredModal from '@/components/CpfRequiredModal';
 import { VisitanteLoginOverlay } from '@/components/VisitanteLoginOverlay';
 import RewardsModalBody from '@/components/rewards/RewardsModalBody';
 import RewardsModalHeader from '@/components/rewards/RewardsModalHeader';
+import RewardRedemptionHistory from '@/components/rewards/RewardRedemptionHistory';
 import Toast, { type ToastType } from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,6 +29,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     ActivityIndicator,
     Modal,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -90,6 +92,7 @@ export default function PointsBadge({
     useState<PendingRedeemConfirmation | null>(null);
   const [insufficientBalanceInfo, setInsufficientBalanceInfo] =
     useState<InsufficientBalanceInfo | null>(null);
+  const [showRedemptionHistory, setShowRedemptionHistory] = useState(false);
 
   const modalOpacity = useSharedValue(0);
   const modalTranslateY = useSharedValue(300);
@@ -206,6 +209,7 @@ export default function PointsBadge({
     setRewardActionError(null);
     setCouponCodesFromRedeem({});
     setRewardsFilterTab('cupons_lojas');
+    setShowRedemptionHistory(false);
     if (user?.profile !== 'VISITANTE') {
       void loadRewards();
       void loadPoints(false);
@@ -402,36 +406,49 @@ export default function PointsBadge({
                 }}
                 filterTab={rewardsFilterTab}
                 onFilterChange={setRewardsFilterTab}
+                isHistoryView={showRedemptionHistory}
+                showFilterTabs={!showRedemptionHistory}
+                onHistoryPress={() => setShowRedemptionHistory((v) => !v)}
               />
 
               <View style={styles.rewardsListContainer}>
-                <RewardsModalBody
-                  filterTab={rewardsFilterTab}
-                  currentPoints={currentPoints}
-                  rewardActionError={rewardActionError}
-                  rewards={rewards}
-                  filteredRewards={earnRewardsFiltered}
-                  redeemedIds={redeemedRewards}
-                  couponCodeByRewardId={couponCodeByRewardId}
-                  loadingRedeemId={loadingRedeemId}
-                  isLoadingRewards={isLoadingRewards}
-                  rewardsError={rewardsError}
-                  loadingMore={loadingMoreRewards}
-                  onEndReached={handleEndReached}
-                  onRedeem={handleRedeem}
-                  onLockedRewardPress={(reward) =>
-                    setInsufficientBalanceInfo({
-                      rewardName: reward.name,
-                      requiredPoints: Math.abs(reward.value ?? 0),
-                    })
-                  }
-                  onRetryLoadRewards={() => {
-                    void loadRewards();
-                  }}
-                  onCouponCopied={() => {
-                    showActionToast('Código copiado!', 'success');
-                  }}
-                />
+                {showRedemptionHistory ? (
+                  <ScrollView
+                    style={styles.historyScroll}
+                    contentContainerStyle={styles.historyScrollContent}
+                    showsVerticalScrollIndicator
+                  >
+                    <RewardRedemptionHistory redemptions={redemptions} catalog={rewards} />
+                  </ScrollView>
+                ) : (
+                  <RewardsModalBody
+                    filterTab={rewardsFilterTab}
+                    currentPoints={currentPoints}
+                    rewardActionError={rewardActionError}
+                    rewards={rewards}
+                    filteredRewards={earnRewardsFiltered}
+                    redeemedIds={redeemedRewards}
+                    couponCodeByRewardId={couponCodeByRewardId}
+                    loadingRedeemId={loadingRedeemId}
+                    isLoadingRewards={isLoadingRewards}
+                    rewardsError={rewardsError}
+                    loadingMore={loadingMoreRewards}
+                    onEndReached={handleEndReached}
+                    onRedeem={handleRedeem}
+                    onLockedRewardPress={(reward) =>
+                      setInsufficientBalanceInfo({
+                        rewardName: reward.name,
+                        requiredPoints: Math.abs(reward.value ?? 0),
+                      })
+                    }
+                    onRetryLoadRewards={() => {
+                      void loadRewards();
+                    }}
+                    onCouponCopied={() => {
+                      showActionToast('Código copiado!', 'success');
+                    }}
+                  />
+                )}
               </View>
               <VisitanteLoginOverlay message="A loja de recompensas e o resgate de pontos exigem login com uma conta cadastrada." />
             </View>
@@ -671,6 +688,14 @@ const styles = StyleSheet.create({
   rewardsListContainer: {
     flex: 1,
     minHeight: 0,
+  },
+  historyScroll: {
+    flex: 1,
+  },
+  historyScrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    flexGrow: 1,
   },
   confirmOverlay: {
     flex: 1,

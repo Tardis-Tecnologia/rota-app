@@ -11,11 +11,12 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -128,6 +129,8 @@ function hostLabelUpper(): string {
   }
 }
 
+type VoteFeedback = { kind: 'success' } | { kind: 'error'; message: string };
+
 export function Pulso() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -153,6 +156,8 @@ export function Pulso() {
     iluminacao: undefined,
     areas_verdes: undefined,
   });
+
+  const [voteFeedback, setVoteFeedback] = useState<VoteFeedback | null>(null);
 
   const neighborhoods = useMemo(
     () => areas.map((a) => ({ id: a.id, name: a.name })),
@@ -261,7 +266,7 @@ export function Pulso() {
         lighting: ratings.iluminacao!,
         greenAreas: ratings.areas_verdes!,
       });
-      Alert.alert('Enviado', 'Sua avaliação foi registrada.');
+      setVoteFeedback({ kind: 'success' });
       setRatings({
         seguranca: undefined,
         limpeza: undefined,
@@ -280,10 +285,10 @@ export function Pulso() {
       setTopProblems(tp);
       setVoteStatus(vs);
     } catch (e) {
-      Alert.alert(
-        'Erro',
-        e instanceof Error ? e.message : 'Não foi possível enviar a avaliação.',
-      );
+      setVoteFeedback({
+        kind: 'error',
+        message: e instanceof Error ? e.message : 'Não foi possível enviar a avaliação.',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -416,6 +421,49 @@ export function Pulso() {
           </>
         )}
       </ScrollView>
+
+      <Modal
+        visible={voteFeedback !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setVoteFeedback(null)}
+      >
+        <View style={styles.feedbackOverlay}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            accessibilityLabel="Fechar"
+            onPress={() => setVoteFeedback(null)}
+          />
+          <View style={styles.feedbackCard}>
+            {voteFeedback?.kind === 'success' ? (
+              <>
+                <View style={[styles.feedbackIconWrap, styles.feedbackIconWrapSuccess]}>
+                  <Ionicons name="checkmark-circle" size={36} color={AppColors.status.success} />
+                </View>
+                <Text style={styles.feedbackTitle}>Enviado</Text>
+                <Text style={styles.feedbackMessage}>
+                  Sua avaliação foi registrada. Obrigado por colaborar com o Pulso do Bairro.
+                </Text>
+              </>
+            ) : voteFeedback?.kind === 'error' ? (
+              <>
+                <View style={[styles.feedbackIconWrap, styles.feedbackIconWrapError]}>
+                  <Ionicons name="alert-circle" size={36} color={AppColors.status.error} />
+                </View>
+                <Text style={styles.feedbackTitle}>Não foi possível enviar</Text>
+                <Text style={styles.feedbackMessage}>{voteFeedback.message}</Text>
+              </>
+            ) : null}
+            <TouchableOpacity
+              style={styles.feedbackButton}
+              onPress={() => setVoteFeedback(null)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.feedbackButtonText}>Entendi</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -584,5 +632,70 @@ const styles = StyleSheet.create({
     color: AppColors.text.white,
     fontSize: 16,
     fontWeight: '900',
+  },
+  feedbackOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    paddingHorizontal: 24,
+  },
+  feedbackCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 20,
+    backgroundColor: AppColors.background.default,
+    paddingHorizontal: 22,
+    paddingTop: 26,
+    paddingBottom: 22,
+    alignItems: 'center',
+    shadowColor: AppColors.shadow,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 12,
+    borderWidth: 1,
+    borderColor: AppColors.border.muted,
+  },
+  feedbackIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  feedbackIconWrapSuccess: {
+    backgroundColor: 'rgba(39, 174, 96, 0.12)',
+  },
+  feedbackIconWrapError: {
+    backgroundColor: 'rgba(231, 76, 60, 0.12)',
+  },
+  feedbackTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: AppColors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  feedbackMessage: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: AppColors.text.tertiary,
+    textAlign: 'center',
+    marginBottom: 22,
+  },
+  feedbackButton: {
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: AppColors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  feedbackButtonText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: AppColors.text.white,
   },
 });

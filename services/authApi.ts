@@ -69,13 +69,31 @@ export function getApiBaseUrl(): string {
 }
 
 function pickPhotoUrl(raw: Record<string, unknown>): string | null | undefined {
+  const hasPhotoKey =
+    Object.prototype.hasOwnProperty.call(raw, 'photoUrl') ||
+    Object.prototype.hasOwnProperty.call(raw, 'photo_url');
+  if (!hasPhotoKey) {
+    return undefined;
+  }
   const v = raw.photoUrl ?? raw.photo_url;
   if (v === null) return null;
   if (typeof v === 'string') {
     const t = v.trim();
     return t.length ? t : null;
   }
-  return undefined;
+  return null;
+}
+
+function normalizeProfileUploadMime(mime?: string | null): string {
+  const m = (mime ?? '').trim().toLowerCase();
+  if (!m) return 'image/jpeg';
+  if (m === 'image/jpg' || m === 'image/x-jpeg' || m === 'image/pjpeg') {
+    return 'image/jpeg';
+  }
+  if (m === 'image/x-png') {
+    return 'image/png';
+  }
+  return m;
 }
 
 function mapUserSummary(raw: unknown): UserSummary {
@@ -83,6 +101,7 @@ function mapUserSummary(raw: unknown): UserSummary {
     throw new Error('Resposta inválida do servidor');
   }
   const r = raw as Record<string, unknown>;
+  const photoPick = pickPhotoUrl(r);
   return {
     id: String(r.id ?? ''),
     name: String(r.name ?? ''),
@@ -97,7 +116,7 @@ function mapUserSummary(raw: unknown): UserSummary {
           : undefined,
     uf: typeof r.uf === 'string' ? r.uf : undefined,
     cpf: typeof r.cpf === 'string' ? r.cpf : undefined,
-    photoUrl: pickPhotoUrl(r) ?? null,
+    ...(photoPick !== undefined ? { photoUrl: photoPick } : {}),
   };
 }
 
@@ -163,7 +182,7 @@ export async function uploadMyProfilePhotoFromUri(
     throw new Error('Não autenticado');
   }
 
-  const mime = options?.mimeType?.trim() || 'image/jpeg';
+  const mime = normalizeProfileUploadMime(options?.mimeType);
   const name = options?.fileName?.trim() || 'profile-photo.jpg';
 
   const form = new FormData();

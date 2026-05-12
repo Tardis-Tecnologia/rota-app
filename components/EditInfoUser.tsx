@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 
 type FieldKey =
   | 'name'
@@ -31,7 +32,7 @@ type FieldKey =
   | 'confirmPassword';
 
 export default function EditInfoUser() {
-  const { user, updateProfile, uploadProfilePhoto } = useAuth();
+  const { user, updateProfile, uploadProfilePhoto, refreshUserFromApi } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [uf, setUf] = useState('');
@@ -48,8 +49,11 @@ export default function EditInfoUser() {
   const [showToast, setShowToast] = useState(false);
   const [toastKey, setToastKey] = useState(0);
 
-  const DEFAULT_AVATAR =
-    'https://i.pravatar.cc/150?u=a042581f4e29026704d';
+  useFocusEffect(
+    useCallback(() => {
+      void refreshUserFromApi();
+    }, [refreshUserFromApi]),
+  );
 
   const showSuccessToast = useCallback(() => {
     setShowToast(false);
@@ -226,10 +230,17 @@ export default function EditInfoUser() {
           <View style={styles.form}>
           <View style={styles.photoSection}>
             <View style={styles.photoAvatarWrap}>
-              <Image
-                source={{ uri: user.photoUrl?.trim() || DEFAULT_AVATAR }}
-                style={styles.photoAvatar}
-              />
+              {user.photoUrl?.trim() ? (
+                <Image
+                  key={user.photoUrl}
+                  source={{ uri: user.photoUrl }}
+                  style={styles.photoAvatar}
+                />
+              ) : (
+                <View style={[styles.photoAvatar, styles.photoPlaceholder]}>
+                  <Ionicons name="person" size={52} color={AppColors.gray[400]} />
+                </View>
+              )}
               {photoUploading ? (
                 <View style={styles.photoLoadingOverlay}>
                   <ActivityIndicator color={AppColors.text.white} />
@@ -491,6 +502,11 @@ const styles = StyleSheet.create({
   photoAvatar: {
     width: '100%',
     height: '100%',
+  },
+  photoPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AppColors.gray[200],
   },
   photoLoadingOverlay: {
     ...StyleSheet.absoluteFillObject,

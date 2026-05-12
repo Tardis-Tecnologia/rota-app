@@ -1,5 +1,5 @@
 import { refreshAppThemeAfterLogin } from '@/services/appThemeBridge';
-import type { UpdateUserProfilePayload } from '@/services/authApi';
+import type { UpdateUserProfilePayload, UserSummary } from '@/services/authApi';
 import * as authApi from '@/services/authApi';
 import { clearAuthSession, getAuthSession, saveAuthSession } from '@/services/authSessionStore';
 import { disconnectGoogleAccount } from '@/services/googleAuth';
@@ -29,6 +29,7 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   updateProfile: (payload: UpdateUserProfilePayload) => Promise<void>;
   uploadProfilePhoto: (uri: string, options?: { mimeType?: string; fileName?: string }) => Promise<void>;
+  refreshUserFromApi: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -43,6 +44,26 @@ function withPhotoCacheBust(url: string): string {
   return url.includes('?') ? `${url}&${key}` : `${url}?${key}`;
 }
 
+function bustPhotoIfPresent(url: string | null | undefined): string | null {
+  const t = url?.trim();
+  return t ? withPhotoCacheBust(t) : null;
+}
+
+function applyUserDetailsFromApi(prev: AuthUser, details: UserSummary): AuthUser {
+  const next: AuthUser = {
+    ...prev,
+    email: details.email,
+    name: (details.name ?? '').trim(),
+    uf: details.uf ?? undefined,
+    govbrSub: details.govbrSub ?? undefined,
+    cpf: details.cpf ?? null,
+  };
+  if (Object.prototype.hasOwnProperty.call(details, 'photoUrl')) {
+    next.photoUrl = bustPhotoIfPresent(details.photoUrl);
+  }
+  return next;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -55,6 +76,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!mounted || !session) return;
         authApi.setAuthToken(session.token);
         setUser(session.user);
+        const uid = session.user.id?.trim();
+        const token = session.token;
+        if (uid && token) {
+          try {
+            const details = await authApi.getUserById(uid);
+            if (!mounted) return;
+            setUser((prev) => {
+              if (!prev || prev.id !== uid) return prev;
+              const next = applyUserDetailsFromApi(prev, details);
+              void saveAuthSession({ token, user: next });
+              return next;
+            });
+          } catch {
+            /* mantém dados da sessão local */
+          }
+        }
       } catch {
         // Se não conseguir ler sessão antiga, app segue como deslogado.
       } finally {
@@ -80,23 +117,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role: profileToRole(data.profile),
       profile: data.profile,
       themeSlug: data.themeSlug ?? null,
-      photoUrl: data.photoUrl ?? null,
+      photoUrl: bustPhotoIfPresent(data.photoUrl),
     };
     setUser(nextUser);
     try {
       const details = await authApi.getUserById(data.userId);
-      nextUser = {
-        id: data.userId,
-        email: details.email,
-        name: (details.name ?? '').trim(),
-        role: profileToRole(data.profile),
-        profile: data.profile,
-        themeSlug: data.themeSlug ?? null,
-        uf: details.uf ?? undefined,
-        govbrSub: details.govbrSub ?? undefined,
-        cpf: details.cpf ?? null,
-        photoUrl: details.photoUrl ?? null,
-      };
+      nextUser = applyUserDetailsFromApi(nextUser, details);
       setUser(nextUser);
     } catch {
       nextUser = {
@@ -107,7 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         profile: data.profile,
         themeSlug: data.themeSlug ?? null,
         cpf: undefined,
-        photoUrl: data.photoUrl ?? null,
+        photoUrl: bustPhotoIfPresent(data.photoUrl),
       };
       setUser(nextUser);
     }
@@ -134,12 +160,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uf: session.user.uf ?? undefined,
         govbrSub: session.user.govbrSub ?? undefined,
         cpf: session.user.cpf ?? undefined,
-        photoUrl: session.user.photoUrl ?? null,
+        photoUrl: bustPhotoIfPresent(session.user.photoUrl),
       };
       setUser(baseUser);
       try {
         await saveAuthSession({ token: session.token, user: baseUser });
       } catch {
+      }
+      const uid = baseUser.id.trim();
+      const tok = session.token;
+      if (uid) {
+        void authApi
+          .getUserById(uid)
+          .then((details) => {
+            setUser((prev) => {
+              if (!prev || prev.id !== uid) return prev;
+              const next = applyUserDetailsFromApi(prev, details);
+              void saveAuthSession({ token: tok, user: next });
+              return next;
+            });
+          })
+          .catch(() => {
+            /* mantém baseUser */
+          });
       }
       try {
         await refreshAppThemeAfterLogin();
@@ -171,15 +214,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!user?.id) {
         throw new Error('Não autenticado');
       }
+      const token = authApi.getAuthToken();
+      if (!token) {
+        throw new Error('Não autenticado');
+      }
       const result = await authApi.uploadMyProfilePhotoFromUri(uri, options);
-      setUser((prev) =>
-        prev
-          ? {
-              ...prev,
-              photoUrl: withPhotoCacheBust(result.photoUrl),
-            }
-          : prev,
-      );
+      setUser((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        const next = {
+          ...prev,
+          photoUrl: withPhotoCacheBust(result.photoUrl),
+        };
+        void saveAuthSession({ token, user: next });
+        return next;
+      });
     },
     [user?.id],
   );
@@ -188,21 +238,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user?.id) {
       throw new Error('Não autenticado');
     }
+    const token = authApi.getAuthToken();
+    if (!token) {
+      throw new Error('Não autenticado');
+    }
     const updated = await authApi.updateUserProfile(user.id, payload);
-    setUser((prev) =>
-      prev
-        ? {
-            ...prev,
-            name: updated.name,
-            email: updated.email,
-            uf: updated.uf ?? undefined,
-            govbrSub: updated.govbrSub ?? undefined,
-            cpf: updated.cpf ?? null,
-            photoUrl: updated.photoUrl !== undefined ? updated.photoUrl : prev.photoUrl,
-          }
-        : null,
-    );
+    setUser((prev) => {
+      if (!prev) {
+        return null;
+      }
+      const next = {
+        ...prev,
+        name: updated.name,
+        email: updated.email,
+        uf: updated.uf ?? undefined,
+        govbrSub: updated.govbrSub ?? undefined,
+        cpf: updated.cpf ?? null,
+        ...(Object.prototype.hasOwnProperty.call(updated, 'photoUrl')
+          ? { photoUrl: bustPhotoIfPresent(updated.photoUrl) }
+          : {}),
+      };
+      void saveAuthSession({ token, user: next });
+      return next;
+    });
   }, [user]);
+
+  const refreshUserFromApi = useCallback(async () => {
+    const token = authApi.getAuthToken();
+    if (!token) return;
+    const uid = user?.id?.trim();
+    if (!uid) return;
+    try {
+      const details = await authApi.getUserById(uid);
+      setUser((prev) => {
+        if (!prev || prev.id !== uid) return prev;
+        const next = applyUserDetailsFromApi(prev, details);
+        void saveAuthSession({ token, user: next });
+        return next;
+      });
+    } catch {
+      /* ignore */
+    }
+  }, [user?.id]);
 
   const value: AuthContextValue = {
     user,
@@ -213,6 +290,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     updateProfile,
     uploadProfilePhoto,
+    refreshUserFromApi,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

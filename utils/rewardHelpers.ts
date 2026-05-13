@@ -22,15 +22,32 @@ export function formatHistoryDeltaLabel(delta: number): string {
   return '0';
 }
 
+export function storeCouponActiveHoldIds(
+  redemptions: RewardRedemptionItem[],
+  catalog: CatalogReward[],
+): Set<string> {
+  const out = new Set<string>();
+  for (const item of redemptions) {
+    const cat = catalog.find((r) => r.id === item.rewardId);
+    if (!cat || (cat.value ?? 0) >= 0) continue;
+    if (item.couponUsed === true) continue;
+    out.add(item.rewardId);
+  }
+  return out;
+}
+
 export function filterRewardsByTab(
   rewards: CatalogReward[],
   redeemedIds: Set<string>,
   tab: RewardsFilterTab,
+  storeHoldIds?: Set<string>,
 ): CatalogReward[] {
   const v = (r: CatalogReward) => r.value ?? 0;
   switch (tab) {
-    case 'cupons_lojas':
-      return rewards.filter((r) => !redeemedIds.has(r.id) && v(r) < 0);
+    case 'cupons_lojas': {
+      const hold = storeHoldIds ?? redeemedIds;
+      return rewards.filter((r) => !hold.has(r.id) && v(r) < 0);
+    }
     case 'meus_resgates':
       return rewards.filter((r) => !redeemedIds.has(r.id) && v(r) > 0);
     default:
@@ -41,12 +58,12 @@ export function filterRewardsByTab(
 /** Cupons de loja (custo em pontos): comprados primeiro, depois por menor custo. */
 export function listStoreCouponsForDisplay(
   rewards: CatalogReward[],
-  redeemedIds: Set<string>,
+  storeHoldIds: Set<string>,
 ): CatalogReward[] {
   const store = rewards.filter((r) => (r.value ?? 0) < 0);
   return [...store].sort((a, b) => {
-    const aRed = redeemedIds.has(a.id) ? 0 : 1;
-    const bRed = redeemedIds.has(b.id) ? 0 : 1;
+    const aRed = storeHoldIds.has(a.id) ? 0 : 1;
+    const bRed = storeHoldIds.has(b.id) ? 0 : 1;
     if (aRed !== bRed) return aRed - bRed;
     return Math.abs(a.value ?? 0) - Math.abs(b.value ?? 0);
   });
@@ -92,6 +109,8 @@ export function latestCouponCodeForReward(
   const sorted = [...redemptions].sort(
     (a, b) => redemptionSortTime(b) - redemptionSortTime(a),
   );
-  const found = sorted.find((r) => r.rewardId === rewardId);
+  const found = sorted.find(
+    (r) => r.rewardId === rewardId && r.couponUsed !== true,
+  );
   return found?.couponCode?.trim() || undefined;
 }

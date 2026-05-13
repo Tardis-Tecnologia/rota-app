@@ -37,6 +37,7 @@ export interface RewardRedemptionItem {
   createdAt: string;
   redeemedAt?: string;
   couponCode?: string;
+  couponUsed?: boolean;
   reward?: RewardItem;
 }
 

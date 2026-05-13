@@ -21,6 +21,7 @@ import {
   getRequiredBalanceForRedeem,
   latestCouponCodeForReward,
   mapRewardFromApi,
+  storeCouponActiveHoldIds,
 } from '@/utils/rewardHelpers';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -230,6 +231,11 @@ export default function PointsBadge({
     [rewards, redeemedRewards],
   );
 
+  const storeCouponHoldIds = useMemo(
+    () => storeCouponActiveHoldIds(redemptions, rewards),
+    [redemptions, rewards],
+  );
+
   const couponCodeByRewardId = useMemo(() => {
     const out: Record<string, string> = {};
     for (const r of rewards) {
@@ -303,11 +309,15 @@ export default function PointsBadge({
       return;
     }
 
-    if (redeemedRewards.has(rewardId)) {
+    const rewardPreview = rewards.find((r) => r.id === rewardId);
+    const isStoreCoupon = (rewardPreview?.value ?? 0) < 0;
+    if (isStoreCoupon) {
+      if (storeCouponHoldIds.has(rewardId)) return;
+    } else if (redeemedRewards.has(rewardId)) {
       return;
     }
 
-    const reward = rewards.find((r) => r.id === rewardId);
+    const reward = rewardPreview;
     if (reward?.disabled) {
       const message = 'Esta recompensa está inativa no momento.';
       setRewardActionError(message);
@@ -427,7 +437,7 @@ export default function PointsBadge({
                     rewardActionError={rewardActionError}
                     rewards={rewards}
                     filteredRewards={earnRewardsFiltered}
-                    redeemedIds={redeemedRewards}
+                    storeCouponHoldIds={storeCouponHoldIds}
                     couponCodeByRewardId={couponCodeByRewardId}
                     loadingRedeemId={loadingRedeemId}
                     isLoadingRewards={isLoadingRewards}

@@ -1,12 +1,12 @@
 import { AppColors } from '@/constants/theme';
 import React, { useMemo } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    FlatList,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import type { CatalogReward, RewardsFilterTab } from '../../types/index';
@@ -20,7 +20,7 @@ interface RewardsModalBodyProps {
   rewardActionError: string | null;
   rewards: CatalogReward[];
   filteredRewards: CatalogReward[];
-  redeemedIds: Set<string>;
+  storeCouponHoldIds: Set<string>;
   couponCodeByRewardId: Record<string, string>;
   loadingRedeemId: string | null;
   isLoadingRewards: boolean;
@@ -39,7 +39,7 @@ export default function RewardsModalBody({
   rewardActionError,
   rewards,
   filteredRewards,
-  redeemedIds,
+  storeCouponHoldIds,
   couponCodeByRewardId,
   loadingRedeemId,
   isLoadingRewards,
@@ -52,8 +52,8 @@ export default function RewardsModalBody({
   onCouponCopied,
 }: RewardsModalBodyProps) {
   const storeCoupons = useMemo(
-    () => listStoreCouponsForDisplay(rewards, redeemedIds),
-    [rewards, redeemedIds],
+    () => listStoreCouponsForDisplay(rewards, storeCouponHoldIds),
+    [rewards, storeCouponHoldIds],
   );
 
   const listData =
@@ -111,7 +111,7 @@ export default function RewardsModalBody({
         filterTab === 'cupons_lojas' ? (
           <RewardStoreCouponCard
             reward={item}
-            isPurchased={redeemedIds.has(item.id)}
+            isPurchased={storeCouponHoldIds.has(item.id)}
             couponCode={couponCodeByRewardId[item.id]}
             isLoading={loadingRedeemId === item.id}
             canBuyWithBalance={

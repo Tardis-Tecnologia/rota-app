@@ -49,7 +49,73 @@ export interface EventItem {
   image?: EventImage | null;
 }
 
-async function fetchApi<T>(endpoint: string): Promise<T> {
+function readString(value: unknown): string | null {
+  if (value == null) return null;
+  const s = String(value).trim();
+  return s || null;
+}
+
+function normalizeEventImage(raw: unknown): EventImage | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const id = readString(r.id ?? r.imageId ?? r.image_id);
+  const publicUrl = readString(r.publicUrl ?? r.public_url ?? r.url);
+  const path = readString(r.path) ?? '';
+  if (!id && !publicUrl) return null;
+  return {
+    id: id ?? 'image',
+    publicUrl,
+    path,
+  };
+}
+
+function readCapacity(value: unknown): number | null {
+  if (value == null) return null;
+  if (typeof value === 'number' && !Number.isNaN(value)) return value;
+  const n = Number(value);
+  return Number.isNaN(n) ? null : n;
+}
+
+export function normalizeEventItem(raw: unknown): EventItem {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const imageFromApi = normalizeEventImage(r.image);
+  const imageId = readString(r.imageId ?? r.image_id) ?? imageFromApi?.id ?? null;
+  const image: EventImage | null =
+    imageFromApi ??
+    (imageId
+      ? {
+          id: imageId,
+          publicUrl: null,
+          path: '',
+        }
+      : null);
+
+  return {
+    hostId: r.hostId == null ? (r.host_id == null ? null : readString(r.host_id)) : readString(r.hostId),
+    id: String(r.id ?? ''),
+    title: String(r.title ?? ''),
+    description: r.description == null ? null : String(r.description),
+    categories: Array.isArray(r.categories) ? r.categories.map(String) : [],
+    startDate: readString(r.startDate ?? r.start_date),
+    endDate: readString(r.endDate ?? r.end_date),
+    locationName: readString(r.locationName ?? r.location_name),
+    locationAddress: readString(r.locationAddress ?? r.location_address),
+    latitude: readString(r.latitude),
+    longitude: readString(r.longitude),
+    capacity: readCapacity(r.capacity),
+    featured: Boolean(r.featured),
+    status: String(r.status ?? ''),
+    authorId: readString(r.authorId ?? r.author_id),
+    imageId,
+    createdAt: String(r.createdAt ?? r.created_at ?? ''),
+    updatedAt: String(r.updatedAt ?? r.updated_at ?? ''),
+    createdBy: readString(r.createdBy ?? r.created_by) ?? undefined,
+    updatedBy: readString(r.updatedBy ?? r.updated_by) ?? undefined,
+    image,
+  };
+}
+
+async function fetchApi(endpoint: string): Promise<EventItem> {
   const url = `${getApiBaseUrl()}${BASE_PATH}${endpoint}`;
   const headers: Record<string, string> = { Accept: 'application/json' };
   const token = getAuthToken();
@@ -58,7 +124,22 @@ async function fetchApi<T>(endpoint: string): Promise<T> {
   if (!res.ok) {
     throw new Error(`Erro ao carregar eventos: ${res.status}`);
   }
-  return res.json();
+  const json: unknown = await res.json();
+  return normalizeEventItem(json);
+}
+
+async function fetchApiList(endpoint: string): Promise<EventItem[]> {
+  const url = `${getApiBaseUrl()}${BASE_PATH}${endpoint}`;
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  const token = getAuthToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    throw new Error(`Erro ao carregar eventos: ${res.status}`);
+  }
+  const json: unknown = await res.json();
+  if (!Array.isArray(json)) return [];
+  return json.map(normalizeEventItem);
 }
 
 function appendHostIdToEventsPath(path: string): string {
@@ -98,15 +179,12 @@ export async function getEvents(options?: {
   const qs = params.toString();
   const path = qs ? `/events?${qs}` : '/events';
   const endpoint = appendHostIdToEventsPath(path);
-  const data = await fetchApi<EventItem[]>(endpoint);
-  return Array.isArray(data) ? data : [];
+  return fetchApiList(endpoint);
 }
 
 export async function getEventById(id: string): Promise<EventItem | null> {
   try {
-    return await fetchApi<EventItem>(
-      appendHostIdToEventsPath(`/events/${encodeURIComponent(id)}`),
-    );
+    return await fetchApi(appendHostIdToEventsPath(`/events/${encodeURIComponent(id)}`));
   } catch {
     return null;
   }

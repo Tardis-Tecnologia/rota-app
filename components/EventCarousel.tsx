@@ -73,7 +73,7 @@ export default function EventCarousel() {
         <Pressable
           hitSlop={8}
           style={styles.viewAllButton}
-          onPress={() => router.push('/eventos')}
+          onPress={() => router.push('/(tabs)/eventos')}
         >
           <Text style={styles.viewAllText}>Ver todos</Text>
         </Pressable>
@@ -97,8 +97,11 @@ export default function EventCarousel() {
             activeOpacity={0.7}
             onPress={() =>
               router.push({
-                pathname: '/',
-                params: { id: evento.id },
+                pathname: '/evento/[id]',
+                params: {
+                  id: evento.id,
+                  ...(evento.imagem ? { imageUri: evento.imagem } : {}),
+                },
               })
             }
           >

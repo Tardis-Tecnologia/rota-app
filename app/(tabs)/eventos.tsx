@@ -1,61 +1,32 @@
-import FilterTabs, { FilterOption } from '@/components/FilterTabs';
+import EventCategoryChips from '@/components/events/EventCategoryChips';
+import EventFeaturedCarousel from '@/components/events/EventFeaturedCarousel';
+import EventUpcomingCard from '@/components/events/EventUpcomingCard';
 import { AppColors } from '@/constants/theme';
 import { getEvents } from '@/services/eventsService';
-import type { EventItem } from '@/services/eventsService';
-import type { Evento } from '@/types';
-import { eventItemToEvento, formatEventCardDateLine, startOfLocalDay } from '@/utils/eventsCarousel';
+import type { EventCategoryKey, EventListItem } from '@/utils/eventPresentation';
+import { eventItemToListItem } from '@/utils/eventPresentation';
+import { startOfLocalDay } from '@/utils/eventsCarousel';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   RefreshControl,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
 const PAGE_SIZE = 10;
 
-const EVENT_CATEGORY_FILTERS: Array<FilterOption> = [
-  { key: 'todos', label: 'Todos' },
-  { key: 'cultural', label: 'Cultural' },
-  { key: 'festividade', label: 'Festividade' },
-  { key: 'show', label: 'Show' },
-  { key: 'feira', label: 'Feira' },
-];
-
-type EventoListItem = Evento & { descricao?: string; localNome?: string; endereco?: string };
-
-function eventItemToEventoListItem(item: EventItem): EventoListItem {
-  const base = eventItemToEvento(item);
-  const descricao = item.description?.trim() || undefined;
-  const localNome = item.locationName?.trim() || undefined;
-  const endereco = item.locationAddress?.trim() || undefined;
-  return { ...base, descricao, localNome, endereco };
-}
-
-
-function formatLocalLine(item: EventoListItem): string {
-  const nome = item.localNome?.trim();
-  const end = item.endereco?.trim();
-  if (nome && end) return `Local: ${nome} (${end})`;
-  if (nome) return `Local: ${nome}`;
-  if (end) return `Local: ${end}`;
-  const fallback = item.local?.trim();
-  if (!fallback || fallback === 'Local a definir') return 'Local a definir';
-  return `Local: ${fallback}`;
-}
-
 export default function EventosScreen() {
-  const [items, setItems] = useState<EventoListItem[]>([]);
+  const [items, setItems] = useState<EventListItem[]>([]);
+  const [featured, setFeatured] = useState<EventListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<string>('todos');
+  const [activeCategory, setActiveCategory] = useState<EventCategoryKey>('todos');
 
   const itemsLengthRef = useRef(0);
   itemsLengthRef.current = items.length;
@@ -63,7 +34,7 @@ export default function EventosScreen() {
   const startDate = useMemo(() => startOfLocalDay().toISOString(), []);
 
   const categoriesQuery = useMemo(
-    () => (activeCategory === 'todos' ? undefined : activeCategory),
+    () => (activeCategory === 'todos' ? undefined : String(activeCategory)),
     [activeCategory],
   );
 
@@ -79,21 +50,34 @@ export default function EventosScreen() {
     [startDate, categoriesQuery],
   );
 
+  const fetchFeatured = useCallback(async () => {
+    const list = await getEvents({
+      init: 0,
+      end: 8,
+      featured: true,
+      startDate,
+      ...(categoriesQuery ? { categories: categoriesQuery } : {}),
+    });
+    return list.map(eventItemToListItem);
+  }, [startDate, categoriesQuery]);
+
   const loadEvents = useCallback(async () => {
     setItems([]);
     setLoading(true);
     try {
-      const list = await fetchPage(0);
-      const mapped = list.map(eventItemToEventoListItem);
+      const [list, featuredList] = await Promise.all([fetchPage(0), fetchFeatured()]);
+      const mapped = list.map(eventItemToListItem);
       setItems(mapped);
+      setFeatured(featuredList);
       setHasMore(list.length === PAGE_SIZE);
     } catch {
       setItems([]);
+      setFeatured([]);
       setHasMore(false);
     } finally {
       setLoading(false);
     }
-  }, [fetchPage]);
+  }, [fetchPage, fetchFeatured]);
 
   useEffect(() => {
     void loadEvents();
@@ -102,14 +86,15 @@ export default function EventosScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const list = await fetchPage(0);
-      const mapped = list.map(eventItemToEventoListItem);
+      const [list, featuredList] = await Promise.all([fetchPage(0), fetchFeatured()]);
+      const mapped = list.map(eventItemToListItem);
       setItems(mapped);
+      setFeatured(featuredList);
       setHasMore(list.length === PAGE_SIZE);
     } finally {
       setRefreshing(false);
     }
-  }, [fetchPage]);
+  }, [fetchPage, fetchFeatured]);
 
   const loadMoreEvents = useCallback(async () => {
     if (loadingMore || !hasMore || loading || refreshing) return;
@@ -117,7 +102,7 @@ export default function EventosScreen() {
     try {
       const offset = itemsLengthRef.current;
       const list = await fetchPage(offset);
-      const mapped = list.map(eventItemToEventoListItem);
+      const mapped = list.map(eventItemToListItem);
       setItems((prev) => [...prev, ...mapped]);
       setHasMore(list.length === PAGE_SIZE);
     } catch (e) {
@@ -128,32 +113,40 @@ export default function EventosScreen() {
     }
   }, [fetchPage, hasMore, loading, loadingMore, refreshing]);
 
-  const handleEndReached = useCallback(() => {
-    if (loadingMore || !hasMore || loading || refreshing) return;
-    void loadMoreEvents();
-  }, [loadMoreEvents, loadingMore, hasMore, loading, refreshing]);
+  const featuredIds = useMemo(() => new Set(featured.map((e) => e.id)), [featured]);
+  const upcomingItems = useMemo(
+    () => items.filter((e) => !featuredIds.has(e.id)),
+    [items, featuredIds],
+  );
 
-  const handleSelectCategory = useCallback((key: string) => {
-    setActiveCategory(key);
-  }, []);
+  const listHeader = useMemo(
+    () => (
+      <View>
+        <EventFeaturedCarousel items={featured.length > 0 ? featured : items.filter((e) => e.featured).slice(0, 5)} />
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Próximos eventos</Text>
+          <Text style={styles.sectionLink}>Ver todos</Text>
+        </View>
+      </View>
+    ),
+    [featured, items],
+  );
 
   return (
     <View style={styles.container}>
-      <FilterTabs
-        filters={EVENT_CATEGORY_FILTERS}
-        active={activeCategory}
-        onSelect={handleSelectCategory}
-        containerStyle={styles.filterTabsOuter}
-      />
+      <EventCategoryChips active={activeCategory} onSelect={setActiveCategory} />
       <FlatList
         style={styles.list}
-        data={items}
+        data={upcomingItems}
         keyExtractor={(e) => e.id}
         contentContainerStyle={styles.listContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
-        onEndReached={handleEndReached}
+        onEndReached={() => {
+          if (!loadingMore && hasMore && !loading && !refreshing) void loadMoreEvents();
+        }}
         onEndReachedThreshold={0.35}
+        ListHeaderComponent={listHeader}
         ListEmptyComponent={
           loading && !refreshing ? (
             <View style={styles.emptyState}>
@@ -178,27 +171,9 @@ export default function EventosScreen() {
           )
         }
         renderItem={({ item }) => (
-          <TouchableOpacity activeOpacity={0.8} style={styles.card}>
-            {item.imagem ? (
-              <Image source={{ uri: item.imagem }} style={styles.cardImage} resizeMode="cover" />
-            ) : (
-              <View style={[styles.cardImage, styles.cardImagePlaceholder]} />
-            )}
-            <View style={styles.cardContent}>
-              <Text style={styles.dateLine}>{formatEventCardDateLine(item)}</Text>
-              <Text style={styles.cardTitle} numberOfLines={2}>
-                {item.titulo}
-              </Text>
-              {item.descricao ? (
-                <Text style={styles.cardDescription} numberOfLines={3}>
-                  {item.descricao}
-                </Text>
-              ) : null}
-              <Text style={styles.cardLocationLine} numberOfLines={3}>
-                {formatLocalLine(item)}
-              </Text>
-            </View>
-          </TouchableOpacity>
+          <View style={styles.cardWrap}>
+            <EventUpcomingCard item={item} />
+          </View>
         )}
       />
     </View>
@@ -208,23 +183,40 @@ export default function EventosScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: AppColors.background.default,
-  },
-  filterTabsOuter: {
-    paddingBottom: 0,
+    backgroundColor: '#f8fafc',
   },
   list: {
     flex: 1,
   },
   listContent: {
-    paddingHorizontal: 24,
-    paddingTop: 8,
     paddingBottom: 24,
-    gap: 16,
     flexGrow: 1,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: AppColors.text.secondary,
+  },
+  sectionLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppColors.tab.active,
+  },
+  cardWrap: {
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
   emptyState: {
     paddingVertical: 48,
+    paddingHorizontal: 24,
     alignItems: 'center',
   },
   emptyTitle: {
@@ -243,50 +235,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  card: {
-    backgroundColor: AppColors.background.default,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  cardImage: {
-    width: '100%',
-    height: 140,
-    backgroundColor: AppColors.gray[300],
-  },
-  cardImagePlaceholder: {
-    backgroundColor: AppColors.gray[200],
-  },
-  cardContent: {
-    padding: 16,
-  },
-  dateLine: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: AppColors.tab.active,
-    marginBottom: 6,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: AppColors.text.secondary,
-    marginBottom: 6,
-  },
-  cardDescription: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: AppColors.text.tertiary,
-    marginBottom: 8,
-  },
-  cardLocationLine: {
-    fontSize: 14,
-    fontWeight: '600',
-    lineHeight: 20,
-    color: AppColors.text.secondary,
-  },
 });
-

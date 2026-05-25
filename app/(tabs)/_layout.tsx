@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs, router } from 'expo-router';
+import { Tabs, router, type Href } from 'expo-router';
 import React, { useMemo } from 'react';
 import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -102,7 +102,31 @@ export default function TabLayout() {
               />
             </TouchableOpacity>
           ),
-          headerRight: () => <View style={styles.headerSpacer} />,
+          headerRight: () => (
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={styles.headerButton}
+                activeOpacity={0.7}
+                onPress={() => router.push('/evento/buscar' as Href)}
+              >
+                <Ionicons name="search-outline" size={22} color={AppColors.text.secondary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.headerButton}
+                activeOpacity={0.7}
+                onPress={() => router.push('/evento/salvos' as Href)}
+              >
+                <Ionicons name="bookmark-outline" size={22} color={AppColors.text.secondary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.headerButton}
+                activeOpacity={0.7}
+                onPress={() => router.push('/evento/meus' as Href)}
+              >
+                <Ionicons name="ticket-outline" size={22} color={AppColors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+          ),
           title: 'Eventos',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
@@ -310,7 +334,7 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   headerButton: {
-    width: 48,
+    width: 40,
     height: 48,
     justifyContent: 'center',
     alignItems: 'center',
@@ -318,6 +342,11 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 48,
+    marginRight: 4,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginRight: 4,
   },
 });

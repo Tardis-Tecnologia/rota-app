@@ -1,6 +1,6 @@
-import { getApiBaseUrl } from '@/services/authApi';
 import type { EventItem } from '@/services/eventsService';
 import type { Evento } from '@/types';
+import { resolveEventImageUrl } from '@/utils/eventImage';
 
 export function startOfLocalDay(): Date {
   const d = new Date();
@@ -45,11 +45,7 @@ export function formatTimeRange(start: Date | null, end: Date | null): string {
 export function eventItemToEvento(item: EventItem): Evento {
   const start = item.startDate ? new Date(item.startDate) : null;
   const end = item.endDate ? new Date(item.endDate) : null;
-  const imagem =
-    item.image?.publicUrl ??
-    (item.image?.id
-      ? `${getApiBaseUrl()}/api/v1/upload/files/${item.image.id}`
-      : undefined);
+  const imagem = resolveEventImageUrl(item);
 
   return {
     id: item.id,

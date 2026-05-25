@@ -53,6 +53,7 @@ export default function RootLayout() {
           <Stack.Screen name="edit-account" options={{ headerShown: false }} />
           <Stack.Screen name="pulso" options={{ headerShown: false }} />
           <Stack.Screen name="missions" options={{ headerShown: false }} />
+          <Stack.Screen name="comerciante" options={{ headerShown: false }} />
         </Stack>
             <StatusBar style="dark" />
           </ThemeProvider>

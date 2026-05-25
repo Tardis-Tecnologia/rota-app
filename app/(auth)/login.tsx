@@ -1,7 +1,15 @@
+import ModalSolicitarLojaParceira from '@/components/ModalSolicitarLojaParceira';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import {
+  isLojaDemoMockEmail,
+  LOJA_DEMO_MOCK_SESSION,
+  ROUTE_COMERCIANTE,
+  getPostLoginRoute,
+} from '@/utils/comercioAuth';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -20,6 +28,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const VISITANTE_LOGIN_EMAIL = 'visitante@rota.com';
 const VISITANTE_LOGIN_PASSWORD = 'Cliente123';
 
+const COMERCIO_GRADIENT_COLORS = ['#0097B2', '#2E67E1'] as const;
+
 export default function LoginScreen() {
   const { user, login, loginWithSession } = useAuth();
   const [email, setEmail] = useState('');
@@ -27,6 +37,7 @@ export default function LoginScreen() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [parceiroModalVisible, setParceiroModalVisible] = useState(false);
 
   const { loginWithGoogle, isGoogleAuthAvailable } = useGoogleAuth(
     async ({ user: u, token }) => {
@@ -49,7 +60,7 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (user) {
-      router.replace('/(tabs)/home');
+      router.replace(getPostLoginRoute(user.email, user.profile));
     }
   }, [user]);
 
@@ -69,8 +80,14 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      await login(email.trim(), password);
-      router.replace('/(tabs)/home');
+      if (isLojaDemoMockEmail(email)) {
+        await loginWithSession(LOJA_DEMO_MOCK_SESSION);
+        router.replace(ROUTE_COMERCIANTE);
+        return;
+      }
+
+      const loggedIn = await login(email.trim(), password);
+      router.replace(getPostLoginRoute(loggedIn.email, loggedIn.profile));
     } catch (e) {
       const message =
         e instanceof Error && e.message === 'EMAIL_OU_SENHA_INCORRETOS'
@@ -198,6 +215,27 @@ export default function LoginScreen() {
                 <Text style={styles.visitanteButtonText}>Entrar como visitante</Text>
               </TouchableOpacity>
 
+              <View style={styles.comercioSection}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => setParceiroModalVisible(true)}
+                  disabled={loading || googleLoading}
+                >
+                  <LinearGradient
+                    colors={[...COMERCIO_GRADIENT_COLORS]}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    style={styles.comercioGradient}
+                  >
+                    <Ionicons name="storefront-outline" size={20} color="#FFFFFF" />
+                    <Text style={styles.comercioButtonText}>Quero ser comércio parceiro</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                <Text style={styles.comercioDemoHint}>
+                  Demo front: lojademo@rota.com + qualquer senha (sem API).
+                </Text>
+              </View>
+
               <View style={styles.dividerRow}>
                 <View style={styles.dividerLine} />
                 <Text style={styles.dividerText}>ou</Text>
@@ -241,6 +279,11 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <ModalSolicitarLojaParceira
+        visible={parceiroModalVisible}
+        onClose={() => setParceiroModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -397,6 +440,36 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: AppColors.text.secondary,
     letterSpacing: 0.2,
+  },
+  comercioSection: {
+    marginTop: 20,
+  },
+  comercioGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 14,
+    gap: 10,
+    shadowColor: '#0097B2',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  comercioButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+  comercioDemoHint: {
+    marginTop: 10,
+    fontSize: 12,
+    color: AppColors.gray[500],
+    textAlign: 'center',
+    lineHeight: 17,
+    paddingHorizontal: 4,
   },
   dividerRow: {
     flexDirection: 'row',

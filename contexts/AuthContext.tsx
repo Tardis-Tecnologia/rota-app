@@ -23,7 +23,7 @@ export interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
   loginWithSession: (session: { token: string; user: Partial<AuthUser> }) => Promise<void>;
   register: (name: string, email: string, password: string, cpf: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -106,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<void> => {
+  const login = useCallback(async (email: string, password: string): Promise<AuthUser> => {
     const data = await authApi.login(email, password);
     authApi.setAuthToken(data.token);
     const emailNorm = email.trim().toLowerCase();
@@ -145,6 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await refreshAppThemeAfterLogin();
     } catch {
     }
+    return nextUser;
   }, []);
 
   const loginWithSession = useCallback(

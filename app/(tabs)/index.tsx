@@ -12,7 +12,7 @@ export default function Index() {
     );
   }
   if (!user) {
-    return <Redirect href="/(auth)/login" />;
+    return null;
   }
   return <Redirect href="/(tabs)/home" />;
 }

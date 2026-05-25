@@ -45,3 +45,28 @@ export function formatOpinioesLabel(count: number): string {
 }
 
 export type ForumAuthorLike = ForumAuthorDto;
+
+export function openForumAuthorProfile(
+  author: ForumAuthorLike | null | undefined,
+  router: { push: (args: { pathname: string; params: Record<string, string> }) => void },
+): void {
+  if (!author?.id?.trim()) return;
+  router.push({
+    pathname: '/forum/author',
+    params: {
+      userId: author.id,
+      name: author.name ?? '',
+      photoUrl: author.photoUrl ?? '',
+    },
+  });
+}
+
+export function profileLabel(profile?: string | null): string | null {
+  const p = profile?.trim().toUpperCase();
+  if (!p) return null;
+  if (p === 'CIDADAO') return 'Cidadão';
+  if (p === 'VISITANTE') return 'Visitante';
+  if (p === 'COMERCIANTE') return 'Comerciante';
+  if (p === 'PRESTADOR') return 'Prestador';
+  return p;
+}

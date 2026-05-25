@@ -2,7 +2,7 @@ import { AppColors } from '@/constants/theme';
 import type { ForumPostCommentListItemDto, ForumPostResponseDto } from '@/services/forumApi';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -17,6 +17,7 @@ import {
   formatTimeAgo,
   forumDisplayHandle,
   forumPostImageUrl,
+  openForumAuthorProfile,
   withListImageCacheBust,
 } from './forumUtils';
 
@@ -60,17 +61,12 @@ export default function ForumPostCard({
   const displayName = (post.author?.name || 'Morador(a)').trim();
   const initial = displayName.charAt(0).toUpperCase() || 'A';
 
-  const openAuthor = () => {
-    if (!post.author?.id) return;
-    router.push({
-      pathname: '/forum/author',
-      params: {
-        userId: post.author.id,
-        name: post.author.name ?? '',
-        photoUrl: post.author.photoUrl ?? '',
-      },
-    });
-  };
+  const openAuthor = useCallback(
+    (author: typeof post.author) => {
+      openForumAuthorProfile(author, router);
+    },
+    [],
+  );
 
   return (
     <View style={styles.card}>
@@ -83,7 +79,7 @@ export default function ForumPostCard({
         </View>
       ) : null}
       <View style={styles.postTop}>
-        <Pressable onPress={openAuthor} disabled={!post.author?.id}>
+        <Pressable onPress={() => openAuthor(post.author)} disabled={!post.author?.id}>
           {authorPhoto ? (
             <Image
               source={{ uri: authorPhoto }}
@@ -96,7 +92,7 @@ export default function ForumPostCard({
           )}
         </Pressable>
         <View style={styles.postTopBody}>
-          <Pressable onPress={openAuthor} disabled={!post.author?.id}>
+          <Pressable onPress={() => openAuthor(post.author)} disabled={!post.author?.id}>
             <View style={styles.nameHandleRow}>
               <Text style={styles.authorName} numberOfLines={1}>
                 {displayName}
@@ -147,15 +143,21 @@ export default function ForumPostCard({
         <View style={styles.commentsSection}>
           {comments.map((c) => (
             <View key={c.id} style={styles.commentItem}>
-              <View style={styles.commentAuthorRow}>
-                <Text style={styles.commentAuthorName} numberOfLines={1}>
-                  {(c.author?.name || 'Morador(a)').trim()}
-                </Text>
-                <Text style={styles.commentAuthorHandle} numberOfLines={1}>
-                  {' '}
-                  {forumDisplayHandle(c.author)}
-                </Text>
-              </View>
+              <Pressable
+                onPress={() => openAuthor(c.author)}
+                disabled={!c.author?.id}
+                style={({ pressed }) => pressed && styles.commentAuthorPressed}
+              >
+                <View style={styles.commentAuthorRow}>
+                  <Text style={styles.commentAuthorName} numberOfLines={1}>
+                    {(c.author?.name || 'Morador(a)').trim()}
+                  </Text>
+                  <Text style={styles.commentAuthorHandle} numberOfLines={1}>
+                    {' '}
+                    {forumDisplayHandle(c.author)}
+                  </Text>
+                </View>
+              </Pressable>
               <Text style={styles.commentBody}>{c.content}</Text>
               <Text style={styles.commentTime}>{formatTimeAgo(c.createdAt)}</Text>
             </View>
@@ -276,6 +278,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 2,
     borderLeftColor: '#cffafe',
   },
+  commentAuthorPressed: { opacity: 0.75 },
   commentAuthorRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline' },
   commentAuthorName: { fontSize: 12, fontWeight: '800', color: '#1e293b' },
   commentAuthorHandle: { fontSize: 12, fontWeight: '600', color: '#0891b2' },

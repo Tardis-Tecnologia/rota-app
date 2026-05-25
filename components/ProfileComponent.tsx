@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
+    ActivityIndicator,
     Image,
     ScrollView,
     StyleSheet,
@@ -61,6 +62,7 @@ export default function ProfileComponent({
     const { user, logout } = useAuth();
     const [showDocumentosModal, setShowDocumentosModal] = useState(false);
     const [showCurriculoModal, setShowCurriculoModal] = useState(false);
+    const [loggingOut, setLoggingOut] = useState(false);
     const displayName = user ? streamAndUiDisplayName(user) || nomeUsuario : nomeUsuario;
     const displaySubtitle = user ? (user.profile === 'VISITANTE' ? 'Visitante' : 'Cidadão') : subtitulo;
     const resolvedAvatarUri = user?.photoUrl?.trim() || avatarUrl;
@@ -85,9 +87,14 @@ export default function ProfileComponent({
         console.log(`Navegando para: ${item}`);
     };
 
-    const handleSair = () => {
-        void logout();
-        router.replace('/(auth)/login');
+    const handleSair = async () => {
+        if (loggingOut) return;
+        setLoggingOut(true);
+        try {
+            await logout();
+        } finally {
+            setLoggingOut(false);
+        }
     };
 
     return (
@@ -158,11 +165,16 @@ export default function ProfileComponent({
 
             {/* Close Button */}
             <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={handleSair}
+            style={[styles.logoutButton, loggingOut && styles.logoutButtonDisabled]}
+            onPress={() => void handleSair()}
             activeOpacity={0.7}
+            disabled={loggingOut}
             >
-                <Ionicons name="log-out-outline" size={20} color={AppColors.status.error} />
+                {loggingOut ? (
+                    <ActivityIndicator size="small" color={AppColors.status.error} />
+                ) : (
+                    <Ionicons name="log-out-outline" size={20} color={AppColors.status.error} />
+                )}
                 <Text style={styles.logoutText}>Sair da Conta</Text>
             </TouchableOpacity>
             </ScrollView>
@@ -256,6 +268,9 @@ const styles = StyleSheet.create({
     logoutSection: {
         paddingHorizontal: 24,
         marginTop: 24,
+    },
+    logoutButtonDisabled: {
+        opacity: 0.6,
     },
     logoutButton: {
         flexDirection: 'row',

@@ -34,7 +34,7 @@ export default function Header({
 }: HeaderProps) {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const displayName = user?.name?.trim() ? user.name : nomeUsuario;
+  const displayName = user?.name?.trim() ? user.name : 'Faça login';
   const resolvedAvatarUri = user?.photoUrl?.trim() || avatarUrl;
   const isVisitante = user?.profile === 'VISITANTE';
 

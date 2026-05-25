@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Conversation, useConversations } from '@/contexts/ConversationsContext';
 import { mockSystemConversations } from '@/data/mockConversations';
 import { getAuthToken, getWhitelabelHostId } from '@/services/authApi';
-import { streamChatUrl } from '@/services/streamChatApi';
+import { ensureStreamChatConnected } from '@/services/streamChatApi';
 import { streamAndUiDisplayName } from '@/utils/userDisplayName';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -113,22 +113,8 @@ export default function MensagensScreen() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const tokenRes = await fetch(streamChatUrl('token'), {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          Accept: 'application/json',
-        },
-      });
-
-      if (!tokenRes.ok) {
-        throw new Error(`Falha ao obter token do chat (${tokenRes.status})`);
-      }
-
-      const { token, apiKey } = (await tokenRes.json()) as { token: string; apiKey: string };
-      const client = StreamChat.getInstance(apiKey);
       const displayName = streamAndUiDisplayName(user);
-      await client.connectUser({ id: user.id, name: displayName }, token);
+      const client = await ensureStreamChatConnected(user.id, displayName);
 
       const hostId = getWhitelabelHostId();
       const channels = await client.queryChannels(

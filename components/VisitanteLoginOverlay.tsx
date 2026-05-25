@@ -1,6 +1,5 @@
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { router } from 'expo-router';
 import React, { useCallback } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -20,7 +19,6 @@ export function VisitanteLoginOverlay({ visible = true, message }: VisitanteLogi
     setBusy(true);
     try {
       await logout();
-      router.replace('/(auth)/login');
     } finally {
       setBusy(false);
     }

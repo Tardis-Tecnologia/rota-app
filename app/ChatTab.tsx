@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useConversations } from '@/contexts/ConversationsContext';
 import { getChatResponseConfig } from '@/data/chatResponses';
 import { getApiBaseUrl, getAuthToken, getWhitelabelHostId } from '@/services/authApi';
-import { streamChatUrl } from '@/services/streamChatApi';
+import { ensureStreamChatConnected, markStreamChannelRead } from '@/services/streamChatApi';
 import { streamAndUiDisplayName } from '@/utils/userDisplayName';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -176,26 +176,9 @@ export default function ChatTab() {
       throw new Error(errCopy.noUser);
     }
 
-    const tokenRes = await fetch(streamChatUrl('token'), {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-        Accept: 'application/json',
-      },
-    });
-    if (!tokenRes.ok) {
-      throw new Error(errCopy.streamTokenFailed(tokenRes.status));
-    }
-
-    const { token, apiKey } = (await tokenRes.json()) as { token: string; apiKey: string };
-    const client = StreamChat.getInstance(apiKey);
+    const displayName = streamAndUiDisplayName(user);
+    const client = await ensureStreamChatConnected(user.id, displayName);
     streamClientRef.current = client;
-
-    if (!client.userID) {
-      const displayName = streamAndUiDisplayName(user);
-      await client.connectUser({ id: user.id, name: displayName }, token);
-    }
-
     return client;
   }, [user?.id, user?.name, user?.email]);
 
@@ -215,6 +198,10 @@ export default function ChatTab() {
         if (cancelled) return;
         setMessages(mapChannelStateToMessages(state, user.id));
         setIsStreamReady(true);
+        void markStreamChannelRead(
+          streamChannelInfo.channelType,
+          streamChannelInfo.channelId,
+        ).catch(() => {});
       } catch {
         if (!cancelled) {
           setIsStreamReady(false);

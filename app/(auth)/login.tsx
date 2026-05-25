@@ -5,13 +5,11 @@ import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import {
   isLojaDemoMockEmail,
   LOJA_DEMO_MOCK_SESSION,
-  ROUTE_COMERCIANTE,
-  getPostLoginRoute,
 } from '@/utils/comercioAuth';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
     ActivityIndicator,
     KeyboardAvoidingView,
@@ -31,7 +29,7 @@ const VISITANTE_LOGIN_PASSWORD = 'Cliente123';
 const COMERCIO_GRADIENT_COLORS = ['#0097B2', '#2E67E1'] as const;
 
 export default function LoginScreen() {
-  const { user, login, loginWithSession } = useAuth();
+  const { login, loginWithSession } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -44,7 +42,6 @@ export default function LoginScreen() {
       setGoogleLoading(true);
       try {
         await loginWithSession({ token, user: u ?? {} });
-        router.replace('/(tabs)/home');
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Não foi possível entrar com o Google.';
         setError(message);
@@ -57,12 +54,6 @@ export default function LoginScreen() {
       setError(message);
     },
   );
-
-  useEffect(() => {
-    if (user) {
-      router.replace(getPostLoginRoute(user.email, user.profile));
-    }
-  }, [user]);
 
   const handleLogin = async () => {
     setError('');
@@ -82,12 +73,10 @@ export default function LoginScreen() {
     try {
       if (isLojaDemoMockEmail(email)) {
         await loginWithSession(LOJA_DEMO_MOCK_SESSION);
-        router.replace(ROUTE_COMERCIANTE);
         return;
       }
 
-      const loggedIn = await login(email.trim(), password);
-      router.replace(getPostLoginRoute(loggedIn.email, loggedIn.profile));
+      await login(email.trim(), password);
     } catch (e) {
       const message =
         e instanceof Error && e.message === 'EMAIL_OU_SENHA_INCORRETOS'
@@ -106,7 +95,6 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await login(VISITANTE_LOGIN_EMAIL, VISITANTE_LOGIN_PASSWORD);
-      router.replace('/(tabs)/home');
     } catch (e) {
       const message =
         e instanceof Error && e.message === 'EMAIL_OU_SENHA_INCORRETOS'

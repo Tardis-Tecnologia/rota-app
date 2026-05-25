@@ -63,7 +63,6 @@ export default function EditInfoUser() {
 
   useEffect(() => {
     if (!user) {
-      router.replace('/(auth)/login');
       return;
     }
     setName(user.name ?? '');

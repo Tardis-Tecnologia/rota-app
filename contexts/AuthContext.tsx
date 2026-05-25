@@ -3,6 +3,7 @@ import type { UpdateUserProfilePayload, UserSummary } from '@/services/authApi';
 import * as authApi from '@/services/authApi';
 import { clearAuthSession, getAuthSession, saveAuthSession } from '@/services/authSessionStore';
 import { disconnectGoogleAccount } from '@/services/googleAuth';
+import { disconnectStreamChat } from '@/services/streamChatApi';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 export type UserRole = 'client';
@@ -107,6 +108,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string): Promise<AuthUser> => {
+    try {
+      await disconnectStreamChat();
+    } catch {
+      // ignore
+    }
     const data = await authApi.login(email, password);
     authApi.setAuthToken(data.token);
     const emailNorm = email.trim().toLowerCase();
@@ -150,6 +156,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithSession = useCallback(
     async (session: { token: string; user: Partial<AuthUser> }): Promise<void> => {
+      try {
+        await disconnectStreamChat();
+      } catch {
+        // ignore
+      }
       authApi.setAuthToken(session.token);
       const baseUser: AuthUser = {
         id: String(session.user.id ?? ''),
@@ -204,10 +215,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     authApi.setAuthToken(null);
     setUser(null);
     try {
+      await disconnectStreamChat();
+    } catch {
+      // ignore
+    }
+    try {
       await clearAuthSession();
     } catch {
     }
-    await disconnectGoogleAccount();
+    try {
+      await disconnectGoogleAccount();
+    } catch {
+      // ignore
+    }
   }, []);
 
   const uploadProfilePhoto = useCallback(

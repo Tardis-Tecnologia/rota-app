@@ -1,3 +1,4 @@
+import { AuthNavigationSync } from '@/components/AuthNavigationSync';
 import { ThemeSyncOnNavigation } from '@/components/ThemeSyncOnNavigation';
 import { AppThemeProvider } from '@/contexts/AppThemeContext';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -23,6 +24,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <AppThemeProvider>
+        <AuthNavigationSync />
         <ThemeSyncOnNavigation />
         <ConversationsProvider>
           <ThemeProvider value={DefaultTheme}>

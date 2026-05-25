@@ -38,7 +38,6 @@ export default function ComerciantePainelScreen() {
 
   const handleLogout = async () => {
     await logout();
-    router.replace('/(auth)/login');
   };
 
   return (

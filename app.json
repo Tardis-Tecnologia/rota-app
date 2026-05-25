@@ -56,7 +56,7 @@
           "cameraPermission": "O aplicativo precisa da câmera para você fotografar o problema e anexar ao relatório."
         }
       ],
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin", "@maplibre/maplibre-react-native"
     ],
     "experiments": {
       "typedRoutes": true,

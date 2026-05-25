@@ -20,6 +20,7 @@ export interface ForumPostListItemDto {
   commentsCount: number;
   locationDescription: string | null;
   mediaId: string | null;
+  communityId: string | null;
   createdAt: string;
   author?: ForumAuthorDto;
 }
@@ -44,6 +45,8 @@ export interface CreateForumPostBody {
   content: string;
   postType: string;
   mediaId?: string;
+  communityId?: string;
+  locationDescription?: string;
 }
 
 function resolveHostId(explicit?: string): string {
@@ -98,12 +101,18 @@ function authHeaders(): HeadersInit {
 
 export async function listForumPosts(
   hostId?: string,
-  options?: { postType?: string; init?: number; end?: number },
+  options?: {
+    postType?: string;
+    communityId?: string;
+    init?: number;
+    end?: number;
+  },
 ): Promise<ForumPostListItemDto[]> {
   const base = getApiBaseUrl();
   const hid = resolveHostId(hostId);
   const params = new URLSearchParams();
   if (options?.postType?.trim()) params.set('postType', options.postType.trim());
+  if (options?.communityId?.trim()) params.set('communityId', options.communityId.trim());
   if (typeof options?.init === 'number') params.set('init', String(options.init));
   if (typeof options?.end === 'number') params.set('end', String(options.end));
   const qs = params.toString();
@@ -194,12 +203,13 @@ function currentUserIdFromToken(): string | null {
 }
 
 export async function findRecentlyCreatedForumPostId(
-  body: Pick<CreateForumPostBody, 'title' | 'content' | 'postType'>,
+  body: Pick<CreateForumPostBody, 'title' | 'content' | 'postType' | 'communityId'>,
   hostId?: string,
 ): Promise<string | null> {
   const userId = currentUserIdFromToken();
   const rows = await listForumPosts(hostId, {
     postType: body.postType,
+    communityId: body.communityId,
     init: 0,
     end: 10,
   });

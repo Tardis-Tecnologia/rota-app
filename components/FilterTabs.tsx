@@ -12,12 +12,20 @@ interface FilterTabsProps {
   active: string;
   onSelect: (key: string) => void;
   containerStyle?: ViewStyle;
+  /** Menos padding e sem sombra forte — útil na aba Comunidade. */
+  compact?: boolean;
 }
 
-export default function FilterTabs({ filters, active, onSelect, containerStyle }: FilterTabsProps) {
+export default function FilterTabs({
+  filters,
+  active,
+  onSelect,
+  containerStyle,
+  compact,
+}: FilterTabsProps) {
   return (
-    <View style={[styles.filtersWrapper, containerStyle]}>
-      <View style={styles.filtersContainerBg}>
+    <View style={[styles.filtersWrapper, compact && styles.filtersWrapperCompact, containerStyle]}>
+      <View style={[styles.filtersContainerBg, compact && styles.filtersContainerBgCompact]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -50,6 +58,9 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     paddingBottom: 12,
   },
+  filtersWrapperCompact: {
+    paddingBottom: 4,
+  },
   filtersContainerBg: {
     width: '100%',
     alignSelf: 'stretch',
@@ -61,6 +72,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 20,
     elevation: 6,
+  },
+  filtersContainerBgCompact: {
+    paddingVertical: 6,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   filtersContent: {
     paddingHorizontal: 4,

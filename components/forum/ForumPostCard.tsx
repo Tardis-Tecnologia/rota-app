@@ -1,0 +1,309 @@
+import { AppColors } from '@/constants/theme';
+import type { ForumPostCommentListItemDto, ForumPostResponseDto } from '@/services/forumApi';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import React from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import {
+  formatOpinioesLabel,
+  formatTimeAgo,
+  forumDisplayHandle,
+  forumPostImageUrl,
+  withListImageCacheBust,
+} from './forumUtils';
+
+interface ForumPostCardProps {
+  post: ForumPostResponseDto;
+  comments: ForumPostCommentListItemDto[];
+  imageCacheEpoch: number;
+  commentDraft: string;
+  commentsExpanded: boolean;
+  commentSending: boolean;
+  canInteract: boolean;
+  channelName?: string;
+  onLike: () => void;
+  onToggleComments: () => void;
+  onCommentDraftChange: (text: string) => void;
+  onSendComment: () => void;
+}
+
+export default function ForumPostCard({
+  post,
+  comments,
+  imageCacheEpoch,
+  commentDraft,
+  commentsExpanded,
+  commentSending,
+  canInteract,
+  channelName,
+  onLike,
+  onToggleComments,
+  onCommentDraftChange,
+  onSendComment,
+}: ForumPostCardProps) {
+  const authorPhotoRaw = post.author?.photoUrl?.trim();
+  const authorPhoto = authorPhotoRaw
+    ? withListImageCacheBust(authorPhotoRaw, imageCacheEpoch)
+    : '';
+  const postImageRaw = forumPostImageUrl(post.mediaId);
+  const postImageUri = postImageRaw
+    ? withListImageCacheBust(postImageRaw, imageCacheEpoch)
+    : null;
+  const displayName = (post.author?.name || 'Morador(a)').trim();
+  const initial = displayName.charAt(0).toUpperCase() || 'A';
+
+  const openAuthor = () => {
+    if (!post.author?.id) return;
+    router.push({
+      pathname: '/forum/author',
+      params: {
+        userId: post.author.id,
+        name: post.author.name ?? '',
+        photoUrl: post.author.photoUrl ?? '',
+      },
+    });
+  };
+
+  return (
+    <View style={styles.card}>
+      {channelName ? (
+        <View style={styles.channelTag}>
+          <Ionicons name="people" size={12} color="#0e7490" />
+          <Text style={styles.channelTagText} numberOfLines={1}>
+            {channelName}
+          </Text>
+        </View>
+      ) : null}
+      <View style={styles.postTop}>
+        <Pressable onPress={openAuthor} disabled={!post.author?.id}>
+          {authorPhoto ? (
+            <Image
+              source={{ uri: authorPhoto }}
+              style={styles.avatarImage}
+            />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{initial}</Text>
+            </View>
+          )}
+        </Pressable>
+        <View style={styles.postTopBody}>
+          <Pressable onPress={openAuthor} disabled={!post.author?.id}>
+            <View style={styles.nameHandleRow}>
+              <Text style={styles.authorName} numberOfLines={1}>
+                {displayName}
+              </Text>
+              <Text style={styles.authorHandle} numberOfLines={1}>
+                {forumDisplayHandle(post.author)}
+              </Text>
+            </View>
+          </Pressable>
+          <Text style={styles.timeTextSmall}>{formatTimeAgo(post.createdAt)}</Text>
+          <Text style={styles.title}>{post.title}</Text>
+          <Text style={styles.content}>{post.content}</Text>
+        </View>
+      </View>
+
+      {post.mediaId && postImageUri ? (
+        <Image source={{ uri: postImageUri }} style={styles.postImage} resizeMode="cover" />
+      ) : null}
+      {post.locationDescription ? (
+        <Text style={styles.locationText}>📍 {post.locationDescription}</Text>
+      ) : null}
+
+      <View style={styles.footer}>
+        <Pressable
+          onPress={onLike}
+          disabled={!canInteract}
+          style={({ pressed }) => [styles.likeBtn, pressed && styles.likeBtnPressed]}
+        >
+          <Ionicons
+            name={post.liked ? 'heart' : 'heart-outline'}
+            size={18}
+            color={post.liked ? '#e11d48' : AppColors.text.tertiary}
+          />
+          <Text style={styles.metaText}>{post.likesCount}</Text>
+        </Pressable>
+        <Pressable
+          onPress={onToggleComments}
+          style={({ pressed }) => [styles.footerOpinionsBtn, pressed && styles.footerOpinionsBtnPressed]}
+        >
+          <Ionicons name="chatbubble-outline" size={18} color="#0891b2" />
+          <Text style={styles.footerOpinionsLabel}>
+            {formatOpinioesLabel(post.commentsCount)}
+          </Text>
+        </Pressable>
+      </View>
+
+      {commentsExpanded ? (
+        <View style={styles.commentsSection}>
+          {comments.map((c) => (
+            <View key={c.id} style={styles.commentItem}>
+              <View style={styles.commentAuthorRow}>
+                <Text style={styles.commentAuthorName} numberOfLines={1}>
+                  {(c.author?.name || 'Morador(a)').trim()}
+                </Text>
+                <Text style={styles.commentAuthorHandle} numberOfLines={1}>
+                  {' '}
+                  {forumDisplayHandle(c.author)}
+                </Text>
+              </View>
+              <Text style={styles.commentBody}>{c.content}</Text>
+              <Text style={styles.commentTime}>{formatTimeAgo(c.createdAt)}</Text>
+            </View>
+          ))}
+
+          <View style={styles.commentComposer}>
+            <TextInput
+              style={styles.commentInput}
+              placeholder="Deixe sua opinião..."
+              placeholderTextColor={AppColors.text.quaternary}
+              value={commentDraft}
+              onChangeText={onCommentDraftChange}
+              editable={canInteract && !commentSending}
+            />
+            <Pressable
+              onPress={onSendComment}
+              disabled={!canInteract || !commentDraft.trim() || commentSending}
+              style={({ pressed }) => [
+                styles.commentSendBtn,
+                (!canInteract || !commentDraft.trim() || commentSending) &&
+                  styles.commentSendBtnDisabled,
+                pressed && styles.commentSendBtnPressed,
+              ]}
+            >
+              {commentSending ? (
+                <ActivityIndicator size="small" color={AppColors.text.white} />
+              ) : (
+                <Ionicons name="send" size={18} color={AppColors.text.white} />
+              )}
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: AppColors.background.default,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: AppColors.border.muted,
+  },
+  channelTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: '#ecfeff',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginBottom: 10,
+    maxWidth: '100%',
+  },
+  channelTagText: { fontSize: 11, fontWeight: '800', color: '#0e7490', flexShrink: 1 },
+  postTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 4 },
+  postTopBody: { flex: 1, minWidth: 0 },
+  nameHandleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  authorName: { fontSize: 14, fontWeight: '800', color: '#0f172a' },
+  authorHandle: { fontSize: 12, fontWeight: '600', color: '#0e7490' },
+  timeTextSmall: { fontSize: 10, color: AppColors.text.quaternary, marginTop: 2 },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: AppColors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: AppColors.border.muted,
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: AppColors.border.muted,
+    backgroundColor: AppColors.background.muted,
+  },
+  avatarText: { color: AppColors.text.white, fontWeight: '700' },
+  title: { fontSize: 15, fontWeight: '700', color: '#1e293b', marginTop: 4, lineHeight: 20 },
+  content: { fontSize: 14, lineHeight: 22, color: '#475569', marginTop: 4 },
+  postImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 12,
+    marginTop: 12,
+    backgroundColor: AppColors.background.muted,
+  },
+  locationText: { marginTop: 8, color: AppColors.text.tertiary, fontSize: 14 },
+  footer: {
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    paddingTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  footerOpinionsBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
+  footerOpinionsBtnPressed: { opacity: 0.75 },
+  footerOpinionsLabel: { color: '#0891b2', fontWeight: '600', fontSize: 14 },
+  metaText: { color: '#64748b', fontWeight: '600', fontSize: 14 },
+  commentsSection: {
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    paddingTop: 10,
+    gap: 10,
+  },
+  commentItem: {
+    paddingLeft: 10,
+    borderLeftWidth: 2,
+    borderLeftColor: '#cffafe',
+  },
+  commentAuthorRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline' },
+  commentAuthorName: { fontSize: 12, fontWeight: '800', color: '#1e293b' },
+  commentAuthorHandle: { fontSize: 12, fontWeight: '600', color: '#0891b2' },
+  commentBody: { fontSize: 14, color: '#475569', marginTop: 4, lineHeight: 20 },
+  commentTime: { fontSize: 10, color: AppColors.text.quaternary, marginTop: 4 },
+  commentComposer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  commentInput: {
+    flex: 1,
+    minHeight: 40,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: AppColors.text.secondary,
+    backgroundColor: AppColors.background.default,
+  },
+  commentSendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#0891b2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commentSendBtnDisabled: { opacity: 0.4 },
+  commentSendBtnPressed: { opacity: 0.85 },
+  likeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  likeBtnPressed: { opacity: 0.7 },
+});

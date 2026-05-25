@@ -53,7 +53,18 @@ export interface CreateForumCommunityBody {
   longitude?: number;
 }
 
-export type UpdateForumCommunityBody = Partial<CreateForumCommunityBody>;
+export interface UpdateForumCommunityBody {
+  name?: string;
+  description?: string | null;
+  category?: string | null;
+  privacy?: ForumCommunityPrivacy;
+  coverMediaId?: string | null;
+  cep?: string | null;
+  locationName?: string | null;
+  locationAddress?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}
 
 function resolveHostId(explicit?: string): string {
   const fromArg = explicit?.trim();

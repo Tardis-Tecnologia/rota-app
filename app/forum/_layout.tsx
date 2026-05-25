@@ -33,6 +33,7 @@ export default function ForumStackLayout() {
       }}
     >
       <Stack.Screen name="communities/create" options={{ title: 'Novo canal' }} />
+      <Stack.Screen name="communities/edit" options={{ title: 'Editar canal' }} />
       <Stack.Screen name="communities/map" options={{ title: 'Localização do canal' }} />
       <Stack.Screen name="communities/[id]" options={{ title: 'Comunidade' }} />
       <Stack.Screen name="author" options={{ title: 'Perfil' }} />

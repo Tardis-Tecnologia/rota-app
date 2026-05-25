@@ -304,6 +304,15 @@ export default function ForumCommunitySection({
                 item={item}
                 imageEpoch={imageEpoch}
                 onPress={() => openChannelDetails(item.id)}
+                onEdit={
+                  item.myRole === 'OWNER'
+                    ? () =>
+                        router.push({
+                          pathname: '/forum/communities/edit',
+                          params: { id: item.id },
+                        })
+                    : undefined
+                }
               />
             ))
           : null}

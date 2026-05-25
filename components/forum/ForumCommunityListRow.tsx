@@ -15,13 +15,16 @@ interface ForumCommunityListRowProps {
   item: ForumCommunityListItem;
   imageEpoch: number;
   onPress: () => void;
+  onEdit?: () => void;
 }
 
 export default function ForumCommunityListRow({
   item,
   imageEpoch,
   onPress,
+  onEdit,
 }: ForumCommunityListRowProps) {
+  const isOwner = item.myRole === 'OWNER';
   const cover = communityCoverUrl(item);
   const coverUri = cover
     ? cover.includes('?')
@@ -31,31 +34,52 @@ export default function ForumCommunityListRow({
   const initial = (item.name.trim().charAt(0) || 'C').toUpperCase();
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-    >
-      {coverUri ? (
-        <Image source={{ uri: coverUri }} style={styles.avatar} />
-      ) : (
-        <View style={styles.avatarPlaceholder}>
-          <Text style={styles.avatarInitial}>{initial}</Text>
+    <View style={styles.row}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.mainPress, pressed && styles.rowPressed]}
+      >
+        {coverUri ? (
+          <Image source={{ uri: coverUri }} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarInitial}>{initial}</Text>
+          </View>
+        )}
+        <View style={styles.body}>
+          <Text style={styles.name} numberOfLines={1}>
+            {item.name}
+          </Text>
+          <Text style={styles.meta} numberOfLines={1}>
+            {item.membersCount} membros
+            {item.category ? ` · ${item.category}` : ''}
+          </Text>
         </View>
-      )}
-      <View style={styles.body}>
-        <Text style={styles.name} numberOfLines={1}>
-          {item.name}
-        </Text>
-        <Text style={styles.meta} numberOfLines={1}>
-          {item.membersCount} membros
-          {item.category ? ` · ${item.category}` : ''}
-        </Text>
+      </Pressable>
+
+      <View style={styles.trailing}>
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{roleLabel(item)}</Text>
+        </View>
+        {isOwner && onEdit ? (
+          <Pressable
+            onPress={onEdit}
+            hitSlop={10}
+            style={({ pressed }) => [styles.editBtn, pressed && styles.editBtnPressed]}
+            accessibilityLabel="Editar canal"
+          >
+            <Ionicons
+              name="create-outline"
+              size={16}
+              color={AppColors.text.quaternary}
+            />
+          </Pressable>
+        ) : null}
+        <Pressable onPress={onPress} hitSlop={8}>
+          <Ionicons name="chevron-forward" size={18} color={AppColors.text.quaternary} />
+        </Pressable>
       </View>
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>{roleLabel(item)}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={AppColors.text.quaternary} />
-    </Pressable>
+    </View>
   );
 }
 
@@ -63,7 +87,6 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
     marginHorizontal: 16,
     marginBottom: 8,
     paddingVertical: 10,
@@ -72,6 +95,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: AppColors.border.muted,
+  },
+  mainPress: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minWidth: 0,
   },
   rowPressed: { opacity: 0.88 },
   avatar: {
@@ -91,6 +121,17 @@ const styles = StyleSheet.create({
   body: { flex: 1, minWidth: 0 },
   name: { fontSize: 15, fontWeight: '800', color: '#0f172a' },
   meta: { fontSize: 12, color: AppColors.text.tertiary, marginTop: 2, fontWeight: '500' },
+  trailing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginLeft: 4,
+  },
+  editBtn: {
+    padding: 2,
+    marginRight: -2,
+  },
+  editBtnPressed: { opacity: 0.45 },
   badge: {
     backgroundColor: '#ecfeff',
     paddingHorizontal: 8,

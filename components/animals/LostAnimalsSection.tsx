@@ -20,6 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   createLostAnimal,
   deleteLostAnimal,
+  enrichLostAnimalsMedia,
   listLostAnimals,
   PAGE_SIZE,
   updateLostAnimal,
@@ -86,13 +87,14 @@ export default function LostAnimalsSection() {
     try {
       const init = append ? currentLength : 0;
       const end = init + PAGE_SIZE;
-      const batch = await listLostAnimals({
+      const listed = await listLostAnimals({
         init,
         end,
         species: f.species.trim() || undefined,
         breed: f.breed.trim() || undefined,
         location: f.location.trim() || undefined,
       });
+      const batch = await enrichLostAnimalsMedia(listed);
       setHasMore(batch.length >= PAGE_SIZE);
       setImageEpoch(Date.now());
       if (append) {

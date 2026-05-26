@@ -1,4 +1,6 @@
+import { withListImageCacheBust } from '@/components/forum/forumUtils';
 import { getApiBaseUrl } from '@/services/authApi';
+import { eventImageSource } from '@/utils/eventImage';
 import { formatBrazilPhoneInput } from '@/utils/phoneMask';
 
 export type UploadImageResponse = { id: string; publicUrl: string; path: string };
@@ -45,12 +47,151 @@ export const EMPTY_LOST_ANIMAL_FORM: LostAnimalFormState = {
   contact: '',
 };
 
+function readString(value: unknown): string | null {
+  if (value == null) return null;
+  const s = String(value).trim();
+  return s || null;
+}
+
+function readNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && !Number.isNaN(value)) return value;
+  if (value == null) return undefined;
+  const n = Number(value);
+  return Number.isNaN(n) ? undefined : n;
+}
+
+function readBoolean(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') return value;
+  return undefined;
+}
+
+/** Reescreve localhost/127.0.0.1 para o host do app (ex.: 10.0.2.2 no emulador Android). */
+function rewriteLocalhostMediaUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (u.hostname !== 'localhost' && u.hostname !== '127.0.0.1') return url;
+    const base = new URL(getApiBaseUrl());
+    return `${base.origin}${u.pathname}${u.search}`;
+  } catch {
+    return url;
+  }
+}
+
+function resolveLostAnimalMediaFields(raw: Record<string, unknown>): {
+  mediaId: string | null;
+  imageUrl: string | null;
+} {
+  const nested = raw.media ?? raw.image ?? raw.file;
+  let mediaId = readString(raw.mediaId ?? raw.media_id);
+  let imageUrl = readString(
+    raw.imageUrl ?? raw.image_url ?? raw.photoUrl ?? raw.photo_url,
+  );
+
+  if (nested && typeof nested === 'object') {
+    const m = nested as Record<string, unknown>;
+    mediaId = mediaId ?? readString(m.id ?? m.mediaId ?? m.media_id);
+    imageUrl =
+      imageUrl ??
+      readString(m.publicUrl ?? m.public_url ?? m.url) ??
+      readString(m.path);
+  }
+
+  const forumPost = raw.forumPost ?? raw.forum_post;
+  if (forumPost && typeof forumPost === 'object') {
+    const fp = forumPost as Record<string, unknown>;
+    mediaId = mediaId ?? readString(fp.mediaId ?? fp.media_id);
+    imageUrl = imageUrl ?? readString(fp.imageUrl ?? fp.image_url);
+  }
+
+  return { mediaId, imageUrl };
+}
+
+export function normalizeLostAnimalDto(raw: unknown): LostAnimalDto | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const id = readString(r.id);
+  if (!id) return null;
+
+  const { mediaId, imageUrl } = resolveLostAnimalMediaFields(r);
+  const authorRaw = r.author ?? r.user;
+  let author: LostAnimalDto['author'];
+  if (authorRaw && typeof authorRaw === 'object') {
+    const a = authorRaw as Record<string, unknown>;
+    const authorId = readString(a.id ?? a.userId ?? a.user_id);
+    if (authorId) {
+      author = {
+        id: authorId,
+        name: readString(a.name),
+        photoUrl: readString(a.photoUrl ?? a.photo_url),
+      };
+    }
+  }
+
+  return {
+    id,
+    hostId: readString(r.hostId ?? r.host_id) ?? '',
+    userId: readString(r.userId ?? r.user_id),
+    animalName: readString(r.animalName ?? r.animal_name),
+    species: readString(r.species) ?? '',
+    breed: readString(r.breed),
+    missingDate: readString(r.missingDate ?? r.missing_date) ?? '',
+    missingLocation: readString(r.missingLocation ?? r.missing_location) ?? '',
+    description: readString(r.description) ?? '',
+    contact: readString(r.contact) ?? '',
+    mediaId,
+    imageUrl,
+    createdAt: readString(r.createdAt ?? r.created_at) ?? undefined,
+    updatedAt: readString(r.updatedAt ?? r.updated_at) ?? undefined,
+    forumPostId: readString(r.forumPostId ?? r.forum_post_id),
+    likesCount: readNumber(r.likesCount ?? r.likes_count),
+    commentsCount: readNumber(r.commentsCount ?? r.comments_count),
+    liked: readBoolean(r.liked),
+    author,
+  };
+}
+
+export function normalizeLostAnimalList(data: unknown): LostAnimalDto[] {
+  let rows: unknown[] = [];
+  if (Array.isArray(data)) {
+    rows = data;
+  } else if (data && typeof data === 'object') {
+    const o = data as Record<string, unknown>;
+    if (Array.isArray(o.data)) rows = o.data;
+    else if (Array.isArray(o.items)) rows = o.items;
+    else if (Array.isArray(o.content)) rows = o.content;
+  }
+  return rows
+    .map((row) => normalizeLostAnimalDto(row))
+    .filter((item): item is LostAnimalDto => item != null);
+}
+
+/** Mesma estratégia do fórum: mediaId → /upload/files/{id}; depois imageUrl com host corrigido. */
 export function lostAnimalImageUrl(item: Pick<LostAnimalDto, 'imageUrl' | 'mediaId'>): string | null {
-  const direct = item.imageUrl?.trim();
-  if (direct) return direct;
   const mediaId = item.mediaId?.trim();
-  if (!mediaId) return null;
-  return `${getApiBaseUrl()}/api/v1/upload/files/${encodeURIComponent(mediaId)}`;
+  if (mediaId) {
+    return `${getApiBaseUrl()}/api/v1/upload/files/${encodeURIComponent(mediaId)}`;
+  }
+
+  const direct = item.imageUrl?.trim();
+  if (!direct) return null;
+
+  if (direct.startsWith('http://') || direct.startsWith('https://')) {
+    return rewriteLocalhostMediaUrl(direct);
+  }
+  if (direct.startsWith('/')) {
+    return `${getApiBaseUrl()}${direct}`;
+  }
+  return direct;
+}
+
+export function lostAnimalImageSource(
+  item: Pick<LostAnimalDto, 'imageUrl' | 'mediaId'>,
+  imageCacheEpoch: number,
+) {
+  const url = lostAnimalImageUrl(item);
+  if (!url) return null;
+  const busted = withListImageCacheBust(url, imageCacheEpoch);
+  return eventImageSource(busted);
 }
 
 export const FOUND_ANIMAL_PREFIX = '✅ ANIMAL ENCONTRADO — ';

@@ -1,6 +1,17 @@
 import { getApiBaseUrl } from '@/services/authApi';
 import type { ForumAuthorDto } from '@/services/forumApi';
 
+/** Posts do módulo Animais Perdidos — não entram no feed geral do fórum. */
+export const FORUM_LOST_ANIMAL_POST_TYPE = 'lost_animal';
+
+export function isExcludedFromGeneralForumFeed(post: {
+  postType?: string | null;
+  communityId?: string | null;
+}): boolean {
+  if (post.communityId?.trim()) return true;
+  return (post.postType?.trim() ?? '') === FORUM_LOST_ANIMAL_POST_TYPE;
+}
+
 export function formatTimeAgo(value: string): string {
   const d = new Date(value);
   const now = new Date();

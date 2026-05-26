@@ -1,4 +1,6 @@
 import {
+  normalizeLostAnimalDto,
+  normalizeLostAnimalList,
   prepareLostAnimalFormForApi,
   type LostAnimalDto,
   type LostAnimalFormState,
@@ -67,7 +69,7 @@ export async function listLostAnimals(options?: {
   const res = await fetch(url, { method: 'GET', headers: authHeadersJson() });
   if (!res.ok) throw new Error(await readErrorMessage(res));
   const data = (await res.json()) as unknown;
-  return Array.isArray(data) ? (data as LostAnimalDto[]) : [];
+  return normalizeLostAnimalList(data);
 }
 
 export async function uploadLostAnimalImageFromUri(
@@ -117,7 +119,10 @@ export async function getLostAnimal(id: string): Promise<LostAnimalDto> {
   const url = `${base}/api/v1/lost-animals/${encodeURIComponent(id)}`;
   const res = await fetch(url, { method: 'GET', headers: authHeadersJson() });
   if (!res.ok) throw new Error(await readErrorMessage(res));
-  return (await res.json()) as LostAnimalDto;
+  const data = (await res.json()) as unknown;
+  const normalized = normalizeLostAnimalDto(data);
+  if (!normalized) throw new Error('Resposta inválida do animal perdido.');
+  return normalized;
 }
 
 export type UpdateLostAnimalBody = {
@@ -167,7 +172,10 @@ export async function updateLostAnimal(
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res));
-  return (await res.json()) as LostAnimalDto;
+  const data = (await res.json()) as unknown;
+  const normalized = normalizeLostAnimalDto(data);
+  if (!normalized) throw new Error('Resposta inválida ao atualizar animal perdido.');
+  return normalized;
 }
 
 export async function deleteLostAnimal(id: string): Promise<void> {
@@ -175,6 +183,39 @@ export async function deleteLostAnimal(id: string): Promise<void> {
   const url = `${base}/api/v1/lost-animals/${encodeURIComponent(id)}`;
   const res = await fetch(url, { method: 'DELETE', headers: authHeadersJson() });
   if (!res.ok) throw new Error(await readErrorMessage(res));
+}
+
+/** Posts antigos podem ter foto só no post do fórum vinculado. */
+export async function enrichLostAnimalsMedia(items: LostAnimalDto[]): Promise<LostAnimalDto[]> {
+  const missing = items.filter(
+    (item) => !item.mediaId?.trim() && !item.imageUrl?.trim() && item.forumPostId?.trim(),
+  );
+  if (missing.length === 0) return items;
+
+  const { getForumPost } = await import('@/services/forumApi');
+  const mediaByForumPostId = new Map<string, string>();
+
+  await Promise.all(
+    missing.map(async (item) => {
+      const forumPostId = item.forumPostId!.trim();
+      try {
+        const post = await getForumPost(forumPostId);
+        const mediaId = post.mediaId?.trim();
+        if (mediaId) mediaByForumPostId.set(forumPostId, mediaId);
+      } catch {
+        // ignora falha pontual
+      }
+    }),
+  );
+
+  if (mediaByForumPostId.size === 0) return items;
+
+  return items.map((item) => {
+    const forumPostId = item.forumPostId?.trim();
+    if (!forumPostId || item.mediaId?.trim()) return item;
+    const mediaId = mediaByForumPostId.get(forumPostId);
+    return mediaId ? { ...item, mediaId } : item;
+  });
 }
 
 export { PAGE_SIZE };

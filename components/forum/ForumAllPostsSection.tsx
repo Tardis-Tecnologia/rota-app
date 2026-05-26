@@ -2,6 +2,7 @@ import ForumFeedContextChip from '@/components/forum/ForumFeedContextChip';
 import ForumPostCard from '@/components/forum/ForumPostCard';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { isExcludedFromGeneralForumFeed } from '@/components/forum/forumUtils';
 import {
   createForumComment,
   getForumPost,
@@ -53,12 +54,12 @@ export default function ForumAllPostsSection({
     setLoading(true);
     setError(null);
     try {
-      const rows = (await listForumPosts(undefined, { init: 0, end: 60 })).filter(
-        (r) => !r.communityId?.trim(),
+      const rows = (await listForumPosts(undefined, { init: 0, end: 80 })).filter(
+        (r) => !isExcludedFromGeneralForumFeed(r),
       );
       const top = rows.slice(0, 30);
       const detailed = (await Promise.all(top.map((r) => getForumPost(r.id)))).filter(
-        (p) => !p.communityId?.trim(),
+        (p) => !isExcludedFromGeneralForumFeed(p),
       );
       const commentEntries = await Promise.all(
         detailed.map(async (p) => {

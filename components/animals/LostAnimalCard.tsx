@@ -2,15 +2,16 @@ import {
   formatContactDisplay,
   formatMissingDateLabel,
   isLostAnimalMarkedFound,
-  lostAnimalImageUrl,
+  lostAnimalImageSource,
   lostAnimalTitle,
   type LostAnimalDto,
 } from '@/components/animals/lostAnimalUtils';
+import LostAnimalImageLightbox from '@/components/animals/LostAnimalImageLightbox';
 import { formatOpinioesLabel, formatTimeAgo } from '@/components/forum/forumUtils';
 import { AppColors } from '@/constants/theme';
 import type { ForumPostCommentListItemDto } from '@/services/forumApi';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -68,12 +69,16 @@ export default function LostAnimalCard({
   onSendComment,
   onOpenActions,
 }: LostAnimalCardProps) {
-  const imageRaw = lostAnimalImageUrl(item);
-  const imageUri = imageRaw
-    ? imageRaw.includes('?')
-      ? `${imageRaw}&v=${imageCacheEpoch}`
-      : `${imageRaw}?v=${imageCacheEpoch}`
-    : null;
+  const [imageFailed, setImageFailed] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const imageSource = lostAnimalImageSource(item, imageCacheEpoch);
+  const canExpandImage = !!imageSource && !imageFailed;
+
+  useEffect(() => {
+    setImageFailed(false);
+    setLightboxOpen(false);
+  }, [item.id, item.mediaId, item.imageUrl, imageCacheEpoch]);
+
   const title = lostAnimalTitle(item);
   const isFound = isLostAnimalMarkedFound(item);
   const missingDateLabel = formatMissingDateLabel(item.missingDate, item.createdAt);
@@ -84,8 +89,20 @@ export default function LostAnimalCard({
   return (
     <View style={[styles.card, isFound && styles.cardFound]}>
       <View style={styles.mainRow}>
-        {imageUri ? (
-          <Image source={{ uri: imageUri }} style={styles.thumb} resizeMode="cover" />
+        {canExpandImage ? (
+          <Pressable
+            onPress={() => setLightboxOpen(true)}
+            style={({ pressed }) => [styles.thumbPress, pressed && styles.thumbPressPressed]}
+            accessibilityRole="button"
+            accessibilityLabel={`Ampliar foto de ${title}`}
+          >
+            <Image
+              source={imageSource}
+              style={styles.thumb}
+              resizeMode="cover"
+              onError={() => setImageFailed(true)}
+            />
+          </Pressable>
         ) : (
           <View style={styles.thumbPlaceholder}>
             <Ionicons name="image-outline" size={28} color="#94a3b8" />
@@ -248,6 +265,13 @@ export default function LostAnimalCard({
           ) : null}
         </View>
       ) : null}
+
+      <LostAnimalImageLightbox
+        visible={lightboxOpen}
+        imageSource={imageSource}
+        title={title}
+        onClose={() => setLightboxOpen(false)}
+      />
     </View>
   );
 }
@@ -273,6 +297,12 @@ const styles = StyleSheet.create({
   mainRow: {
     flexDirection: 'row',
     gap: 12,
+  },
+  thumbPress: {
+    position: 'relative',
+  },
+  thumbPressPressed: {
+    opacity: 0.88,
   },
   thumb: {
     width: 88,

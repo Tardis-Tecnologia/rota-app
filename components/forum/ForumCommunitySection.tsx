@@ -31,12 +31,7 @@ const COMMUNITY_SEGMENTS = [
 ];
 
 function canShowFollowBadge(ch: ForumCommunityListItem): boolean {
-  return (
-    ch.privacy === 'PUBLIC' &&
-    !ch.isMember &&
-    !ch.isFollowing &&
-    ch.myRole !== 'OWNER'
-  );
+  return !ch.isMember && !ch.isFollowing && ch.myRole !== 'OWNER';
 }
 
 function buildCarouselChannels(

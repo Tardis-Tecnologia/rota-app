@@ -17,6 +17,7 @@ function roleBadge(item: ForumCommunityListItem): string | null {
   if (item.isMember) return 'Participante';
   if (item.isFollowing) return 'Seguindo';
   if (item.privacy === 'PRIVATE') return 'Privada';
+  if (item.privacy === 'PUBLIC') return 'Pública';
   return null;
 }
 

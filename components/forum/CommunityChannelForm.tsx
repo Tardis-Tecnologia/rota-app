@@ -16,9 +16,10 @@ import {
   fetchAddressByCep,
   formatCepDisplay,
 } from '@/services/viacep';
+import { consumeCommunityLocationPick } from '@/services/forumCommunityLocationPick';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -36,8 +37,6 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const MARICA_DEFAULT = { latitude: -22.9189, longitude: -42.8186 };
 
 const CATEGORY_SUGGESTIONS = ['Bairro', 'Esporte', 'Eventos', 'Avisos', 'Cultura', 'Comércio'];
 
@@ -114,7 +113,6 @@ export default function CommunityChannelForm({ mode, communityId }: CommunityCha
   const [longitude, setLongitude] = useState<number | null>(null);
   const [coverUri, setCoverUri] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [locating, setLocating] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [cepFeedback, setCepFeedback] = useState<{ type: 'ok' | 'err'; text: string } | null>(
     null,
@@ -254,39 +252,31 @@ export default function CommunityChannelForm({ mode, communityId }: CommunityCha
     setCoverRemoved(true);
   }, []);
 
-  const useMyLocation = useCallback(async () => {
-    setLocating(true);
-    setError(null);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        throw new Error('Permissão de localização negada.');
+  useFocusEffect(
+    useCallback(() => {
+      const picked = consumeCommunityLocationPick();
+      if (!picked) return;
+      setLatitude(picked.latitude);
+      setLongitude(picked.longitude);
+      if (picked.locationName) {
+        setLocationName((prev) => prev.trim() || picked.locationName!);
       }
-      const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      setLatitude(pos.coords.latitude);
-      setLongitude(pos.coords.longitude);
-      const places = await Location.reverseGeocodeAsync({
-        latitude: pos.coords.latitude,
-        longitude: pos.coords.longitude,
-      });
-      const p = places[0];
-      if (p) {
-        const addr = [p.street, p.name, p.city, p.region].filter(Boolean).join(', ');
-        if (addr && !locationAddress.trim()) setLocationAddress(addr);
-        if (p.name && !locationName.trim()) setLocationName(p.name);
+      if (picked.locationAddress) {
+        setLocationAddress((prev) => prev.trim() || picked.locationAddress!);
       }
-    } catch (e) {
-      setLatitude(MARICA_DEFAULT.latitude);
-      setLongitude(MARICA_DEFAULT.longitude);
-      setError(
-        e instanceof Error ? e.message : 'Não foi possível obter localização. Usando padrão.',
-      );
-    } finally {
-      setLocating(false);
-    }
-  }, [locationAddress, locationName]);
+      setError(null);
+    }, []),
+  );
+
+  const openLocationPicker = useCallback(() => {
+    router.push({
+      pathname: '/forum/communities/pick-location',
+      params: {
+        ...(latitude != null ? { lat: String(latitude) } : {}),
+        ...(longitude != null ? { lng: String(longitude) } : {}),
+      },
+    });
+  }, [latitude, longitude]);
 
   const onSubmit = useCallback(async () => {
     if (!canSubmit) return;
@@ -558,7 +548,7 @@ export default function CommunityChannelForm({ mode, communityId }: CommunityCha
                 <Text style={[styles.privacyTitle, !isPrivate && styles.privacyTitleActive]}>
                   Público
                 </Text>
-                <Text style={styles.privacyHint}>Qualquer pessoa pode seguir</Text>
+                <Text style={styles.privacyHint}>Quem seguir pode publicar</Text>
               </Pressable>
               <Pressable
                 onPress={() => setIsPrivate(true)}
@@ -572,7 +562,7 @@ export default function CommunityChannelForm({ mode, communityId }: CommunityCha
                 <Text style={[styles.privacyTitle, isPrivate && styles.privacyTitleActive]}>
                   Privado
                 </Text>
-                <Text style={styles.privacyHint}>Só membros acessam</Text>
+                <Text style={styles.privacyHint}>Só o dono publica</Text>
               </Pressable>
             </View>
           </FormSection>
@@ -651,19 +641,14 @@ export default function CommunityChannelForm({ mode, communityId }: CommunityCha
 
             <Pressable
               style={[styles.locationBtn, hasLocation && styles.locationBtnSuccess]}
-              onPress={() => void useMyLocation()}
-              disabled={locating}
+              onPress={openLocationPicker}
             >
               <View style={styles.locationBtnIcon}>
-                {locating ? (
-                  <ActivityIndicator color="#0891b2" size="small" />
-                ) : (
-                  <Ionicons
-                    name={hasLocation ? 'checkmark-circle' : 'navigate'}
-                    size={22}
-                    color={hasLocation ? '#059669' : '#0891b2'}
-                  />
-                )}
+                <Ionicons
+                  name={hasLocation ? 'checkmark-circle' : 'map'}
+                  size={22}
+                  color={hasLocation ? '#059669' : '#0891b2'}
+                />
               </View>
               <View style={styles.locationBtnTextWrap}>
                 <Text style={styles.locationBtnTitle}>
@@ -671,8 +656,8 @@ export default function CommunityChannelForm({ mode, communityId }: CommunityCha
                 </Text>
                 <Text style={styles.locationBtnHint}>
                   {hasLocation
-                    ? `${latitude!.toFixed(4)}, ${longitude!.toFixed(4)} · toque para atualizar`
-                    : 'Marca o ponto no mapa do canal'}
+                    ? `${latitude!.toFixed(4)}, ${longitude!.toFixed(4)} · toque para alterar no mapa`
+                    : 'Abre o mapa para marcar o ponto do canal'}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={AppColors.text.quaternary} />

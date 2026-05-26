@@ -1,5 +1,8 @@
+import type { PontoInteresse } from '@/types';
 import { getApiBaseUrl, getAuthToken } from './authApi';
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
+
+export const EXPLORE_COMMUNITIES_CHIP_ID = 'communities';
 
 const BASE_PATH = '/api/v1';
 
@@ -30,6 +33,8 @@ export interface ForumCommunityListItem {
   followersCount: number;
   isFollowing: boolean;
   isMember: boolean;
+  /** Se o usuário logado pode criar post neste canal (regra no back: pública = seguidor/dono; privada = dono). */
+  canPost: boolean;
   myRole: ForumCommunityMemberRole | null;
   createdAt: string;
   creator?: ForumCommunityCreator;
@@ -311,4 +316,33 @@ export function parseCommunityCoords(
   const lng = item.longitude != null ? parseFloat(item.longitude) : NaN;
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   return { lat, lng };
+}
+
+/** Ponto no mapa Explorar (só comunidades com lat/lng cadastrados). */
+export function communityToExplorePonto(community: ForumCommunityListItem): PontoInteresse | null {
+  const coords = parseCommunityCoords(community);
+  if (!coords) return null;
+  const cover = communityCoverUrl(community);
+  return {
+    id: `community-${community.id}`,
+    titulo: community.name,
+    descricao:
+      community.locationName?.trim() ||
+      community.locationAddress?.trim() ||
+      'Canal da comunidade',
+    latitude: coords.lat,
+    longitude: coords.lng,
+    tipo: 'cultura',
+    photoUrl: cover ?? undefined,
+    formattedAddress: community.locationAddress?.trim() || undefined,
+    placeType: EXPLORE_COMMUNITIES_CHIP_ID,
+  };
+}
+
+export function explorePontoCommunityId(ponto: Pick<PontoInteresse, 'id' | 'placeType'>): string | null {
+  if (ponto.placeType !== EXPLORE_COMMUNITIES_CHIP_ID) return null;
+  const prefix = 'community-';
+  if (!ponto.id.startsWith(prefix)) return null;
+  const id = ponto.id.slice(prefix.length).trim();
+  return id || null;
 }

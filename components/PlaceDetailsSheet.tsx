@@ -1,8 +1,10 @@
 import { AppColors } from '@/constants/theme';
+import { explorePontoCommunityId } from '@/services/forumCommunityApi';
 import { distanceMeters } from '@/services/placesService';
 import { PontoInteresse } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
+import { router } from 'expo-router';
 import React from 'react';
 import {
   Image,
@@ -41,6 +43,8 @@ export default function PlaceDetailsSheet({
   onClose,
 }: PlaceDetailsSheetProps) {
   if (!ponto) return null;
+
+  const communityId = explorePontoCommunityId(ponto);
 
   const openDirections = () => {
     const { latitude, longitude } = ponto;
@@ -136,6 +140,23 @@ export default function PlaceDetailsSheet({
                 <Ionicons name="call-outline" size={18} color={AppColors.text.tertiary} />
                 <Text style={styles.rowText}>{ponto.telefone}</Text>
               </View>
+            ) : null}
+
+            {communityId ? (
+              <TouchableOpacity
+                style={styles.btnCommunity}
+                onPress={() => {
+                  onClose();
+                  router.push({
+                    pathname: '/forum/communities/[id]',
+                    params: { id: communityId },
+                  });
+                }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="people-outline" size={20} color="#fff" />
+                <Text style={styles.btnPrimaryText}>Ver canal da comunidade</Text>
+              </TouchableOpacity>
             ) : null}
 
             <TouchableOpacity style={styles.btnPrimary} onPress={openDirections} activeOpacity={0.85}>
@@ -269,6 +290,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: AppColors.text.secondary,
     lineHeight: 20,
+  },
+  btnCommunity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#0891b2',
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginTop: 4,
+    marginBottom: 10,
   },
   btnPrimary: {
     flexDirection: 'row',

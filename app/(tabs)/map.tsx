@@ -8,6 +8,11 @@ import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
 import { useNotificationUnreadCount } from '@/hooks/useNotificationUnreadCount';
 import { ensureForegroundLocationPermission } from '@/services/locationPermission';
+import {
+  communityToExplorePonto,
+  EXPLORE_COMMUNITIES_CHIP_ID,
+  listForumCommunities,
+} from '@/services/forumCommunityApi';
 import { placeToPonto } from '@/services/mapPlaceToPonto';
 import { searchNearbyPlaces } from '@/services/placesService';
 import { Localizacao, PontoInteresse } from '@/types';
@@ -76,6 +81,7 @@ const CHIP_LABELS: Record<string, string> = {
   hospital: 'Hospital',
   shopping_center: 'Shopping Center',
   bank: 'Bancos',
+  communities: 'Comunidades',
 };
 
 function routeParamToChipId(raw: string): string | undefined {
@@ -85,6 +91,7 @@ function routeParamToChipId(raw: string): string | undefined {
     shopping_mall: 'shopping_center',
   };
   const chip = alias[raw] ?? raw;
+  if (chip === EXPLORE_COMMUNITIES_CHIP_ID) return chip;
   return FILTER_CHIP_TO_PLACE_TYPE[chip] ? chip : undefined;
 }
 
@@ -170,6 +177,32 @@ export default function MapScreen() {
         setSelectedPontoDetail(null);
         return;
       }
+      if (chipId === EXPLORE_COMMUNITIES_CHIP_ID) {
+        setFilterLoading(true);
+        try {
+          const rows = await listForumCommunities(undefined, { init: 0, end: 200 });
+          const mapped = rows
+            .map(communityToExplorePonto)
+            .filter((p): p is PontoInteresse => p != null);
+          setPontos(mapped);
+          setCategoriaSelecionada(chipId);
+          setSelectedPontoDetail(null);
+          setToastType(mapped.length > 0 ? 'success' : 'info');
+          setToastMessage(
+            mapped.length > 0
+              ? `${mapped.length} comunidade${mapped.length === 1 ? '' : 's'} com local no mapa.`
+              : 'Nenhuma comunidade com localização cadastrada.',
+          );
+          setToastKey((k) => k + 1);
+          setShowToast(true);
+        } catch {
+          Alert.alert('Erro', 'Não foi possível carregar as comunidades.');
+        } finally {
+          setFilterLoading(false);
+        }
+        return;
+      }
+
       const placeType = FILTER_CHIP_TO_PLACE_TYPE[chipId];
       if (!placeType) return;
 
@@ -238,6 +271,9 @@ export default function MapScreen() {
   ]);
 
   const getMarkerColor = (tipo: PontoInteresse['tipo']): string => {
+    if (categoriaSelecionada === EXPLORE_COMMUNITIES_CHIP_ID) {
+      return '#0891b2';
+    }
     return AppColors.categoria[tipo] || AppColors.primary;
   };
 

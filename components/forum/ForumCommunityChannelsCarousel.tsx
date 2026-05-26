@@ -33,12 +33,7 @@ function channelInitial(name: string): string {
 }
 
 function canShowFollowBadge(ch: ForumCommunityListItem): boolean {
-  return (
-    ch.privacy === 'PUBLIC' &&
-    !ch.isMember &&
-    !ch.isFollowing &&
-    ch.myRole !== 'OWNER'
-  );
+  return !ch.isMember && !ch.isFollowing && ch.myRole !== 'OWNER';
 }
 
 function CommunityChannelItem({

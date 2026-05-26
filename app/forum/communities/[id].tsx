@@ -22,7 +22,6 @@ import {
   deleteForumCommunity,
   followForumCommunity,
   getForumCommunity,
-  joinForumCommunity,
   leaveForumCommunity,
   unfollowForumCommunity,
   type ForumCommunityDetail,
@@ -76,7 +75,7 @@ export default function CommunityChannelScreen() {
   const [postContent, setPostContent] = useState('');
   const [postImageUri, setPostImageUri] = useState<string | null>(null);
 
-  const canPost = !!(community?.isMember && user);
+  const canPost = !!(user && community?.canPost);
   const coords = community ? parseCommunityCoords(community) : null;
 
   const load = useCallback(
@@ -144,7 +143,6 @@ export default function CommunityChannelScreen() {
 
   const onFollow = () => void runAction(() => followForumCommunity(communityId));
   const onUnfollow = () => void runAction(() => unfollowForumCommunity(communityId));
-  const onJoin = () => void runAction(() => joinForumCommunity(communityId));
   const onLeave = () => {
     Alert.alert('Sair da comunidade', 'Deseja deixar de participar deste canal?', [
       { text: 'Cancelar', style: 'cancel' },
@@ -315,33 +313,17 @@ export default function CommunityChannelScreen() {
       );
     }
 
-    if (community.privacy === 'PUBLIC') {
-      return (
-        <View style={styles.actionStack}>
-          <Pressable
-            style={[styles.actionBtnPrimary, busy && styles.actionDisabled]}
-            onPress={onFollow}
-            disabled={busy}
-          >
-            <Ionicons name="add-circle" size={22} color="#fff" />
-            <Text style={styles.actionBtnPrimaryText}>Seguir canal</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.actionBtnSecondary, busy && styles.actionDisabled]}
-            onPress={onJoin}
-            disabled={busy}
-          >
-            <Ionicons name="person-add-outline" size={20} color="#0e7490" />
-            <Text style={styles.actionBtnSecondaryText}>Participar e publicar</Text>
-          </Pressable>
-        </View>
-      );
-    }
-
     return (
-      <Text style={styles.actionMuted}>Comunidade privada — apenas membros convidados.</Text>
+      <Pressable
+        style={[styles.actionBtnPrimary, busy && styles.actionDisabled]}
+        onPress={onFollow}
+        disabled={busy}
+      >
+        <Ionicons name="add-circle" size={22} color="#fff" />
+        <Text style={styles.actionBtnPrimaryText}>Seguir canal</Text>
+      </Pressable>
     );
-  }, [actionLoading, community, onDeleteCommunity, onFollow, onJoin, onLeave, onUnfollow]);
+  }, [actionLoading, community, onDeleteCommunity, onFollow, onLeave, onUnfollow]);
 
   if (loading && !community) {
     return (
@@ -367,7 +349,16 @@ export default function CommunityChannelScreen() {
 
   if (!community) return null;
 
-  const showMemberHint = community.privacy === 'PUBLIC' && !community.isMember;
+  const postHint = (() => {
+    if (!user || canPost) return null;
+    if (community.privacy === 'PRIVATE') {
+      return 'Canal privado — somente o criador pode publicar.';
+    }
+    if (!community.isFollowing) {
+      return 'Siga o canal para poder publicar aqui.';
+    }
+    return null;
+  })();
 
   return (
     <View style={styles.flex}>
@@ -395,7 +386,7 @@ export default function CommunityChannelScreen() {
         <CommunityFeedSectionHeader
           postsCount={posts.length}
           canPost={canPost}
-          showMemberHint={showMemberHint}
+          postHint={postHint}
         />
 
         {posts.length === 0 ? (
@@ -528,7 +519,6 @@ const styles = StyleSheet.create({
     height: 8,
     backgroundColor: 'transparent',
   },
-  actionStack: { gap: 10 },
   actionBtnPrimary: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -539,18 +529,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   actionBtnPrimaryText: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  actionBtnSecondary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#ecfeff',
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#a5f3fc',
-  },
-  actionBtnSecondaryText: { color: '#0e7490', fontWeight: '800', fontSize: 15 },
   actionBtnOutline: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -575,13 +553,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239,68,68,0.08)',
   },
   actionBtnDangerText: { fontWeight: '800', fontSize: 15, color: AppColors.status.error },
-  actionMuted: {
-    fontSize: 14,
-    color: AppColors.text.tertiary,
-    lineHeight: 20,
-    textAlign: 'center',
-    paddingVertical: 8,
-  },
   actionDisabled: { opacity: 0.5 },
   publishFab: {
     position: 'absolute',

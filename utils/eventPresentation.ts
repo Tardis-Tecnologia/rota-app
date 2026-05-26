@@ -1,13 +1,14 @@
 import type { EventItem } from '@/services/eventsService';
 import type { Evento } from '@/types';
-import { eventItemToEvento } from '@/utils/eventsCarousel';
 import { resolveEventImageUrl } from '@/utils/eventImage';
+import { eventItemToEvento } from '@/utils/eventsCarousel';
 
 export type EventListItem = Evento & {
   descricao?: string;
   localNome?: string;
   endereco?: string;
   organizador?: string;
+  organizadorFoto?: string;
   categorias: string[];
   featured: boolean;
   startDateIso: string | null;
@@ -16,15 +17,9 @@ export type EventListItem = Evento & {
   status?: string;
 };
 
-function formatOrganizerLabel(createdBy: string | null | undefined): string | undefined {
-  const raw = createdBy?.trim();
-  if (!raw) return undefined;
-  const pipe = raw.indexOf('|');
-  if (pipe >= 0) {
-    const name = raw.slice(pipe + 1).trim();
-    return name || raw;
-  }
-  return raw;
+export function organizerDisplayName(creatorName: string | null | undefined): string {
+  const name = creatorName?.trim();
+  return name || 'Organizador não informado';
 }
 
 export type EventCategoryKey =
@@ -64,7 +59,8 @@ export function eventItemToListItem(item: EventItem): EventListItem {
     descricao: item.description?.trim() || undefined,
     localNome: item.locationName?.trim() || undefined,
     endereco: item.locationAddress?.trim() || undefined,
-    organizador: formatOrganizerLabel(item.createdBy),
+    organizador: item.creatorName?.trim() || undefined,
+    organizadorFoto: item.creatorPhotoUrl?.trim() || undefined,
     categorias: Array.isArray(item.categories) ? item.categories : [],
     featured: Boolean(item.featured),
     startDateIso: item.startDate,

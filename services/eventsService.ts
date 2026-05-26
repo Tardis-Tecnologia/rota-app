@@ -46,6 +46,8 @@ export interface EventItem {
   updatedAt: string;
   createdBy?: string | null;
   updatedBy?: string | null;
+  creatorName?: string | null;
+  creatorPhotoUrl?: string | null;
   image?: EventImage | null;
 }
 
@@ -111,6 +113,8 @@ export function normalizeEventItem(raw: unknown): EventItem {
     updatedAt: String(r.updatedAt ?? r.updated_at ?? ''),
     createdBy: readString(r.createdBy ?? r.created_by) ?? undefined,
     updatedBy: readString(r.updatedBy ?? r.updated_by) ?? undefined,
+    creatorName: readString(r.creatorName ?? r.creator_name),
+    creatorPhotoUrl: readString(r.creatorPhotoUrl ?? r.creator_photo_url),
     image,
   };
 }

@@ -1,42 +1,42 @@
 import EventAttendanceSection from '@/components/events/EventAttendanceSection';
 import EventCoverImage from '@/components/events/EventCoverImage';
 import { AppColors } from '@/constants/theme';
-import { useSavedEvents } from '@/hooks/useSavedEvents';
 import {
-  getEventAttendanceCount,
-  getMyEventAttendance,
-  listEventParticipants,
-  type EventParticipant,
-  type MyEventAttendance,
+    getEventAttendanceCount,
+    getMyEventAttendance,
+    listEventParticipants,
+    type EventParticipant,
+    type MyEventAttendance,
 } from '@/services/eventAttendancesService';
 import { getEventById } from '@/services/eventsService';
 import type { EventListItem } from '@/utils/eventPresentation';
 import {
-  eventItemToListItem,
-  formatCapacityLabel,
-  formatDetailDate,
-  formatDetailTime,
-  formatLocationLine,
-  getCategoryMeta,
-  primaryCategoryKey,
+    eventItemToListItem,
+    formatCapacityLabel,
+    formatDetailDate,
+    formatDetailTime,
+    formatLocationLine,
+    getCategoryMeta,
+    organizerDisplayName,
+    primaryCategoryKey,
 } from '@/utils/eventPresentation';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator,
+    Image,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function EventoDetalheScreen() {
   const insets = useSafeAreaInsets();
-  const { isSaved, toggleSaved, checkSaved } = useSavedEvents();
   const { id, imageUri } = useLocalSearchParams<{ id: string; imageUri?: string }>();
   const eventId = String(id ?? '').trim();
   const imageUriFromRoute = typeof imageUri === 'string' ? imageUri.trim() : '';
@@ -99,9 +99,7 @@ export default function EventoDetalheScreen() {
           setError('Evento não encontrado.');
           setItem(null);
         } else {
-          const mapped = eventItemToListItem(data);
-          setItem(mapped);
-          if (mounted) void checkSaved(mapped.id);
+          setItem(eventItemToListItem(data));
         }
       } catch (e) {
         if (!mounted) return;
@@ -160,24 +158,6 @@ export default function EventoDetalheScreen() {
             <Pressable style={styles.iconBtn} onPress={() => router.back()} hitSlop={8}>
               <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
             </Pressable>
-            <View style={styles.heroTopActions}>
-              <View style={styles.iconBtn}>
-                <Ionicons name="share-outline" size={20} color="#FFFFFF" />
-              </View>
-              <Pressable
-                style={styles.iconBtn}
-                hitSlop={8}
-                onPress={() => {
-                  if (item) void toggleSaved(item);
-                }}
-              >
-                <Ionicons
-                  name={item && isSaved(item.id) ? 'heart' : 'heart-outline'}
-                  size={20}
-                  color={item && isSaved(item.id) ? '#f87171' : '#FFFFFF'}
-                />
-              </Pressable>
-            </View>
           </View>
           {cat ? (
             <View style={styles.heroBottom}>
@@ -223,15 +203,27 @@ export default function EventoDetalheScreen() {
               </View>
             </View>
 
-            {item.organizador ? (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Ionicons name="person-outline" size={18} color={AppColors.tab.active} />
-                  <Text style={styles.sectionTitle}>Organizador</Text>
-                </View>
-                <Text style={styles.sectionText}>{item.organizador}</Text>
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="person-outline" size={18} color={AppColors.tab.active} />
+                <Text style={styles.sectionTitle}>Organizador</Text>
               </View>
-            ) : null}
+              <View style={styles.organizerRow}>
+                {item.organizadorFoto ? (
+                  <Image
+                    source={{ uri: item.organizadorFoto }}
+                    style={styles.organizerPhoto}
+                  />
+                ) : (
+                  <View style={styles.organizerPhotoPlaceholder}>
+                    <Ionicons name="person" size={20} color={AppColors.gray[500]} />
+                  </View>
+                )}
+                <Text style={styles.sectionText}>
+                  {organizerDisplayName(item.organizador)}
+                </Text>
+              </View>
+            </View>
 
             {item.descricao ? (
               <View style={styles.section}>
@@ -345,10 +337,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
-  heroTopActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
   iconBtn: {
     width: 40,
     height: 40,
@@ -429,6 +417,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: AppColors.text.tertiary,
     lineHeight: 22,
+    flex: 1,
+  },
+  organizerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  organizerPhoto: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: AppColors.gray[200],
+  },
+  organizerPhotoPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: AppColors.gray[200],
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statsRow: {
     flexDirection: 'row',

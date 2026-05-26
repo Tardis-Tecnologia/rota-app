@@ -1,5 +1,4 @@
 import { ModalAnimals } from '@/components/ModalAnimals';
-import { ModalMarketplace } from '@/components/ModalMarketplace';
 import { ModalReportPrefeitura } from '@/components/ModalReportPrefeitura';
 import { ModalResolvedProblems } from '@/components/ModalResolvedProblems';
 import { ModalSecurity } from '@/components/ModalSecurity';
@@ -133,6 +132,7 @@ export default function ServicosScreen() {
       education: '/EducationTab',
       jobs: '/JobsTab',
       servicesPro: '/ServicesAndProfessionals',
+      marketplace: '/marketplace',
     } as const;
 
     if (serviceId in routes) {
@@ -146,7 +146,7 @@ export default function ServicosScreen() {
       return;
     }
 
-    const modals = ['security', 'resolvedProblems', 'marketplace', 'animals', 'municipalContact'];
+    const modals = ['security', 'resolvedProblems', 'animals', 'municipalContact'];
   
     if (modals.includes(serviceId)) {
       setActiveModal(serviceId);
@@ -162,10 +162,6 @@ export default function ServicosScreen() {
     <View style={styles.container}>
       <ModalSecurity
         visible={activeModal === 'security'}
-        onClose={() => setActiveModal(null)}
-      />
-      <ModalMarketplace
-        visible={activeModal === 'marketplace'}
         onClose={() => setActiveModal(null)}
       />
       <ModalResolvedProblems

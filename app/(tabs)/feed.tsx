@@ -1,63 +1,18 @@
-import FilterTabs, { FilterOption } from '@/components/FilterTabs';
-import NewsPosts from '@/components/NewsPosts';
-import { AppColors } from '@/constants/theme';
-import { FeedFilter } from '@/types';
-import React, { useState } from 'react';
+import FeedNovidadesList from '@/components/feed/FeedNovidadesList';
+import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
-const FILTERS: Array<FilterOption> = [
-  { key: 'todos', label: 'Todos' },
-  { key: 'noticias', label: 'Notícias' },
-  { key: 'obras', label: 'Obras' },
-  { key: 'lazer', label: 'Lazer' },
-];
-
 export default function FeedScreen() {
-  const [activeFilter, setActiveFilter] = useState<FeedFilter>('todos');
-
-  const handleSelectFilter = (filterKey: string) => {
-    setActiveFilter(filterKey as FeedFilter);
-  };
-
   return (
-    <>
-      <View style={styles.container}>
-        <NewsPosts
-          key={activeFilter}
-          filter={activeFilter}
-          listHeader={
-            <FilterTabs filters={FILTERS} active={activeFilter} onSelect={handleSelectFilter} />
-          }
-        />
-      </View>
-      {/* <TouchableOpacity activeOpacity={0.85} style={styles.fab} onPress={() => {}}>
-        <MaterialIcons name="add" size={28} color={AppColors.text.white} />
-      </TouchableOpacity> */}
-    </>
+    <View style={styles.container}>
+      <FeedNovidadesList />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: AppColors.background.default,
-  },
-
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: AppColors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: AppColors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
+    backgroundColor: '#f1f5f9',
   },
 });
-

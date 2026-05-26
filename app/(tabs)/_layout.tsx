@@ -5,6 +5,7 @@ import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
+import TabBarItem from '@/components/TabBarItem';
 import { AppColors } from '@/constants/theme';
 
 export default function TabLayout() {
@@ -23,20 +24,19 @@ export default function TabLayout() {
       shadowOpacity: 0,
       height: baseHeight + effectiveInset,
       paddingBottom: 8 + bottomInset,
-      paddingTop: 8,
-      marginHorizontal: 16,
-      marginBottom: androidNavOffset + Math.max(4, bottomInset / 2),
-      borderRadius: 24,
-      borderTopColor: 'transparent',
+      paddingTop: 6,
+      marginBottom: androidNavOffset,
+      borderTopWidth: 1,
+      borderTopColor: '#e2e8f0',
       ...Platform.select({
         ios: {
           shadowColor: AppColors.shadow,
-          shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: 0.2,
-          shadowRadius: 14,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.08,
+          shadowRadius: 8,
         },
         android: {
-          elevation: 10,
+          elevation: 8,
         },
       }),
     };
@@ -49,15 +49,16 @@ export default function TabLayout() {
         tabBarInactiveTintColor: AppColors.tab.inactive,
         headerShown: false, // Remover header padrão
         tabBarButton: HapticTab,
+        tabBarShowLabel: false,
         sceneStyle: { backgroundColor: AppColors.background.default },
         tabBarStyle,
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
-          marginTop: 4,
-        },
-        tabBarIconStyle: {
-          marginTop: 4,
+        tabBarItemStyle: {
+          flex: 1,
+          width: 0,
+          minWidth: 0,
+          paddingHorizontal: 0,
+          alignItems: 'center',
+          justifyContent: 'center',
         },
       }}>
       <Tabs.Screen
@@ -69,13 +70,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: 'Home',
+          title: 'Início',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name="home-outline" 
-              size={24} 
-              color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
-            />
+            <TabBarItem label="Início" icon="home-outline" color={color} focused={focused} />
           ),
         }}
       />
@@ -129,24 +126,16 @@ export default function TabLayout() {
           ),
           title: 'Eventos',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name="calendar-outline"
-              size={24}
-              color={focused ? AppColors.tab.active : AppColors.tab.inactive}
-            />
+            <TabBarItem label="Eventos" icon="calendar-outline" color={color} focused={focused} />
           ),
         })}
       />
       <Tabs.Screen
         name="map"
         options={{
-          title: 'Explorar',
-          tabBarIcon: ({ focused }) => (
-            <Ionicons
-              name="map-outline"
-              size={24}
-              color={focused ? AppColors.tab.active : AppColors.tab.inactive}
-            />
+          title: 'Mapa',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarItem label="Mapa" icon="map-outline" color={color} focused={focused} />
           ),
         }}
       />
@@ -212,10 +201,11 @@ export default function TabLayout() {
           ),
           headerRight: () => <View style={styles.headerSpacer} />,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name="document-text-outline" 
-              size={24} 
-              color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
+            <TabBarItem
+              label="Serviços"
+              icon="document-text-outline"
+              color={color}
+              focused={focused}
             />
           ),
         })}
@@ -285,12 +275,8 @@ export default function TabLayout() {
           ),
           headerRight: () => <View style={styles.headerSpacer} />,
           title: 'Fórum do bairro',
-          tabBarIcon: ({ focused }) => (
-            <Ionicons
-              name="chatbubbles-outline"
-              size={24}
-              color={focused ? AppColors.tab.active : AppColors.tab.inactive}
-            />
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarItem label="Fórum" icon="chatbubbles-outline" color={color} focused={focused} />
           ),
         })}
       />
@@ -318,13 +304,9 @@ export default function TabLayout() {
             </TouchableOpacity>
           ),
           headerRight: () => <View style={styles.headerSpacer} />,
-          title: 'Feed',
+          title: 'Novidades',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name="list-outline" 
-              size={24} 
-              color={focused ? AppColors.tab.active : AppColors.tab.inactive} 
-            />
+            <TabBarItem label="Feed" icon="newspaper-outline" color={color} focused={focused} />
           ),
         })}
       />

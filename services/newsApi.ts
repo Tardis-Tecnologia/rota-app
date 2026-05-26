@@ -1,3 +1,8 @@
+import type {
+  FeedNovidade,
+  FeedNovidadeCategoria,
+  FeedNovidadeTipo,
+} from '@/types/feedNovidade';
 import { getApiBaseUrl, getAuthToken } from './authApi';
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
 
@@ -94,10 +99,89 @@ function formatTimeAgo(dateStr: string): string {
   const diffMin = Math.floor(diffMs / 60000);
   const diffH = Math.floor(diffMin / 60);
   const diffDays = Math.floor(diffH / 24);
-  if (diffMin < 60) return `${diffMin} min`;
-  if (diffH < 24) return `${diffH}h`;
-  if (diffDays < 7) return `${diffDays} dias`;
+  if (diffMin < 1) return 'agora';
+  if (diffMin < 60) return `há ${diffMin} min`;
+  if (diffH < 24) return `há ${diffH}h`;
+  if (diffDays < 7) return `há ${diffDays} dia${diffDays === 1 ? '' : 's'}`;
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
+
+export function formatNewsPublicationDate(dateStr: string): {
+  relativa: string;
+  formatada: string;
+} {
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) {
+    return { relativa: '', formatada: '' };
+  }
+  return {
+    relativa: formatTimeAgo(dateStr),
+    formatada: date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    }),
+  };
+}
+
+function truncateText(text: string, max: number): string {
+  const t = text.replace(/\s+/g, ' ').trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1).trim()}…`;
+}
+
+const CATEGORIA_LABEL: Record<FeedNovidadeCategoria, string> = {
+  noticias: 'Notícia',
+  obras: 'Obras',
+  lazer: 'Lazer',
+};
+
+function inferTipoNovidade(item: NewsItem, categoria: FeedNovidadeCategoria): FeedNovidadeTipo {
+  const tags = new Set((item.tags ?? []).map((t) => t.toLowerCase()));
+  const cat = (item.category ?? '').toLowerCase();
+  if (tags.has('alert') || cat.includes('alerta')) return 'alerta';
+  if (tags.has('event') || cat.includes('evento')) return 'evento';
+  if (tags.has('notice') || cat.includes('aviso')) return 'aviso';
+  if (categoria === 'obras') return 'atualizacao';
+  return 'comunicado';
+}
+
+const TIPO_LABEL: Record<FeedNovidadeTipo, string> = {
+  comunicado: 'Comunicado',
+  alerta: 'Alerta',
+  atualizacao: 'Atualização',
+  evento: 'Evento',
+  aviso: 'Aviso',
+};
+
+export function newsItemToNovidade(item: NewsItem): FeedNovidade {
+  const categoria = mapNewsItemFeedCategory(item);
+  const dataPublicacao = item.publishedAt || item.createdAt;
+  const { relativa, formatada } = formatNewsPublicationDate(dataPublicacao);
+  const titulo = item.title?.trim() || 'Comunicado oficial';
+  const conteudo = item.content?.trim() || '';
+  const tipoNovidade = inferTipoNovidade(item, categoria);
+
+  return {
+    id: item.id,
+    titulo,
+    resumo: conteudo ? truncateText(conteudo, 180) : titulo,
+    conteudo: conteudo || titulo,
+    imagem: newsItemImageUri(item),
+    dataPublicacao,
+    dataRelativa: relativa,
+    dataFormatada: formatada,
+    categoria,
+    categoriaLabel: CATEGORIA_LABEL[categoria],
+    tipoNovidade,
+    tipoLabel: TIPO_LABEL[tipoNovidade],
+  };
+}
+
+export function sortNovidadesByDate(items: FeedNovidade[]): FeedNovidade[] {
+  return [...items].sort(
+    (a, b) => new Date(b.dataPublicacao).getTime() - new Date(a.dataPublicacao).getTime(),
+  );
 }
 
 export const NEWS_FEED_TAG = {

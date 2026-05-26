@@ -58,6 +58,7 @@ export default function RootLayout() {
           <Stack.Screen name="comerciante" options={{ headerShown: false }} />
           <Stack.Screen name="forum" options={{ headerShown: false }} />
           <Stack.Screen name="evento" options={{ headerShown: false }} />
+          <Stack.Screen name="novidade" options={{ headerShown: false }} />
         </Stack>
             <StatusBar style="dark" />
           </ThemeProvider>

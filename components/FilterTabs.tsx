@@ -14,6 +14,8 @@ interface FilterTabsProps {
   containerStyle?: ViewStyle;
   /** Menos padding e sem sombra forte — útil na aba Comunidade. */
   compact?: boolean;
+  /** Barra de filtros de ponta a ponta, sem margem lateral no container. */
+  edgeToEdge?: boolean;
 }
 
 export default function FilterTabs({
@@ -22,14 +24,24 @@ export default function FilterTabs({
   onSelect,
   containerStyle,
   compact,
+  edgeToEdge,
 }: FilterTabsProps) {
   return (
     <View style={[styles.filtersWrapper, compact && styles.filtersWrapperCompact, containerStyle]}>
-      <View style={[styles.filtersContainerBg, compact && styles.filtersContainerBgCompact]}>
+      <View
+        style={[
+          styles.filtersContainerBg,
+          compact && styles.filtersContainerBgCompact,
+          edgeToEdge && styles.filtersContainerBgEdgeToEdge,
+        ]}
+      >
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtersContent}
+          contentContainerStyle={[
+            styles.filtersContent,
+            edgeToEdge && styles.filtersContentEdgeToEdge,
+          ]}
         >
           {filters.map(({ key, label }) => {
             const isActive = key === active;
@@ -79,8 +91,18 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  filtersContainerBgEdgeToEdge: {
+    paddingHorizontal: 0,
+    borderRadius: 0,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
   filtersContent: {
     paddingHorizontal: 4,
+    gap: 8,
+  },
+  filtersContentEdgeToEdge: {
+    paddingHorizontal: 12,
     gap: 8,
   },
   filterButton: {

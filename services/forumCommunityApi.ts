@@ -30,6 +30,8 @@ export interface ForumCommunityListItem {
   followersCount: number;
   isFollowing: boolean;
   isMember: boolean;
+  /** Se o usuário logado pode criar post neste canal (regra no back: pública = seguidor/dono; privada = dono). */
+  canPost: boolean;
   myRole: ForumCommunityMemberRole | null;
   createdAt: string;
   creator?: ForumCommunityCreator;

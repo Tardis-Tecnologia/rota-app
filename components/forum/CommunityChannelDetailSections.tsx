@@ -246,6 +246,16 @@ export function CommunityChannelDetailHeader({
             value={formatCreatedAt(community.createdAt)}
           />
 
+          <MetaRow
+            icon="megaphone-outline"
+            label="Quem pode publicar"
+            value={
+              community.privacy === 'PRIVATE'
+                ? 'Somente o dono do canal'
+                : 'Quem seguir o canal (e o dono)'
+            }
+          />
+
           {cepFormatted ? (
             <MetaRow icon="mail-outline" label="CEP" value={cepFormatted} />
           ) : null}
@@ -284,13 +294,13 @@ export function CommunityChannelDetailHeader({
 interface CommunityFeedSectionHeaderProps {
   postsCount: number;
   canPost: boolean;
-  showMemberHint: boolean;
+  postHint?: string | null;
 }
 
 export function CommunityFeedSectionHeader({
   postsCount,
   canPost,
-  showMemberHint,
+  postHint,
 }: CommunityFeedSectionHeaderProps) {
   return (
     <View style={styles.feedHeader}>
@@ -312,12 +322,10 @@ export function CommunityFeedSectionHeader({
           </View>
         ) : null}
       </View>
-      {showMemberHint ? (
+      {postHint ? (
         <View style={styles.feedHintBox}>
           <Ionicons name="information-circle-outline" size={18} color="#0e7490" />
-          <Text style={styles.feedHintText}>
-            Seguir o canal permite acompanhar. Para publicar, participe da comunidade.
-          </Text>
+          <Text style={styles.feedHintText}>{postHint}</Text>
         </View>
       ) : null}
       <View style={styles.feedDivider} />

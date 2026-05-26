@@ -123,6 +123,7 @@ export default function ChatTab() {
     channelId?: string;
     channelType?: string;
     cid?: string;
+    draftMessage?: string;
   };
   const { addOrUpdateConversation, getConversation } = useConversations();
   const streamClientRef = useRef<StreamChat | null>(null);
@@ -675,6 +676,7 @@ export default function ChatTab() {
       onDeleteConversation={
         isStreamConversation && streamChannelInfo ? handleDeleteStreamConversation : undefined
       }
+      draftMessage={data.draftMessage}
     />
   );
 }

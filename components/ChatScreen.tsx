@@ -55,6 +55,8 @@ type ChatScreenProps = {
   /** Conversas Stream: mostrar ação para eliminar o canal (chama a API no pai). */
   showDeleteConversation?: boolean;
   onDeleteConversation?: () => Promise<void>;
+  /** Texto pré-preenchido no campo de envio (ex.: interesse em produto do marketplace). */
+  draftMessage?: string;
 };
 
 // Componente para mensagem animada
@@ -151,8 +153,9 @@ export default function ChatScreen({
   canSendMessages = true,
   showDeleteConversation = false,
   onDeleteConversation,
+  draftMessage,
 }: ChatScreenProps) {
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(draftMessage?.trim() ?? '');
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     if (initialMessages.length > 0) {

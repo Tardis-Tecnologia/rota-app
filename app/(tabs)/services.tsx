@@ -131,7 +131,7 @@ export default function ServicosScreen() {
       transport: '/PublicTransportation',
       education: '/EducationTab',
       jobs: '/JobsTab',
-      servicesPro: '/ServicesAndProfessionals',
+      servicesPro: '/guia',
       marketplace: '/marketplace',
     } as const;
 

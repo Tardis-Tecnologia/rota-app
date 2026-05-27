@@ -44,8 +44,9 @@ export default function RootLayout() {
           <Stack.Screen name="PublicTransportation" options={{ headerShown: false }} />
           <Stack.Screen
             name="ServicesAndProfessionals"
-            options={{ title: 'Serviços e Profissionais' }}
+            options={{ title: 'Serviços e Profissionais', headerShown: false }}
           />
+          <Stack.Screen name="guia" options={{ headerShown: false }} />
           <Stack.Screen name="EducationTab" options={{ headerShown: false }} />
           <Stack.Screen name="JobsTab" options={{ headerShown: false }} />
           <Stack.Screen name="JobDetailTab" options={{ headerShown: false }} />

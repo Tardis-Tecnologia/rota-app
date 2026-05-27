@@ -226,11 +226,27 @@ export default function ProviderProfile({ data }: { data: Profile }) {
             </View>
             <Text style={styles.aboutText}>{data.about}</Text>
 
-            {data.serviceArea ? (
+            {data.address ? (
               <>
                 <View style={styles.infoRow}>
                   <Ionicons name="location" size={22} color="#6D28D9" />
-                  <Text style={styles.infoLabel}>ATENDIMENTO</Text>
+                  <Text style={styles.infoLabel}>ENDEREÇO</Text>
+                </View>
+                <Text style={styles.infoValue}>{data.address}</Text>
+              </>
+            ) : null}
+
+            {data.serviceArea ? (
+              <>
+                <View style={styles.infoRow}>
+                  <Ionicons
+                    name={data.address ? 'map-outline' : 'location'}
+                    size={22}
+                    color="#6D28D9"
+                  />
+                  <Text style={styles.infoLabel}>
+                    {data.address ? 'ÁREA DE ATENDIMENTO' : 'LOCALIZAÇÃO'}
+                  </Text>
                 </View>
                 <Text style={styles.infoValue}>{data.serviceArea}</Text>
               </>

@@ -97,6 +97,11 @@ export type Profile = {
   image: string;
   review: number;
   about: string;
+  /** Coordenadas para mapa e ordenação por proximidade */
+  latitude?: number;
+  longitude?: number;
+  /** Endereço fixo (empresas) ou referência de localização */
+  address?: string;
   serviceArea?: string;
   hours?: string;
   phone?: string;

@@ -7,7 +7,8 @@ import { VisitanteLoginOverlay } from '@/components/VisitanteLoginOverlay';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserById, type UserSummary } from '@/services/authApi';
-import { createStreamChannel } from '@/services/streamChatApi';
+import { findOrCreateDirectStreamChannel } from '@/services/streamChatApi';
+import { streamAndUiDisplayName } from '@/utils/userDisplayName';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -83,10 +84,12 @@ export default function ForumAuthorScreen() {
     setChatLoading(true);
     setChatError(null);
     try {
-      const channel = await createStreamChannel({
-        memberIds: [user.id, userId],
-        name: displayName,
-        image: photoRaw || undefined,
+      const channel = await findOrCreateDirectStreamChannel({
+        currentUserId: user.id,
+        currentUserDisplayName: streamAndUiDisplayName(user) ?? user.name ?? 'Usuário',
+        peerUserId: userId,
+        peerName: displayName,
+        peerImage: photoRaw || undefined,
       });
       router.push({
         pathname: '/ChatTab',
@@ -106,7 +109,7 @@ export default function ForumAuthorScreen() {
     } finally {
       setChatLoading(false);
     }
-  }, [displayName, isSelf, isVisitante, photoRaw, user?.id, userId]);
+  }, [displayName, isSelf, isVisitante, photoRaw, user, userId]);
 
   if (loading) {
     return (

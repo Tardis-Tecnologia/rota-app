@@ -5,6 +5,10 @@ import { Conversation, useConversations } from '@/contexts/ConversationsContext'
 import { mockSystemConversations } from '@/data/mockConversations';
 import { getAuthToken, getWhitelabelHostId } from '@/services/authApi';
 import { ensureStreamChatConnected } from '@/services/streamChatApi';
+import {
+  effectiveStreamLastMessage,
+  getStreamChannelClearedMap,
+} from '@/services/streamChatClearStore';
 import { streamAndUiDisplayName } from '@/utils/userDisplayName';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -62,12 +66,13 @@ export default function MensagensScreen() {
   };
 
   const buildConversationFromChannel = useCallback(
-    (channel: any): StreamConversation => {
+    (channel: any, clearedAtByCid: Record<string, string>): StreamConversation => {
       const members = Object.values(channel.state?.members ?? {}) as Array<any>;
       const otherMember = members.find((member) => member?.user?.id !== user?.id);
       const channelName = channel?.data?.name || otherMember?.user?.name || `Canal ${channel.id || ''}`;
-      const lastMessage =
-        channel.state?.messages?.[channel.state.messages.length - 1]?.text || 'Sem mensagens ainda';
+      const clearedAtRaw = clearedAtByCid[channel.cid];
+      const clearedAt = clearedAtRaw ? new Date(clearedAtRaw) : null;
+      const lastMessage = effectiveStreamLastMessage(channel.state?.messages ?? [], clearedAt);
       const unreadCount = typeof channel.countUnread === 'function' ? channel.countUnread() : 0;
 
       return {
@@ -116,6 +121,8 @@ export default function MensagensScreen() {
       const displayName = streamAndUiDisplayName(user);
       const client = await ensureStreamChatConnected(user.id, displayName);
 
+      const clearedAtByCid = await getStreamChannelClearedMap(user.id);
+
       const hostId = getWhitelabelHostId();
       const channels = await client.queryChannels(
         {
@@ -130,7 +137,7 @@ export default function MensagensScreen() {
         },
       );
 
-      setConversations(channels.map(buildConversationFromChannel));
+      setConversations(channels.map((channel) => buildConversationFromChannel(channel, clearedAtByCid)));
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Não foi possível carregar as conversas.');
       setConversations([]);

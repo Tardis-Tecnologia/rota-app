@@ -52,9 +52,9 @@ type ChatScreenProps = {
   onSaveConversation?: (lastMessage: string) => void;
   onOptionSelect?: (option: ChatOption) => void; // Callback quando uma opção é selecionada
   canSendMessages?: boolean; // Para notificações que não permitem resposta
-  /** Conversas Stream: mostrar ação para eliminar o canal (chama a API no pai). */
-  showDeleteConversation?: boolean;
-  onDeleteConversation?: () => Promise<void>;
+  /** Conversas Stream: limpar mensagens mantendo a conversa no histórico. */
+  showClearConversation?: boolean;
+  onClearConversation?: () => Promise<void>;
   /** Texto pré-preenchido no campo de envio (ex.: interesse em produto do marketplace). */
   draftMessage?: string;
 };
@@ -151,12 +151,12 @@ export default function ChatScreen({
   onSaveConversation,
   onOptionSelect,
   canSendMessages = true,
-  showDeleteConversation = false,
-  onDeleteConversation,
+  showClearConversation = false,
+  onClearConversation,
   draftMessage,
 }: ChatScreenProps) {
   const [message, setMessage] = useState(draftMessage?.trim() ?? '');
-  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [clearLoading, setClearLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     if (initialMessages.length > 0) {
       return initialMessages;
@@ -216,25 +216,25 @@ export default function ChatScreen({
 
   const ui = chatCopy.screen;
 
-  const handleDeletePress = () => {
-    Alert.alert(ui.deleteConversationTitle, ui.deleteConversationMessage, [
+  const handleClearPress = () => {
+    Alert.alert(ui.clearConversationTitle, ui.clearConversationMessage, [
       { text: ui.cancel, style: 'cancel' },
       {
-        text: ui.delete,
+        text: ui.clear,
         style: 'destructive',
         onPress: () => {
           void (async () => {
-            if (!onDeleteConversation) return;
-            setDeleteLoading(true);
+            if (!onClearConversation) return;
+            setClearLoading(true);
             try {
-              await onDeleteConversation();
+              await onClearConversation();
             } catch (e) {
               Alert.alert(
                 ui.errorTitle,
-                e instanceof Error ? e.message : ui.deleteConversationError,
+                e instanceof Error ? e.message : ui.clearConversationError,
               );
             } finally {
-              setDeleteLoading(false);
+              setClearLoading(false);
             }
           })();
         },
@@ -306,14 +306,14 @@ export default function ChatScreen({
           </View>
         </View>
 
-        {showDeleteConversation && onDeleteConversation ? (
+        {showClearConversation && onClearConversation ? (
           <Pressable
-            onPress={handleDeletePress}
-            disabled={deleteLoading}
+            onPress={handleClearPress}
+            disabled={clearLoading}
             style={styles.headerDeleteButton}
-            accessibilityLabel={ui.deleteConversationA11y}
+            accessibilityLabel={ui.clearConversationA11y}
           >
-            {deleteLoading ? (
+            {clearLoading ? (
               <ActivityIndicator size="small" color={AppColors.status.error} />
             ) : (
               <Ionicons name="trash-outline" size={22} color={AppColors.status.error} />

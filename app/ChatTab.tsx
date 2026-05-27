@@ -4,7 +4,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useConversations } from '@/contexts/ConversationsContext';
 import { getChatResponseConfig } from '@/data/chatResponses';
 import { getApiBaseUrl, getAuthToken, getWhitelabelHostId } from '@/services/authApi';
-import { ensureStreamChatConnected, markStreamChannelRead } from '@/services/streamChatApi';
+import {
+  clearStreamChannelHistory,
+  ensureStreamChatConnected,
+  markStreamChannelRead,
+  streamChatUrl,
+} from '@/services/streamChatApi';
+import {
+  filterMessagesAfterClear,
+  getStreamChannelClearedAt,
+} from '@/services/streamChatClearStore';
 import { streamAndUiDisplayName } from '@/utils/userDisplayName';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -197,7 +206,12 @@ export default function ChatTab() {
         const ch = client.channel(streamChannelInfo.channelType, streamChannelInfo.channelId);
         const state = await ch.watch();
         if (cancelled) return;
-        setMessages(mapChannelStateToMessages(state, user.id));
+        const clearedAt = await getStreamChannelClearedAt(
+          user.id,
+          `${streamChannelInfo.channelType}:${streamChannelInfo.channelId}`,
+        );
+        const mapped = mapChannelStateToMessages(state, user.id);
+        setMessages(filterMessagesAfterClear(mapped, clearedAt));
         setIsStreamReady(true);
         void markStreamChannelRead(
           streamChannelInfo.channelType,
@@ -279,37 +293,16 @@ export default function ChatTab() {
     router.replace('/(tabs)/messages');
   };
 
-  const handleDeleteStreamConversation = useCallback(async () => {
-    if (!streamChannelInfo) return;
-    const authToken = getAuthToken();
-    if (!authToken) {
-      throw new Error(errCopy.sessionRequired);
-    }
-    const url = streamChatUrl(
-      `${encodeURIComponent(streamChannelInfo.channelType)}/${encodeURIComponent(streamChannelInfo.channelId)}`,
+  const handleClearStreamConversation = useCallback(async () => {
+    if (!streamChannelInfo || !user?.id) return;
+    await clearStreamChannelHistory(
+      streamChannelInfo.channelType,
+      streamChannelInfo.channelId,
+      user.id,
     );
-    const res = await fetch(url, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-        Accept: 'application/json',
-      },
-    });
-    if (!res.ok) {
-      const msg = await parseFailedFetchMessage(res, errCopy.deleteConversationFailed);
-      throw new Error(msg);
-    }
-    try {
-      const ch = streamClientRef.current?.channel(
-        streamChannelInfo.channelType,
-        streamChannelInfo.channelId,
-      );
-      await ch?.stopWatching?.();
-    } catch {
-      // ignorar
-    }
+    setMessages([]);
     router.replace('/(tabs)/messages');
-  }, [streamChannelInfo]);
+  }, [streamChannelInfo, user?.id]);
 
   const handleSaveConversation = (lastMessage: string) => {
     if (!isStreamConversation) {
@@ -672,9 +665,9 @@ export default function ChatTab() {
       canSendMessages={
         isStreamConversation ? isStreamReady : data.id !== 'comunicados-oficiais'
       }
-      showDeleteConversation={isStreamConversation && Boolean(streamChannelInfo)}
-      onDeleteConversation={
-        isStreamConversation && streamChannelInfo ? handleDeleteStreamConversation : undefined
+      showClearConversation={isStreamConversation && Boolean(streamChannelInfo)}
+      onClearConversation={
+        isStreamConversation && streamChannelInfo ? handleClearStreamConversation : undefined
       }
       draftMessage={data.draftMessage}
     />

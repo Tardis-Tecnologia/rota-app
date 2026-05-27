@@ -4,6 +4,7 @@ import {
   getWhitelabelHostId,
 } from './authApi';
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
+import { markStreamChannelCleared } from './streamChatClearStore';
 import { StreamChat } from 'stream-chat';
 
 const BASE_PATH = '/api/v1/stream-chat';
@@ -188,6 +189,107 @@ async function readErrorMessage(res: Response): Promise<string> {
   return res.statusText || `HTTP ${res.status}`;
 }
 
+function hashDirectMessagePair(userIdA: string, userIdB: string): string {
+  const pair = [userIdA, userIdB].sort().join('\0');
+  let hex = '';
+  for (let salt = 0; salt < 4; salt += 1) {
+    let hash = 2166136261;
+    const input = `${pair}:${salt}`;
+    for (let i = 0; i < input.length; i += 1) {
+      hash ^= input.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    hex += (hash >>> 0).toString(16).padStart(8, '0');
+  }
+  return hex;
+}
+
+/** ID determinístico para DM 1:1 (máx. 64 caracteres exigido pelo Stream). */
+export function buildDirectMessageChannelId(userIdA: string, userIdB: string): string {
+  const normalized = [userIdA, userIdB]
+    .map((id) => id.trim().replace(/-/g, '').toLowerCase())
+    .filter(Boolean)
+    .sort();
+  if (normalized.length !== 2) {
+    throw new Error('Participantes inválidos.');
+  }
+  const combined = `${normalized[0]}${normalized[1]}`;
+  if (combined.length <= 64) return combined;
+  return hashDirectMessagePair(normalized[0], normalized[1]);
+}
+
+export async function findOrCreateDirectStreamChannel(params: {
+  currentUserId: string;
+  currentUserDisplayName: string;
+  peerUserId: string;
+  peerName?: string;
+  peerImage?: string;
+}): Promise<ParsedStreamCid> {
+  const currentUserId = params.currentUserId.trim();
+  const peerUserId = params.peerUserId.trim();
+  if (!currentUserId || !peerUserId) {
+    throw new Error('Não foi possível identificar os participantes da conversa.');
+  }
+  if (currentUserId === peerUserId) {
+    throw new Error('Você não pode conversar consigo mesmo.');
+  }
+
+  await ensureStreamChatConnected(currentUserId, params.currentUserDisplayName);
+
+  try {
+    const page = await listStreamConversations({ limit: 50 });
+    const existing = page.conversations.find((item) => item.peerUserId === peerUserId);
+    if (existing?.cid?.trim()) {
+      return parseStreamCid(existing.cid.trim());
+    }
+  } catch {
+    // segue para criar/reutilizar canal
+  }
+
+  const channelPayload = {
+    memberIds: [currentUserId, peerUserId],
+    channelId: buildDirectMessageChannelId(currentUserId, peerUserId),
+    name: params.peerName?.trim() || undefined,
+    image: params.peerImage?.trim() || undefined,
+  };
+
+  try {
+    return await createStreamChannel(channelPayload);
+  } catch {
+    return createDirectStreamChannelViaSdk(currentUserId, params.currentUserDisplayName, peerUserId, {
+      peerName: params.peerName,
+      peerImage: params.peerImage,
+    });
+  }
+}
+
+async function createDirectStreamChannelViaSdk(
+  currentUserId: string,
+  currentUserDisplayName: string,
+  peerUserId: string,
+  options?: { peerName?: string; peerImage?: string },
+): Promise<ParsedStreamCid> {
+  const hostId = resolveStreamHostId();
+  const client = await ensureStreamChatConnected(currentUserId, currentUserDisplayName);
+  const channelId = buildDirectMessageChannelId(currentUserId, peerUserId);
+  const channel = client.channel('messaging', channelId, {
+    members: [currentUserId, peerUserId],
+    whitelabel_host_id: hostId,
+    ...(options?.peerName?.trim() ? { name: options.peerName.trim() } : {}),
+    ...(options?.peerImage?.trim() ? { image: options.peerImage.trim() } : {}),
+  });
+
+  try {
+    await channel.create();
+  } catch {
+    await channel.watch();
+  }
+
+  const cid = channel.cid?.trim();
+  if (!cid) throw new Error('Canal de chat criado sem identificador.');
+  return parseStreamCid(cid);
+}
+
 export async function createStreamChannel(
   body: Omit<CreateStreamChannelBody, 'hostId'> & { hostId?: string },
 ): Promise<ParsedStreamCid> {
@@ -239,4 +341,35 @@ export async function markStreamChannelRead(
   const url = `${getApiBaseUrl()}${BASE_PATH}/${encodeURIComponent(channelType)}/${encodeURIComponent(channelId)}/read?hostId=${encodeURIComponent(hid)}`;
   const res = await fetch(url, { method: 'POST', headers: authHeaders() });
   if (!res.ok) throw new Error(await readErrorMessage(res));
+}
+
+export function buildStreamChannelCid(channelType: string, channelId: string): string {
+  return `${channelType}:${channelId}`;
+}
+
+/**
+ * Limpa o histórico da conversa para o usuário logado, sem excluir o canal.
+ * Tenta POST .../clear no backend (credencial de servidor); se indisponível, usa marcação local.
+ */
+export async function clearStreamChannelHistory(
+  channelType: string,
+  channelId: string,
+  userId: string,
+): Promise<void> {
+  const cid = buildStreamChannelCid(channelType, channelId);
+  const hid = resolveStreamHostId();
+  const url = `${getApiBaseUrl()}${BASE_PATH}/${encodeURIComponent(channelType)}/${encodeURIComponent(channelId)}/clear?hostId=${encodeURIComponent(hid)}`;
+
+  try {
+    const res = await fetch(url, { method: 'POST', headers: authHeaders() });
+    if (!res.ok && res.status !== 404 && res.status !== 405) {
+      throw new Error(await readErrorMessage(res));
+    }
+  } catch (e) {
+    if (!(e instanceof TypeError)) {
+      throw e instanceof Error ? e : new Error('Não foi possível limpar a conversa.');
+    }
+  }
+
+  await markStreamChannelCleared(userId, cid);
 }

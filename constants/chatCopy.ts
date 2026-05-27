@@ -14,7 +14,7 @@ export const chatCopy = {
     noUser: 'Sem usuário',
     streamTokenFailed: (status: number) => `Token Stream falhou (${status})`,
     sessionRequired: 'É necessário iniciar sessão.',
-    deleteConversationFailed: 'Não foi possível eliminar a conversa.',
+    clearConversationFailed: 'Não foi possível limpar a conversa.',
     handoffOpenFailedFallback: 'Não foi possível abrir o atendimento. Tente novamente mais tarde.',
   },
 
@@ -47,16 +47,17 @@ export const chatCopy = {
   },
 
   screen: {
-    deleteConversationTitle: 'Eliminar conversa',
-    deleteConversationMessage: 'A conversa deixa de aparecer na sua lista. Deseja continuar?',
+    clearConversationTitle: 'Limpar conversa',
+    clearConversationMessage:
+      'As mensagens serão apagadas, mas a conversa continuará no histórico. Deseja continuar?',
     cancel: 'Cancelar',
-    delete: 'Eliminar',
+    clear: 'Limpar',
     errorTitle: 'Erro',
-    deleteConversationError: 'Não foi possível eliminar a conversa.',
+    clearConversationError: 'Não foi possível limpar a conversa.',
     inputPlaceholder: 'Digite sua mensagem...',
     online: 'Online',
     offline: 'Offline',
-    deleteConversationA11y: 'Eliminar conversa',
+    clearConversationA11y: 'Limpar conversa',
   },
 
   flows: {

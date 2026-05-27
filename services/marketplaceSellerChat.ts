@@ -1,4 +1,4 @@
-import { createStreamChannel } from '@/services/streamChatApi';
+import { findOrCreateDirectStreamChannel } from '@/services/streamChatApi';
 import { buildMarketplaceInterestMessage } from '@/utils/marketplaceChat';
 
 export interface OpenMarketplaceSellerChatParams {
@@ -21,7 +21,7 @@ export interface MarketplaceChatNavigationPayload {
 }
 
 export async function prepareMarketplaceSellerChat(
-  params: OpenMarketplaceSellerChatParams,
+  params: OpenMarketplaceSellerChatParams & { buyerDisplayName?: string },
 ): Promise<MarketplaceChatNavigationPayload> {
   const sellerId = params.sellerId.trim();
   const buyerUserId = params.buyerUserId.trim();
@@ -33,10 +33,12 @@ export async function prepareMarketplaceSellerChat(
   }
 
   const sellerName = params.sellerName.trim() || 'Anunciante';
-  const channel = await createStreamChannel({
-    memberIds: [buyerUserId, sellerId],
-    name: sellerName,
-    image: params.sellerImage?.trim() || undefined,
+  const channel = await findOrCreateDirectStreamChannel({
+    currentUserId: buyerUserId,
+    currentUserDisplayName: params.buyerDisplayName?.trim() || 'Usuário',
+    peerUserId: sellerId,
+    peerName: sellerName,
+    peerImage: params.sellerImage?.trim() || undefined,
   });
 
   return {

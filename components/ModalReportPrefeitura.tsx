@@ -1,4 +1,5 @@
 import { AppColors } from '@/constants/theme';
+import { createUrbanReport, type UrbanReportCategory } from '@/services/urbanReportsApi';
 import { formatBrazilPhoneInput } from '@/utils/phoneMask';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -42,6 +43,24 @@ const CATEGORIAS = [
   { id: 'outros', label: 'Outros' },
 ];
 
+function mapCategoriaToUrbanReportCategory(categoriaId: string): UrbanReportCategory {
+  switch (categoriaId) {
+    case 'iluminacao':
+      return 'LIGHTING';
+    case 'via':
+      return 'STREET';
+    case 'limpeza':
+      return 'WASTE';
+    case 'transito':
+      return 'TRAFFIC';
+    case 'parques':
+      return 'OTHER';
+    case 'outros':
+    default:
+      return 'OTHER';
+  }
+}
+
 export function ModalReportPrefeitura({
   visible,
   onClose,
@@ -68,6 +87,7 @@ export function ModalReportPrefeitura({
   const [categoriaId, setCategoriaId] = React.useState('');
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
   const [isSubmitted, setIsSubmitted] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
 
   const successOpacity = useSharedValue(0);
   const successScale = useSharedValue(0.8);
@@ -104,9 +124,48 @@ export function ModalReportPrefeitura({
     }
   }, [isSubmitted]);
 
-  const handleSubmit = () => {
-    setIsSubmitted(true);
-  };
+  const handleSubmit = useCallback(async () => {
+    if (submitting) return;
+    const title = assunto.trim();
+    const desc = descricao.trim();
+    if (!title) {
+      Alert.alert('Assunto obrigatório', 'Informe um assunto para o chamado.');
+      return;
+    }
+    if (!categoriaId.trim()) {
+      Alert.alert('Categoria obrigatória', 'Selecione uma categoria para o chamado.');
+      return;
+    }
+    if (!desc) {
+      Alert.alert('Descrição obrigatória', 'Descreva o problema com o máximo de detalhes possível.');
+      return;
+    }
+
+    const contactName = nome.trim();
+    const contactPhone = telefone.trim();
+    const contactLine =
+      contactName || contactPhone ? `\n\nContato: ${[contactName, contactPhone].filter(Boolean).join(' - ')}` : '';
+
+    setSubmitting(true);
+    try {
+      await createUrbanReport(
+        {
+          title,
+          description: `${desc}${contactLine}`,
+          category: mapCategoriaToUrbanReportCategory(categoriaId),
+        },
+        { imageUri: imagem },
+      );
+      setIsSubmitted(true);
+    } catch (e) {
+      Alert.alert(
+        'Não foi possível enviar',
+        e instanceof Error ? e.message : 'Tente novamente em instantes.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }, [assunto, categoriaId, descricao, imagem, nome, submitting, telefone]);
 
   const handleClose = () => {
     setIsSubmitted(false);
@@ -346,10 +405,20 @@ export function ModalReportPrefeitura({
               <TouchableOpacity
                 style={styles.submitButton}
                 onPress={handleSubmit}
+                disabled={submitting}
                 activeOpacity={0.85}
               >
-                <Ionicons name="paper-plane" size={20} color="#FFFFFF" />
-                <Text style={styles.submitButtonText}>Enviar relatório</Text>
+                {submitting ? (
+                  <>
+                    <Ionicons name="time-outline" size={20} color="#FFFFFF" />
+                    <Text style={styles.submitButtonText}>Enviando...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="paper-plane" size={20} color="#FFFFFF" />
+                    <Text style={styles.submitButtonText}>Enviar relatório</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </ScrollView>
           ) : (

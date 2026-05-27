@@ -1,14 +1,14 @@
-import GuiaPendingProviderDetail from '@/components/guia/GuiaPendingProviderDetail';
+import GuiaMyProviderStatus from '@/components/guia/GuiaMyProviderStatus';
+import GuiaPlaceDetail from '@/components/guia/GuiaPlaceDetail';
 import ProviderProfile from '@/components/ProviderProfile';
-import { getGuiaProfileById } from '@/services/guiaCatalog';
-import {
-  getGuiaProviderRegistrationById,
-  listGuiaProviderRegistrations,
-} from '@/services/guiaPendingProvidersStore';
+import { getGuiaPlaceById } from '@/services/guiaPlacesCatalog';
+import { getServiceProviderById } from '@/services/serviceProvidersApi';
 import { useAuth } from '@/contexts/AuthContext';
+import { serviceProviderResponseToProfile } from '@/utils/serviceProviderMappers';
+import type { ServiceProviderResponse } from '@/types/serviceProvider';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -17,41 +17,44 @@ export default function GuiaDetailScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const id = String(params.id ?? '').trim();
   const [loading, setLoading] = useState(true);
-  const [pendingRegistration, setPendingRegistration] =
-    useState<Awaited<ReturnType<typeof getGuiaProviderRegistrationById>>>(null);
-  const [profile, setProfile] = useState<ReturnType<typeof getGuiaProfileById>>(null);
+  const [provider, setProvider] = useState<ServiceProviderResponse | null>(null);
+  const [mapPlace, setMapPlace] = useState<ReturnType<typeof getGuiaPlaceById>>(null);
+  const [notFound, setNotFound] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!id) {
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      try {
-        const [registrations, stored] = await Promise.all([
-          listGuiaProviderRegistrations(),
-          getGuiaProviderRegistrationById(id),
-        ]);
-        if (cancelled) return;
+  const load = useCallback(async () => {
+    if (!id) {
+      setLoading(false);
+      setNotFound(true);
+      return;
+    }
 
-        if (stored?.status === 'PENDING' && stored.ownerUserId === user?.id) {
-          setPendingRegistration(stored);
-          setProfile(null);
-          return;
-        }
+    setLoading(true);
+    setNotFound(false);
+    setProvider(null);
+    setMapPlace(null);
 
-        setPendingRegistration(null);
-        setProfile(getGuiaProfileById(id, registrations, user?.id));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [id, user?.id]);
+    const cachedPlace = getGuiaPlaceById(id);
+    if (cachedPlace) {
+      setMapPlace(cachedPlace);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const data = await getServiceProviderById(id);
+      setProvider(data);
+    } catch {
+      setNotFound(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   if (!id) {
     return (
@@ -69,11 +72,33 @@ export default function GuiaDetailScreen() {
     );
   }
 
-  if (pendingRegistration) {
-    return <GuiaPendingProviderDetail registration={pendingRegistration} />;
+  if (mapPlace) {
+    return <GuiaPlaceDetail item={mapPlace} />;
   }
 
-  if (!profile) {
+  if (provider) {
+    const isOwner = provider.isOwner || provider.userId === user?.id;
+    if (isOwner && provider.status !== 'APPROVED') {
+      return <GuiaMyProviderStatus providerId={provider.id} initial={provider} />;
+    }
+
+    if (provider.status === 'APPROVED' || isOwner) {
+      return (
+        <SafeAreaView style={styles.safe} edges={['top']}>
+          <ProviderProfile data={serviceProviderResponseToProfile(provider)} />
+        </SafeAreaView>
+      );
+    }
+
+    return (
+      <View style={styles.center}>
+        <Ionicons name="person-outline" size={44} color="#94a3b8" />
+        <Text style={styles.errorText}>Prestador não encontrado.</Text>
+      </View>
+    );
+  }
+
+  if (notFound) {
     return (
       <View style={styles.center}>
         <Ionicons name="person-outline" size={44} color="#94a3b8" />
@@ -82,11 +107,7 @@ export default function GuiaDetailScreen() {
     );
   }
 
-  return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ProviderProfile data={profile} />
-    </SafeAreaView>
-  );
+  return null;
 }
 
 const styles = StyleSheet.create({

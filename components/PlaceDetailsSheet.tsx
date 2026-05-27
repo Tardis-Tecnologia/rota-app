@@ -3,13 +3,13 @@ import { explorePontoCommunityId } from '@/services/forumCommunityApi';
 import { distanceMeters } from '@/services/placesService';
 import { PontoInteresse } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
-import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
+import * as Linking from 'expo-linking';
+import { navigateToDirections } from '@/utils/navigateDirections';
 import React from 'react';
 import {
   Image,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -47,12 +47,14 @@ export default function PlaceDetailsSheet({
   const communityId = explorePontoCommunityId(ponto);
 
   const openDirections = () => {
-    const { latitude, longitude } = ponto;
-    const url =
-      Platform.OS === 'ios'
-        ? `maps://app?daddr=${latitude},${longitude}`
-        : `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
-    void Linking.openURL(url);
+    onClose();
+    navigateToDirections({
+      destLat: ponto.latitude,
+      destLng: ponto.longitude,
+      destName: ponto.titulo,
+      originLat: userLat,
+      originLng: userLng,
+    });
   };
 
   const callPhone = () => {

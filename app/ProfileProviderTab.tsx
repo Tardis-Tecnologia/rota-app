@@ -1,5 +1,4 @@
 import type { Profile } from '@/types';
-import { getGuiaProfileById } from '@/services/guiaCatalog';
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ProviderProfile from '../components/ProviderProfile';
@@ -20,10 +19,6 @@ export default function ProfileProviderRoute() {
   }
 
   if (!data) {
-    const fromCatalog = profileId ? getGuiaProfileById(profileId) : null;
-    if (fromCatalog) {
-      return <Redirect href={`/guia/${fromCatalog.id}`} />;
-    }
     return null;
   }
 

@@ -2,14 +2,13 @@ import type { CargoPrestadorId } from '@/constants/providerCategories';
 import { CARGOS_PRESTADORES } from '@/constants/providerCategories';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { submitServiceProviderRegistration } from '@/services/guiaPrestadorCadastroApi';
-import { saveGuiaProviderRegistration } from '@/services/guiaPendingProvidersStore';
+import { createServiceProvider } from '@/services/serviceProvidersApi';
 import {
-  buildAddressFromViaCep,
-  buildLocationNameFromViaCep,
-  cepDigitsOnly,
-  fetchAddressByCep,
-  formatCepDisplay,
+    buildAddressFromViaCep,
+    buildLocationNameFromViaCep,
+    cepDigitsOnly,
+    fetchAddressByCep,
+    formatCepDisplay,
 } from '@/services/viacep';
 import { formatCnpjInput } from '@/utils/cnpjMask';
 import { GUIA_DEFAULT_CENTER } from '@/utils/guiaGeo';
@@ -19,17 +18,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -231,18 +230,22 @@ export default function CadastroPrestadorScreen() {
       businessHours: businessHours.trim() || undefined,
     };
 
+    const cnpjDigits = cnpj.replace(/\D/g, '');
+    const phoneDigits = phone.replace(/\D/g, '');
+
     setLoading(true);
     try {
-      try {
-        await submitServiceProviderRegistration(payload);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : '';
-        if (msg !== 'GUIA_CADASTRO_ENDPOINT_INDISPONIVEL') {
-          throw e;
-        }
-      }
-
-      await saveGuiaProviderRegistration(user.id, payload, {
+      await createServiceProvider({
+        type: 'INDIVIDUAL',
+        name: payload.displayName,
+        category: payload.professionCustom,
+        cnpj: cnpjDigits,
+        phone: phoneDigits,
+        email: payload.email,
+        description: payload.description,
+        cep: cepDigitsOnly(cep),
+        locationName: payload.locationName,
+        locationAddress: payload.locationAddress,
         latitude: GUIA_DEFAULT_CENTER.latitude,
         longitude: GUIA_DEFAULT_CENTER.longitude,
       });

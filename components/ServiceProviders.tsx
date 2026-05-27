@@ -1,25 +1,38 @@
 import { CATEGORIES_WITH_ALL } from '@/constants/providerCategories';
 import { AppColors } from '@/constants/theme';
-import { PROVIDERS } from '@/data/providers';
+import { listPublicServiceProviders } from '@/services/serviceProvidersApi';
+import type { Profile } from '@/types';
+import { serviceProviderListItemToGuia } from '@/utils/serviceProviderMappers';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import {
-  FlatList,
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
+    FlatList,
+    Image,
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 
 const categories = CATEGORIES_WITH_ALL;
-const providers = PROVIDERS;
 
 export default function ServiceProviders() {
   const [activeCategory, setActiveCategory] = useState('todos');
-  
+  const [providers, setProviders] = useState<Profile[]>([]);
+
+  useEffect(() => {
+    void listPublicServiceProviders()
+      .then((items) =>
+        items
+          .filter((item) => item.status === 'APPROVED')
+          .map(serviceProviderListItemToGuia)
+          .filter((item): item is NonNullable<typeof item> => item != null),
+      )
+      .then(setProviders)
+      .catch(() => setProviders([]));
+  }, []);
 
   const filteredProviders =
     activeCategory === 'todos'
@@ -84,14 +97,7 @@ export default function ServiceProviders() {
 
                 <Pressable
                   style={styles.profileButton}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/ProfileProviderTab',
-                      params: {
-                        provider: JSON.stringify(provider),
-                      },
-                    })
-                  }
+                  onPress={() => router.push(`/guia/${provider.id}`)}
                 >
                   <Text style={styles.profileButtonText}>Ver Perfil</Text>
                 </Pressable>

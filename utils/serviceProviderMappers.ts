@@ -1,0 +1,110 @@
+import type { GuiaListItem } from '@/services/guiaCatalog';
+import type {
+  ServiceProviderListItem,
+  ServiceProviderResponse,
+  ServiceProviderStatus,
+} from '@/types/serviceProvider';
+import type { Profile } from '@/types';
+import { GUIA_DEFAULT_CENTER } from '@/utils/guiaGeo';
+
+export type GuiaProviderApprovalStatus = ServiceProviderStatus;
+
+function parseCoord(value?: string | null, fallback?: number): number {
+  if (value == null || value === '') return fallback ?? NaN;
+  const n = Number.parseFloat(String(value));
+  return Number.isFinite(n) ? n : (fallback ?? NaN);
+}
+
+export function serviceProviderListItemToGuia(
+  item: ServiceProviderListItem,
+): GuiaListItem | null {
+  let latitude = parseCoord(item.latitude);
+  let longitude = parseCoord(item.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    if (item.status === 'APPROVED') return null;
+    latitude = GUIA_DEFAULT_CENTER.latitude;
+    longitude = GUIA_DEFAULT_CENTER.longitude;
+  }
+
+  return {
+    id: item.id,
+    type: 'PROVIDER',
+    name: item.name,
+    categoryId: item.category,
+    rating: Number.parseFloat(item.ratingAverage) || 0,
+    review: item.ratingCount ?? 0,
+    image: item.imagePublicUrl?.trim() ?? '',
+    about: '',
+    latitude,
+    longitude,
+    address: item.locationName ?? undefined,
+    serviceArea: item.locationName ?? undefined,
+    reviews: [],
+    gallery: [],
+    services: [],
+    categoryLabel: item.category,
+    approvalStatus: item.status,
+  };
+}
+
+export function serviceProviderResponseToProfile(
+  provider: ServiceProviderResponse,
+): Profile {
+  const item = serviceProviderListItemToGuia({
+    id: provider.id,
+    hostId: provider.hostId,
+    type: provider.type,
+    name: provider.name,
+    category: provider.category,
+    cnpj: provider.cnpj,
+    status: provider.status,
+    imagePublicUrl: provider.imagePublicUrl,
+    ratingAverage: provider.ratingAverage,
+    ratingCount: provider.ratingCount,
+    locationName: provider.locationName,
+    latitude: provider.latitude,
+    longitude: provider.longitude,
+  });
+
+  return {
+    id: provider.id,
+    type: 'PROVIDER',
+    name: provider.name,
+    categoryId: provider.category,
+    rating: Number.parseFloat(provider.ratingAverage) || 0,
+    review: provider.ratingCount ?? 0,
+    image: provider.imagePublicUrl?.trim() ?? '',
+    about: provider.description?.trim() ?? '',
+    latitude: item?.latitude ?? GUIA_DEFAULT_CENTER.latitude,
+    longitude: item?.longitude ?? GUIA_DEFAULT_CENTER.longitude,
+    address: provider.locationAddress?.trim() ?? provider.locationName?.trim(),
+    serviceArea: provider.locationName?.trim(),
+    phone: provider.phone,
+    email: provider.email?.trim() ?? undefined,
+    reviews: [],
+    gallery: provider.imagePublicUrl ? [provider.imagePublicUrl] : [],
+    services: [],
+  };
+}
+
+export function mergeGuiaProviderLists(
+  publicItems: ServiceProviderListItem[],
+  myItems: ServiceProviderListItem[],
+  currentUserId?: string | null,
+): GuiaListItem[] {
+  const byId = new Map<string, GuiaListItem>();
+
+  for (const item of publicItems) {
+    const mapped = serviceProviderListItemToGuia(item);
+    if (mapped) byId.set(item.id, mapped);
+  }
+
+  if (currentUserId) {
+    for (const item of myItems) {
+      const mapped = serviceProviderListItemToGuia(item);
+      if (mapped) byId.set(item.id, mapped);
+    }
+  }
+
+  return [...byId.values()];
+}

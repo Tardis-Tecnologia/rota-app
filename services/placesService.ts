@@ -1,5 +1,9 @@
 import { getApiBaseUrl } from '@/services/authApi';
 
+const PLACES_FALLBACK_API_BASE_URL =
+  process.env.EXPO_PUBLIC_PLACES_API_BASE_URL?.replace(/\/$/, '') ||
+  'https://rota-back-production.up.railway.app';
+
 export type NearbyCategory =
   | 'restaurant'
   | 'fast_food'
@@ -30,14 +34,33 @@ export type NearbyPlace = {
 
 export const NEARBY_PLACES_RADIUS_METERS = 7000;
 
-export async function getNearbyPlaces(params: {
+type NearbyPlacesParams = {
   lat: number;
   lon: number;
   category?: NearbyCategory;
   radius?: number;
   limit?: number;
-}): Promise<NearbyPlace[]> {
-  const url = new URL('/api/v1/places/nearby', getApiBaseUrl());
+};
+
+function shouldFallbackToPlacesApi(error: unknown, baseUrl: string): boolean {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  const isLocalBase =
+    baseUrl.includes('192.168.') || baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1');
+  return (
+    isLocalBase &&
+    (message.includes('overpass') ||
+      message.includes('502') ||
+      message.includes('bad gateway') ||
+      message.includes('network request failed') ||
+      message.includes('failed to fetch'))
+  );
+}
+
+async function requestNearbyPlaces(
+  baseUrl: string,
+  params: NearbyPlacesParams,
+): Promise<NearbyPlace[]> {
+  const url = new URL('/api/v1/places/nearby', baseUrl);
   url.searchParams.set('lat', String(params.lat));
   url.searchParams.set('lon', String(params.lon));
   if (params.category) url.searchParams.set('category', params.category);
@@ -50,9 +73,51 @@ export async function getNearbyPlaces(params: {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
+    try {
+      const j = JSON.parse(text) as { message?: string };
+      if (j?.message) throw new Error(j.message);
+    } catch (e) {
+      if (e instanceof Error && e.message !== text) throw e;
+    }
     throw new Error(text || `places/nearby failed (${res.status})`);
   }
-  return (await res.json()) as NearbyPlace[];
+  const raw = await res.json();
+  return Array.isArray(raw) ? (raw as NearbyPlace[]) : [];
+}
+
+export async function getNearbyPlaces(params: NearbyPlacesParams): Promise<NearbyPlace[]> {
+  const primaryBaseUrl = getApiBaseUrl();
+  try {
+    return await requestNearbyPlaces(primaryBaseUrl, params);
+  } catch (error) {
+    if (
+      PLACES_FALLBACK_API_BASE_URL !== primaryBaseUrl &&
+      shouldFallbackToPlacesApi(error, primaryBaseUrl)
+    ) {
+      return requestNearbyPlaces(PLACES_FALLBACK_API_BASE_URL, params);
+    }
+    throw error;
+  }
+}
+
+export async function searchNearbyPlacesWithRetry(
+  type: string,
+  position: [number, number],
+  options?: { radius?: number; limit?: number; retries?: number },
+): Promise<NearbyPlace[]> {
+  const retries = options?.retries ?? 2;
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await searchNearbyPlaces(type, position, options?.radius, options?.limit ?? 20);
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+      }
+    }
+  }
+  throw lastError ?? new Error('Erro ao buscar locais');
 }
 
 export const searchNearbyPlaces = async (

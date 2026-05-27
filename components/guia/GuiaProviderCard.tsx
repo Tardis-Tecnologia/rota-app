@@ -1,5 +1,6 @@
+import { STATUS_UI } from '@/constants/serviceProviderStatus';
 import { AppColors } from '@/constants/theme';
-import type { GuiaListItem } from '@/services/guiaCatalog';
+import { isNonApprovedProviderStatus, type GuiaListItem } from '@/services/guiaCatalog';
 import { formatDistanceMeters } from '@/utils/guiaGeo';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
@@ -13,7 +14,10 @@ interface GuiaProviderCardProps {
 export default function GuiaProviderCard({ item, onPress }: GuiaProviderCardProps) {
   const distanceLabel =
     item.distanceMeters != null ? formatDistanceMeters(item.distanceMeters) : null;
-  const isPending = item.approvalStatus === 'PENDING';
+  const isPending =
+    item.type === 'PROVIDER' && isNonApprovedProviderStatus(item.approvalStatus);
+  const statusLabel =
+    item.approvalStatus && isPending ? STATUS_UI[item.approvalStatus].label : null;
 
   return (
     <TouchableOpacity
@@ -39,10 +43,10 @@ export default function GuiaProviderCard({ item, onPress }: GuiaProviderCardProp
         <Text style={[styles.name, isPending && styles.textPending]} numberOfLines={1}>
           {item.name}
         </Text>
-        {isPending ? (
+        {isPending && statusLabel ? (
           <View style={styles.pendingBadge}>
             <Ionicons name="time-outline" size={12} color="#64748b" />
-            <Text style={styles.pendingBadgeText}>Aguardando aprovação</Text>
+            <Text style={styles.pendingBadgeText}>{statusLabel}</Text>
           </View>
         ) : (
           <View style={styles.ratingRow}>

@@ -2,16 +2,14 @@ import GuiaProviderCard from '@/components/guia/GuiaProviderCard';
 import MapLibreMapaView, { type MapLibreMapaViewRef } from '@/components/MapLibreMapaView';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGuiaCompanies } from '@/hooks/useGuiaCompanies';
+import { useGuiaProviders } from '@/hooks/useGuiaProviders';
 import {
-  filterAndSortGuia,
-  guiaProfileToPonto,
-  type GuiaListItem,
-  type GuiaTab,
+    filterAndSortGuia,
+    guiaProfileToPonto,
+    type GuiaListItem,
+    type GuiaTab,
 } from '@/services/guiaCatalog';
-import {
-  listGuiaProviderRegistrations,
-  type StoredGuiaProviderRegistration,
-} from '@/services/guiaPendingProvidersStore';
 import { ensureForegroundLocationPermission } from '@/services/locationPermission';
 import type { Localizacao, PontoInteresse } from '@/types';
 import { GUIA_DEFAULT_CENTER } from '@/utils/guiaGeo';
@@ -20,17 +18,17 @@ import * as Location from 'expo-location';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -44,27 +42,44 @@ export default function GuiaIndexScreen() {
   );
   const [locating, setLocating] = useState(false);
   const [mapRegion, setMapRegion] = useState<Localizacao>(GUIA_DEFAULT_CENTER);
-  const [registrations, setRegistrations] = useState<StoredGuiaProviderRegistration[]>([]);
   const mapRef = useRef<MapLibreMapaViewRef | null>(null);
 
-  const loadRegistrations = useCallback(async () => {
-    const items = await listGuiaProviderRegistrations();
-    setRegistrations(items);
-  }, []);
+  const providersEnabled = activeTab === 'prestadores';
+  const companiesEnabled = activeTab === 'empresas';
+
+  const {
+    items: providerItems,
+    loading: providersLoading,
+    error: providersError,
+    reload: reloadProviders,
+  } = useGuiaProviders(providersEnabled, user?.id);
+
+  const {
+    items: companyItems,
+    loading: companiesLoading,
+    loadingMore,
+    loadingCategoryLabel,
+    error: companiesError,
+    hasMore: companiesHasMore,
+    loadMore: loadMoreCompanies,
+    reload: reloadCompanies,
+  } = useGuiaCompanies(companiesEnabled, mapRegion, searchQuery);
+
+  const catalogItems = activeTab === 'prestadores' ? providerItems : companyItems;
+  const listLoading = activeTab === 'prestadores' ? providersLoading : companiesLoading;
+  const listError = activeTab === 'prestadores' ? providersError : companiesError;
+  const searchOrigin = activeTab === 'empresas' ? mapRegion : userCoords;
 
   useFocusEffect(
     useCallback(() => {
-      void loadRegistrations();
-    }, [loadRegistrations]),
+      if (activeTab === 'prestadores') void reloadProviders();
+      else void reloadCompanies();
+    }, [activeTab, reloadProviders, reloadCompanies]),
   );
 
   const results = useMemo(
-    () =>
-      filterAndSortGuia(activeTab, searchQuery, userCoords, {
-        currentUserId: user?.id,
-        registrations,
-      }),
-    [activeTab, searchQuery, userCoords, user?.id, registrations],
+    () => filterAndSortGuia(activeTab, searchQuery, searchOrigin, catalogItems),
+    [activeTab, searchQuery, searchOrigin, catalogItems],
   );
 
   const mapPoints: PontoInteresse[] = useMemo(
@@ -112,18 +127,31 @@ export default function GuiaIndexScreen() {
 
   const handleMyLocation = () => {
     if (userCoords) {
+      const region = {
+        ...userCoords,
+        latitudeDelta: 0.04,
+        longitudeDelta: 0.04,
+      };
+      setMapRegion(region);
       mapRef.current?.animateToRegion(
-        {
-          ...userCoords,
-          latitudeDelta: 0.04,
-          longitudeDelta: 0.04,
-        },
+        region,
         320,
       );
       return;
     }
     void loadUserLocation();
   };
+
+  const handleMapRegionChangeComplete = useCallback((region: Localizacao) => {
+    setMapRegion((current) => {
+      const moved =
+        Math.abs(current.latitude - region.latitude) > 0.0001 ||
+        Math.abs(current.longitude - region.longitude) > 0.0001 ||
+        Math.abs(current.latitudeDelta - region.latitudeDelta) > 0.0001 ||
+        Math.abs(current.longitudeDelta - region.longitudeDelta) > 0.0001;
+      return moved ? region : current;
+    });
+  }, []);
 
   const openDetail = (item: GuiaListItem) => {
     router.push({
@@ -167,6 +195,7 @@ export default function GuiaIndexScreen() {
         localizacao={mapRegion}
         pontos={mapPoints}
         getMarkerColor={() => '#7C3AED'}
+        onRegionChangeComplete={handleMapRegionChangeComplete}
         onMarkerPress={handleMarkerPress}
       />
     );
@@ -309,7 +338,22 @@ export default function GuiaIndexScreen() {
           showsVerticalScrollIndicator
           keyboardShouldPersistTaps="handled"
         >
-          {results.length === 0 ? (
+          {listLoading && results.length === 0 ? (
+            <View style={styles.loadingCard}>
+              <ActivityIndicator size="large" color="#7C3AED" />
+              <Text style={styles.loadingText}>
+                {activeTab === 'empresas' && loadingCategoryLabel
+                  ? `Buscando ${loadingCategoryLabel.toLowerCase()}…`
+                  : 'Carregando…'}
+              </Text>
+            </View>
+          ) : listError && results.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Ionicons name="cloud-offline-outline" size={48} color={AppColors.gray[400]} />
+              <Text style={styles.emptyTitle}>Não foi possível carregar</Text>
+              <Text style={styles.emptyDescription}>{listError}</Text>
+            </View>
+          ) : results.length === 0 ? (
             <View style={styles.emptyCard}>
               <Ionicons name="search-outline" size={48} color={AppColors.gray[400]} />
               <Text style={styles.emptyTitle}>Nenhum resultado</Text>
@@ -318,9 +362,25 @@ export default function GuiaIndexScreen() {
               </Text>
             </View>
           ) : (
-            results.map((item) => (
-              <GuiaProviderCard key={item.id} item={item} onPress={() => openDetail(item)} />
-            ))
+            <>
+              {results.map((item) => (
+                <GuiaProviderCard key={item.id} item={item} onPress={() => openDetail(item)} />
+              ))}
+              {activeTab === 'empresas' && companiesHasMore ? (
+                <TouchableOpacity
+                  style={styles.loadMoreBtn}
+                  onPress={() => void loadMoreCompanies()}
+                  disabled={loadingMore}
+                  activeOpacity={0.8}
+                >
+                  {loadingMore ? (
+                    <ActivityIndicator size="small" color="#7C3AED" />
+                  ) : (
+                    <Text style={styles.loadMoreText}>Carregar mais</Text>
+                  )}
+                </TouchableOpacity>
+              ) : null}
+            </>
           )}
         </ScrollView>
       </View>
@@ -519,5 +579,31 @@ const styles = StyleSheet.create({
     color: AppColors.gray[500],
     textAlign: 'center',
     lineHeight: 20,
+  },
+  loadingCard: {
+    padding: 32,
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppColors.gray[500],
+    textAlign: 'center',
+  },
+  loadMoreBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    marginTop: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ddd6fe',
+    backgroundColor: '#faf5ff',
+  },
+  loadMoreText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6d28d9',
   },
 });

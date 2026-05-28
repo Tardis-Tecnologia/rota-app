@@ -1,6 +1,7 @@
 import GuiaMyProviderStatus from '@/components/guia/GuiaMyProviderStatus';
 import GuiaPlaceDetail from '@/components/guia/GuiaPlaceDetail';
 import ProviderProfile from '@/components/ProviderProfile';
+import { getUserById } from '@/services/authApi';
 import { getGuiaPlaceById } from '@/services/guiaPlacesCatalog';
 import { getServiceProviderById } from '@/services/serviceProvidersApi';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +19,7 @@ export default function GuiaDetailScreen() {
   const id = String(params.id ?? '').trim();
   const [loading, setLoading] = useState(true);
   const [provider, setProvider] = useState<ServiceProviderResponse | null>(null);
+  const [providerOwnerPhotoUrl, setProviderOwnerPhotoUrl] = useState<string | null>(null);
   const [mapPlace, setMapPlace] = useState<ReturnType<typeof getGuiaPlaceById>>(null);
   const [notFound, setNotFound] = useState(false);
 
@@ -31,6 +33,7 @@ export default function GuiaDetailScreen() {
     setLoading(true);
     setNotFound(false);
     setProvider(null);
+    setProviderOwnerPhotoUrl(null);
     setMapPlace(null);
 
     const cachedPlace = getGuiaPlaceById(id);
@@ -43,6 +46,12 @@ export default function GuiaDetailScreen() {
     try {
       const data = await getServiceProviderById(id);
       setProvider(data);
+      try {
+        const owner = await getUserById(data.userId);
+        setProviderOwnerPhotoUrl(owner.photoUrl ?? null);
+      } catch {
+        setProviderOwnerPhotoUrl(null);
+      }
     } catch {
       setNotFound(true);
     } finally {
@@ -83,9 +92,11 @@ export default function GuiaDetailScreen() {
     }
 
     if (provider.status === 'APPROVED' || isOwner) {
+      const profileData = serviceProviderResponseToProfile(provider);
+      if (providerOwnerPhotoUrl) profileData.image = providerOwnerPhotoUrl;
       return (
         <SafeAreaView style={styles.safe} edges={['top']}>
-          <ProviderProfile data={serviceProviderResponseToProfile(provider)} />
+          <ProviderProfile data={profileData} />
         </SafeAreaView>
       );
     }

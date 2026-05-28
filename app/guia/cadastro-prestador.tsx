@@ -2,7 +2,11 @@ import type { CargoPrestadorId } from '@/constants/providerCategories';
 import { CARGOS_PRESTADORES } from '@/constants/providerCategories';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { createServiceProvider } from '@/services/serviceProvidersApi';
+import {
+  createServiceProvider,
+  getServiceProviderById,
+  updateServiceProvider,
+} from '@/services/serviceProvidersApi';
 import {
     buildAddressFromViaCep,
     buildLocationNameFromViaCep,
@@ -13,9 +17,16 @@ import {
 import { formatCnpjInput } from '@/utils/cnpjMask';
 import { GUIA_DEFAULT_CENTER } from '@/utils/guiaGeo';
 import { formatBrazilPhoneInput } from '@/utils/phoneMask';
+import type { ServiceProviderStatus } from '@/types/serviceProvider';
+import {
+  buildServiceProviderUpdateBody,
+  businessHoursFromApi,
+  editFooterHint,
+  isServiceProviderSuperAdmin,
+} from '@/utils/serviceProviderForm';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -85,6 +96,9 @@ function FieldLabel({ label, required }: { label: string; required?: boolean }) 
 export default function CadastroPrestadorScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ providerId?: string }>();
+  const providerId = String(params.providerId ?? '').trim();
+  const isEditMode = providerId.length > 0;
   const [displayName, setDisplayName] = useState('');
   const [professionCategoryId, setProfessionCategoryId] = useState<CargoPrestadorId | null>(
     null,
@@ -99,7 +113,9 @@ export default function CadastroPrestadorScreen() {
   const [locationAddress, setLocationAddress] = useState('');
   const [streetNumber, setStreetNumber] = useState('');
   const [businessHours, setBusinessHours] = useState('');
+  const [providerStatus, setProviderStatus] = useState<ServiceProviderStatus | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingInitial, setLoadingInitial] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [cepFeedback, setCepFeedback] = useState<{ type: 'ok' | 'err'; text: string } | null>(
     null,
@@ -110,6 +126,47 @@ export default function CadastroPrestadorScreen() {
     if (user?.name) setDisplayName((prev) => prev || user.name);
     if (user?.email) setEmail((prev) => prev || user.email);
   }, [user?.name, user?.email]);
+
+  useEffect(() => {
+    if (!isEditMode) return;
+    let cancelled = false;
+    setLoadingInitial(true);
+    void getServiceProviderById(providerId)
+      .then((provider) => {
+        if (cancelled) return;
+        const superAdmin = isServiceProviderSuperAdmin(user?.profile);
+        if (!provider.isOwner && provider.userId !== user?.id && !superAdmin) {
+          Alert.alert('Sem permissão', 'Você só pode editar o seu próprio cadastro de prestador.', [
+            { text: 'OK', onPress: () => router.back() },
+          ]);
+          return;
+        }
+        setProviderStatus(provider.status);
+        setDisplayName(provider.name ?? '');
+        setProfessionCategoryId(null);
+        setProfessionCustom(provider.category ?? '');
+        setCnpj(formatCnpjInput(provider.cnpj ?? ''));
+        setPhone(formatBrazilPhoneInput(provider.phone ?? ''));
+        setEmail(provider.email ?? '');
+        setDescription(provider.description ?? '');
+        setCep(formatCepDisplay(provider.cep ?? ''));
+        setLocationName(provider.locationName ?? '');
+        setLocationAddress(provider.locationAddress ?? '');
+        setBusinessHours(businessHoursFromApi(provider.businessHours));
+      })
+      .catch((e) => {
+        Alert.alert(
+          'Não foi possível carregar',
+          e instanceof Error ? e.message : 'Erro ao carregar cadastro para edição.',
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingInitial(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditMode, providerId, user?.id, user?.profile]);
 
   const selectProfessionShortcut = (id: CargoPrestadorId, label: string) => {
     setProfessionCategoryId(id);
@@ -177,7 +234,7 @@ export default function CadastroPrestadorScreen() {
     const phoneDigits = phone.replace(/\D/g, '');
     const cepDigits = cepDigitsOnly(cep);
     if (!displayName.trim()) return 'Informe seu nome ou nome fantasia.';
-    if (cnpjDigits.length !== 14) return 'Informe um CNPJ válido com 14 dígitos.';
+    if (!isEditMode && cnpjDigits.length !== 14) return 'Informe um CNPJ válido com 14 dígitos.';
     if (phoneDigits.length < 10) return 'Informe um telefone válido com DDD.';
     if (!email.trim() || !email.includes('@')) return 'Informe um e-mail válido.';
     if (!professionCustom.trim()) return 'Informe qual serviço você presta.';
@@ -227,7 +284,6 @@ export default function CadastroPrestadorScreen() {
       locationName: locationName.trim(),
       locationAddress: locationAddress.trim(),
       ...(streetNumber.trim() ? { streetNumber: streetNumber.trim() } : {}),
-      businessHours: businessHours.trim() || undefined,
     };
 
     const cnpjDigits = cnpj.replace(/\D/g, '');
@@ -235,28 +291,63 @@ export default function CadastroPrestadorScreen() {
 
     setLoading(true);
     try {
-      await createServiceProvider({
-        type: 'INDIVIDUAL',
-        name: payload.displayName,
-        category: payload.professionCustom,
-        cnpj: cnpjDigits,
-        phone: phoneDigits,
-        email: payload.email,
-        description: payload.description,
-        cep: cepDigitsOnly(cep),
-        locationName: payload.locationName,
-        locationAddress: payload.locationAddress,
-        latitude: GUIA_DEFAULT_CENTER.latitude,
-        longitude: GUIA_DEFAULT_CENTER.longitude,
-      });
-
-      router.replace('/guia?cadastroStatus=enviado');
+      if (isEditMode) {
+        const updateBody = buildServiceProviderUpdateBody({
+          name: payload.displayName,
+          category: payload.professionCustom,
+          description: payload.description,
+          phoneDigits,
+          email: payload.email,
+          whatsappDigits: phoneDigits,
+          cepDigits: cepDigitsOnly(cep),
+          locationName: payload.locationName,
+          locationAddress: payload.locationAddress,
+          businessHoursText: businessHours,
+        });
+        await updateServiceProvider(providerId, updateBody);
+        const savedMessage =
+          providerStatus === 'APPROVED'
+            ? 'Seus dados foram atualizados e continuam visíveis no guia.'
+            : 'Seus dados foram salvos. O cadastro voltou para análise.';
+        Alert.alert('Salvo', savedMessage, [
+          { text: 'OK', onPress: () => router.replace(`/guia/${providerId}`) },
+        ]);
+      } else {
+        const hoursPayload = businessHours.trim()
+          ? { description: businessHours.trim() }
+          : undefined;
+        await createServiceProvider({
+          type: 'INDIVIDUAL',
+          name: payload.displayName,
+          category: payload.professionCustom,
+          cnpj: cnpjDigits,
+          phone: phoneDigits,
+          email: payload.email,
+          description: payload.description,
+          cep: cepDigitsOnly(cep),
+          locationName: payload.locationName,
+          locationAddress: payload.locationAddress,
+          latitude: GUIA_DEFAULT_CENTER.latitude,
+          longitude: GUIA_DEFAULT_CENTER.longitude,
+          ...(hoursPayload ? { businessHours: hoursPayload } : {}),
+        });
+        router.replace('/guia?cadastroStatus=enviado');
+      }
     } catch (e) {
       Alert.alert('Não foi possível enviar', e instanceof Error ? e.message : 'Tente novamente em instantes.');
     } finally {
       setLoading(false);
     }
   };
+
+  if (loadingInitial) {
+    return (
+      <View style={[styles.flex, styles.loadingWrap]}>
+        <ActivityIndicator size="large" color="#2563eb" />
+        <Text style={styles.loadingText}>Carregando dados do cadastro…</Text>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -279,9 +370,13 @@ export default function CadastroPrestadorScreen() {
             <View style={styles.heroIcon}>
               <Ionicons name="person-add" size={26} color="#fff" />
             </View>
-            <Text style={styles.heroTitle}>Cadastro de prestador</Text>
+            <Text style={styles.heroTitle}>
+              {isEditMode ? 'Editar cadastro de prestador' : 'Cadastro de prestador'}
+            </Text>
             <Text style={styles.heroSubtitle}>
-              Envie seus dados para análise e inclusão no Guia da Cidade.
+              {isEditMode
+                ? 'Atualize suas informações do Guia da Cidade.'
+                : 'Envie seus dados para análise e inclusão no Guia da Cidade.'}
             </Text>
           </LinearGradient>
 
@@ -330,16 +425,22 @@ export default function CadastroPrestadorScreen() {
             </View>
 
             <View style={styles.field}>
-              <FieldLabel label="CNPJ" required />
+              <FieldLabel label="CNPJ" required={!isEditMode} />
               <TextInput
-                style={styles.input}
+                style={[styles.input, isEditMode && styles.inputReadOnly]}
                 value={cnpj}
                 onChangeText={(text) => setCnpj(formatCnpjInput(text))}
                 placeholder="00.000.000/0000-00"
                 placeholderTextColor={AppColors.text.quaternary}
                 keyboardType="number-pad"
                 maxLength={18}
+                editable={!isEditMode}
               />
+              {isEditMode ? (
+                <Text style={styles.fieldHint}>
+                  O CNPJ não pode ser alterado após o cadastro.
+                </Text>
+              ) : null}
             </View>
           </Section>
 
@@ -505,13 +606,17 @@ export default function CadastroPrestadorScreen() {
               ) : (
                 <>
                   <Ionicons name="send-outline" size={20} color="#fff" />
-                  <Text style={styles.submitText}>Enviar cadastro</Text>
+                  <Text style={styles.submitText}>
+                    {isEditMode ? 'Salvar alterações' : 'Enviar cadastro'}
+                  </Text>
                 </>
               )}
             </LinearGradient>
           </Pressable>
           <Text style={styles.footerHint}>
-            A solicitação pode passar por validação antes de aparecer no guia.
+            {isEditMode
+              ? editFooterHint(providerStatus)
+              : 'A solicitação pode passar por validação antes de aparecer no guia.'}
           </Text>
         </View>
       </View>
@@ -521,6 +626,17 @@ export default function CadastroPrestadorScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: '#f1f5f9' },
+  loadingWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingHorizontal: 24,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppColors.text.tertiary,
+  },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 12, gap: 12 },
   hero: {
@@ -620,6 +736,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: AppColors.text.primary,
     backgroundColor: '#f8fafc',
+  },
+  inputReadOnly: {
+    backgroundColor: '#f1f5f9',
+    color: AppColors.text.secondary,
   },
   textArea: { minHeight: 110, paddingTop: 12 },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

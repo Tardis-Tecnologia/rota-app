@@ -16,37 +16,50 @@ export default function GuiaProviderCard({ item, onPress }: GuiaProviderCardProp
     item.distanceMeters != null ? formatDistanceMeters(item.distanceMeters) : null;
   const isPending =
     item.type === 'PROVIDER' && isNonApprovedProviderStatus(item.approvalStatus);
+  const isRejected = item.approvalStatus === 'REJECTED';
   const statusLabel =
     item.approvalStatus && isPending ? STATUS_UI[item.approvalStatus].label : null;
 
   return (
     <TouchableOpacity
-      style={[styles.card, isPending && styles.cardPending]}
+      style={[styles.card, isPending && styles.cardPending, isRejected && styles.cardRejected]}
       activeOpacity={0.7}
       onPress={onPress}
     >
-      <View style={[styles.avatar, isPending && styles.avatarPending]}>
+      <View style={[styles.avatar, isPending && !isRejected && styles.avatarPending]}>
         {item.image ? (
           <Image
             source={{ uri: item.image }}
-            style={[styles.avatarImage, isPending && styles.mediaPending]}
+            style={[styles.avatarImage, isPending && !isRejected && styles.mediaPending]}
           />
         ) : (
-          <View style={[styles.avatarPlaceholder, isPending && styles.avatarPlaceholderPending]}>
-            <Text style={[styles.avatarLetter, isPending && styles.textPending]}>
+          <View
+            style={[
+              styles.avatarPlaceholder,
+              isPending && !isRejected && styles.avatarPlaceholderPending,
+              isRejected && styles.avatarPlaceholderRejected,
+            ]}
+          >
+            <Text style={[styles.avatarLetter, isPending && !isRejected && styles.textPending]}>
               {item.name.charAt(0)}
             </Text>
           </View>
         )}
       </View>
       <View style={styles.info}>
-        <Text style={[styles.name, isPending && styles.textPending]} numberOfLines={1}>
+        <Text style={[styles.name, isPending && !isRejected && styles.textPending]} numberOfLines={1}>
           {item.name}
         </Text>
         {isPending && statusLabel ? (
-          <View style={styles.pendingBadge}>
-            <Ionicons name="time-outline" size={12} color="#64748b" />
-            <Text style={styles.pendingBadgeText}>{statusLabel}</Text>
+          <View style={[styles.pendingBadge, isRejected && styles.rejectedBadge]}>
+            <Ionicons
+              name={isRejected ? 'close-circle-outline' : 'time-outline'}
+              size={12}
+              color={isRejected ? '#b91c1c' : '#64748b'}
+            />
+            <Text style={[styles.pendingBadgeText, isRejected && styles.rejectedBadgeText]}>
+              {isRejected ? 'Desativado' : statusLabel}
+            </Text>
           </View>
         ) : (
           <View style={styles.ratingRow}>
@@ -55,26 +68,35 @@ export default function GuiaProviderCard({ item, onPress }: GuiaProviderCardProp
             <Text style={styles.reviewCount}>({item.review})</Text>
           </View>
         )}
-        <Text style={[styles.category, isPending && styles.textPendingMuted]} numberOfLines={1}>
+        <Text
+          style={[styles.category, isPending && !isRejected && styles.textPendingMuted]}
+          numberOfLines={1}
+        >
           {item.categoryLabel}
         </Text>
         {distanceLabel ? (
           <View style={styles.distanceRow}>
             <Ionicons name="navigate-outline" size={12} color={AppColors.gray[500]} />
-            <Text style={[styles.distance, isPending && styles.textPendingMuted]}>
+            <Text style={[styles.distance, isPending && !isRejected && styles.textPendingMuted]}>
               {distanceLabel}
             </Text>
           </View>
         ) : null}
       </View>
       <View style={styles.action}>
-        <Text style={[styles.detailsLabel, isPending && styles.detailsLabelPending]}>
+        <Text
+          style={[
+            styles.detailsLabel,
+            isPending && !isRejected && styles.detailsLabelPending,
+            isRejected && styles.detailsLabelRejected,
+          ]}
+        >
           {isPending ? 'Status' : 'Detalhes'}
         </Text>
         <Ionicons
           name="chevron-forward"
           size={18}
-          color={isPending ? AppColors.gray[400] : '#7C3AED'}
+          color={isRejected ? '#b91c1c' : isPending ? AppColors.gray[400] : '#7C3AED'}
         />
       </View>
     </TouchableOpacity>
@@ -97,6 +119,11 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5e1',
     opacity: 0.88,
   },
+  cardRejected: {
+    backgroundColor: '#fff5f5',
+    borderColor: '#fecaca',
+    opacity: 1,
+  },
   avatar: { marginRight: 12 },
   avatarPending: { opacity: 0.75 },
   avatarImage: { width: 52, height: 52, borderRadius: 26 },
@@ -111,6 +138,9 @@ const styles = StyleSheet.create({
   },
   avatarPlaceholderPending: {
     backgroundColor: AppColors.gray[200],
+  },
+  avatarPlaceholderRejected: {
+    backgroundColor: '#fee2e2',
   },
   avatarLetter: {
     fontSize: 20,
@@ -132,10 +162,16 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: '#e2e8f0',
   },
+  rejectedBadge: {
+    backgroundColor: '#fee2e2',
+  },
   pendingBadgeText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#64748b',
+  },
+  rejectedBadgeText: {
+    color: '#b91c1c',
   },
   ratingRow: {
     flexDirection: 'row',
@@ -156,4 +192,5 @@ const styles = StyleSheet.create({
   action: { alignItems: 'flex-end', gap: 2, marginLeft: 8 },
   detailsLabel: { fontSize: 11, fontWeight: '700', color: '#7C3AED' },
   detailsLabelPending: { color: AppColors.gray[500] },
+  detailsLabelRejected: { color: '#b91c1c' },
 });

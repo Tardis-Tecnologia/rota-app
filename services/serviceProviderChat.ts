@@ -1,3 +1,4 @@
+import { resolveChatPeerPhotoUrl } from '@/services/chatPeerPhotos';
 import { findOrCreateDirectStreamChannel } from '@/services/streamChatApi';
 import { buildServiceProviderInterestMessage } from '@/utils/serviceProviderChat';
 
@@ -33,18 +34,22 @@ export async function prepareServiceProviderChat(
   }
 
   const providerName = params.providerName.trim() || 'Prestador';
+  const peerPhoto =
+    params.providerImage?.trim() ||
+    (await resolveChatPeerPhotoUrl(providerOwnerUserId)) ||
+    undefined;
   const channel = await findOrCreateDirectStreamChannel({
     currentUserId,
     currentUserDisplayName: params.currentUserDisplayName?.trim() || 'Usuário',
     peerUserId: providerOwnerUserId,
     peerName: providerName,
-    peerImage: params.providerImage?.trim() || undefined,
+    peerImage: peerPhoto,
   });
 
   return {
     id: providerOwnerUserId,
     name: providerName,
-    image: params.providerImage?.trim() || undefined,
+    image: peerPhoto,
     channelType: channel.channelType,
     channelId: channel.channelId,
     cid: channel.cid,

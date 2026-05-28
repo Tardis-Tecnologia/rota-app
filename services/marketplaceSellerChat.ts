@@ -1,3 +1,4 @@
+import { resolveChatPeerPhotoUrl } from '@/services/chatPeerPhotos';
 import { findOrCreateDirectStreamChannel } from '@/services/streamChatApi';
 import { buildMarketplaceInterestMessage } from '@/utils/marketplaceChat';
 
@@ -33,18 +34,20 @@ export async function prepareMarketplaceSellerChat(
   }
 
   const sellerName = params.sellerName.trim() || 'Anunciante';
+  const sellerPhoto =
+    params.sellerImage?.trim() || (await resolveChatPeerPhotoUrl(sellerId)) || undefined;
   const channel = await findOrCreateDirectStreamChannel({
     currentUserId: buyerUserId,
     currentUserDisplayName: params.buyerDisplayName?.trim() || 'Usuário',
     peerUserId: sellerId,
     peerName: sellerName,
-    peerImage: params.sellerImage?.trim() || undefined,
+    peerImage: sellerPhoto,
   });
 
   return {
     id: sellerId,
     name: sellerName,
-    image: params.sellerImage?.trim() || undefined,
+    image: sellerPhoto,
     channelType: channel.channelType,
     channelId: channel.channelId,
     cid: channel.cid,

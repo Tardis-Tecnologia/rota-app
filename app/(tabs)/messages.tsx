@@ -4,11 +4,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Conversation, useConversations } from '@/contexts/ConversationsContext';
 import { mockSystemConversations } from '@/data/mockConversations';
 import { getAuthToken, getWhitelabelHostId } from '@/services/authApi';
+import { resolveChatPeerPhotoMap } from '@/services/chatPeerPhotos';
 import { ensureStreamChatConnected } from '@/services/streamChatApi';
 import {
   effectiveStreamLastMessage,
   getStreamChannelClearedMap,
 } from '@/services/streamChatClearStore';
+import { resolveStreamConversationDisplay } from '@/utils/streamChatPeer';
 import { streamAndUiDisplayName } from '@/utils/userDisplayName';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -32,6 +34,7 @@ type StreamConversation = {
   providerImage: string;
   lastMessage: string;
   date: string;
+  lastMessageAt: number;
   providerData: {
     id: string;
     name: string;
@@ -43,6 +46,14 @@ type StreamConversation = {
   unreadCount?: number;
 };
 type ConversationCardItem = Conversation | StreamConversation;
+
+function hasUnreadMessages(conversation: ConversationCardItem): boolean {
+  return (conversation.unreadCount ?? 0) > 0;
+}
+
+function sortStreamConversationsByRecent(items: StreamConversation[]): StreamConversation[] {
+  return [...items].sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+}
 
 /** Assistentes virtuais (mock) — sempre visíveis, mesmo sem canais Stream. */
 const systemAssistantConversations = mockSystemConversations;
@@ -67,26 +78,35 @@ export default function MensagensScreen() {
 
   const buildConversationFromChannel = useCallback(
     (channel: any, clearedAtByCid: Record<string, string>): StreamConversation => {
-      const members = Object.values(channel.state?.members ?? {}) as Array<any>;
-      const otherMember = members.find((member) => member?.user?.id !== user?.id);
-      const channelName = channel?.data?.name || otherMember?.user?.name || `Canal ${channel.id || ''}`;
+      const display = resolveStreamConversationDisplay({
+        members: channel.state?.members,
+        currentUserId: user?.id,
+        channelName: channel?.data?.name,
+        channelImage: channel?.data?.image,
+        fallbackId: channel.id || channel.cid,
+      });
       const clearedAtRaw = clearedAtByCid[channel.cid];
       const clearedAt = clearedAtRaw ? new Date(clearedAtRaw) : null;
       const lastMessage = effectiveStreamLastMessage(channel.state?.messages ?? [], clearedAt);
       const unreadCount = typeof channel.countUnread === 'function' ? channel.countUnread() : 0;
+      const lastMessageAtRaw = channel.state?.last_message_at;
+      const lastMessageAt = lastMessageAtRaw
+        ? new Date(lastMessageAtRaw).getTime()
+        : 0;
 
       return {
         id: channel.cid,
-        providerId: channel.id || channel.cid,
-        providerName: channelName,
-        providerImage: channel?.data?.image || otherMember?.user?.image || '',
+        providerId: display.id,
+        providerName: display.name,
+        providerImage: display.image || '',
         lastMessage,
-        date: formatMessageDate(channel.state?.last_message_at),
+        date: formatMessageDate(lastMessageAtRaw),
+        lastMessageAt: Number.isFinite(lastMessageAt) ? lastMessageAt : 0,
         unreadCount,
         providerData: {
-          id: channel.id || channel.cid,
-          name: channelName,
-          image: channel?.data?.image || otherMember?.user?.image || '',
+          id: display.id,
+          name: display.name,
+          image: display.image,
           channelId: channel.id || '',
           channelType: channel.type,
           cid: channel.cid,
@@ -137,7 +157,20 @@ export default function MensagensScreen() {
         },
       );
 
-      setConversations(channels.map((channel) => buildConversationFromChannel(channel, clearedAtByCid)));
+      const built = channels.map((channel) =>
+        buildConversationFromChannel(channel, clearedAtByCid),
+      );
+      const photoMap = await resolveChatPeerPhotoMap(built.map((c) => c.providerId));
+      const withPhotos = built.map((conversation) => {
+        const photo = photoMap.get(conversation.providerId);
+        if (!photo) return conversation;
+        return {
+          ...conversation,
+          providerImage: photo,
+          providerData: { ...conversation.providerData, image: photo },
+        };
+      });
+      setConversations(sortStreamConversationsByRecent(withPhotos));
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Não foi possível carregar as conversas.');
       setConversations([]);
@@ -172,6 +205,7 @@ export default function MensagensScreen() {
     const showFallback = !conversation.providerImage || imageErrors[conversation.id] || conversation.providerImage === '';
     const isOfficial = conversation.providerId === 'comunicados-oficiais';
     const isIPTU = conversation.providerId === 'iptu';
+    const showUnreadDot = hasUnreadMessages(conversation);
     
     // Layout especial para Comunicados Oficiais
     if (isOfficial) {
@@ -181,6 +215,7 @@ export default function MensagensScreen() {
           style={styles.officialCard}
           onPress={() => handleOpenChat(conversation)}
         >
+          {showUnreadDot ? <View style={styles.unreadDotCorner} /> : null}
           <View style={styles.officialIconWrap}>
             <View style={styles.officialIconContainer}>
               <Ionicons name="shield-checkmark" size={24} color={AppColors.text.white} />
@@ -199,12 +234,6 @@ export default function MensagensScreen() {
               {conversation.lastMessage}
             </Text>
           </View>
-          
-          {conversation.unreadCount && conversation.unreadCount > 0 && (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadBadgeText}>{conversation.unreadCount}</Text>
-            </View>
-          )}
         </Pressable>
       );
     }
@@ -236,8 +265,15 @@ export default function MensagensScreen() {
 
         <View style={styles.cardContent}>
           <View style={styles.cardHeader}>
-            <Text style={styles.name}>{conversation.providerName}</Text>
-            <Text style={styles.date}>{conversation.date}</Text>
+            <Text style={styles.name} numberOfLines={1}>
+              {conversation.providerName}
+            </Text>
+            <View style={styles.timeMetaColumn}>
+              {conversation.date ? (
+                <Text style={[styles.date, styles.dateMeta]}>{conversation.date}</Text>
+              ) : null}
+              {showUnreadDot ? <View style={styles.unreadDotBelowTime} /> : null}
+            </View>
           </View>
           <Text style={styles.message} numberOfLines={1} ellipsizeMode="tail">
             {conversation.lastMessage}
@@ -250,10 +286,33 @@ export default function MensagensScreen() {
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Chats Fixos */}
+        {/* Comunicados Oficiais — sempre no topo */}
         {fixedConversations.length > 0 && (
           <View style={styles.list}>
             {fixedConversations.map((conversation) => renderConversationCard(conversation, true))}
+          </View>
+        )}
+
+        {isLoading && (
+          <View style={[styles.inlineHint, fixedConversations.length > 0 && styles.commonList]}>
+            <Text style={styles.inlineHintText}>A carregar conversas em tempo real…</Text>
+          </View>
+        )}
+
+        {loadError && !isLoading && (
+          <View style={[styles.inlineHint, fixedConversations.length > 0 && styles.commonList]}>
+            <Text style={styles.loadErrorText}>Não foi possível carregar chats do Stream</Text>
+            <Text style={styles.inlineHintText}>{loadError}</Text>
+          </View>
+        )}
+
+        {/* Conversas reais (Stream) — mais recentes primeiro, acima dos mocks */}
+        {conversations.length > 0 && (
+          <View style={fixedConversations.length > 0 ? styles.commonList : undefined}>
+            <Text style={styles.sectionLabel}>Conversas mais recentes</Text>
+            <View style={styles.list}>
+              {conversations.map((conversation) => renderConversationCard(conversation, false))}
+            </View>
           </View>
         )}
 
@@ -267,32 +326,6 @@ export default function MensagensScreen() {
             {systemAssistantConversations.map((conversation) =>
               renderConversationCard(conversation, false),
             )}
-          </View>
-        )}
-
-        {isLoading && (
-          <View style={styles.inlineHint}>
-            <Text style={styles.inlineHintText}>A carregar conversas em tempo real…</Text>
-          </View>
-        )}
-
-        {loadError && !isLoading && (
-          <View style={styles.inlineHint}>
-            <Text style={styles.loadErrorText}>Não foi possível carregar chats do Stream</Text>
-            <Text style={styles.inlineHintText}>{loadError}</Text>
-          </View>
-        )}
-
-        {conversations.length > 0 && (
-          <View
-            style={[
-              styles.list,
-              (fixedConversations.length > 0 ||
-                systemAssistantConversations.length > 0) &&
-                styles.commonList,
-            ]}
-          >
-            {conversations.map((conversation) => renderConversationCard(conversation, false))}
           </View>
         )}
 
@@ -333,6 +366,14 @@ const styles = StyleSheet.create({
   },
   commonList: {
     marginTop: 24,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: AppColors.text.tertiary,
+    letterSpacing: 0.2,
+    marginBottom: 10,
+    paddingHorizontal: 4,
   },
   emptyState: {
     flex: 1,
@@ -381,6 +422,8 @@ const styles = StyleSheet.create({
   },
   // Card especial para Comunicados Oficiais
   officialCard: {
+    position: 'relative',
+    overflow: 'visible',
     flexDirection: 'row',
     alignItems: 'stretch',
     gap: 12,
@@ -394,6 +437,37 @@ const styles = StyleSheet.create({
     elevation: 4,
     borderWidth: 2,
     borderColor: AppColors.primaryDark,
+  },
+  unreadDotCorner: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: AppColors.whatsapp,
+    borderWidth: 2,
+    borderColor: AppColors.background.default,
+    zIndex: 2,
+  },
+  timeMetaColumn: {
+    position: 'relative',
+    alignItems: 'flex-end',
+    minWidth: 44,
+    marginLeft: 8,
+    overflow: 'visible',
+  },
+  dateMeta: {
+    textAlign: 'right',
+  },
+  unreadDotBelowTime: {
+    position: 'absolute',
+    top: 20,
+    right: 0,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: AppColors.whatsapp,
   },
   officialIconWrap: {
     justifyContent: 'center',
@@ -448,6 +522,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 4,
+    gap: 8,
   },
   nameWithBadgeContainer: {
     flexDirection: 'row',
@@ -456,26 +531,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   name: {
+    flex: 1,
     fontSize: 16,
     fontWeight: '600',
     color: AppColors.text.secondary,
   },
   verifyIcon: {
     marginLeft: 4,
-  },
-  unreadBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: AppColors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  unreadBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: AppColors.text.white,
   },
   date: {
     fontSize: 12,

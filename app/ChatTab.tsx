@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useConversations } from '@/contexts/ConversationsContext';
 import { getChatResponseConfig } from '@/data/chatResponses';
 import { getApiBaseUrl, getAuthToken, getWhitelabelHostId } from '@/services/authApi';
+import { isChatPeerUserId, resolveChatPeerPhotoUrl } from '@/services/chatPeerPhotos';
 import {
   clearStreamChannelHistory,
   ensureStreamChatConnected,
@@ -14,6 +15,7 @@ import {
   filterMessagesAfterClear,
   getStreamChannelClearedAt,
 } from '@/services/streamChatClearStore';
+import { getStreamChannelPeer, isSameStreamUser } from '@/utils/streamChatPeer';
 import { streamAndUiDisplayName } from '@/utils/userDisplayName';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -117,7 +119,7 @@ function mapChannelStateToMessages(
   return (state.messages || []).map<ChatMessage>((msg) => ({
     id: msg.id || `${msg.created_at || Date.now()}`,
     text: msg.text || '',
-    isFromOther: msg.user?.id !== currentUserId,
+    isFromOther: !isSameStreamUser(msg.user?.id, currentUserId),
     timestamp: msg.created_at ? new Date(msg.created_at) : new Date(),
   }));
 }
@@ -147,6 +149,11 @@ export default function ChatTab() {
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreamReady, setIsStreamReady] = useState(false);
+  const [streamPeer, setStreamPeer] = useState<{
+    id: string;
+    name: string;
+    image?: string;
+  } | null>(null);
 
   const streamChannelInfo = useMemo(() => {
     const channelType = data.channelType;
@@ -206,6 +213,8 @@ export default function ChatTab() {
         const ch = client.channel(streamChannelInfo.channelType, streamChannelInfo.channelId);
         const state = await ch.watch();
         if (cancelled) return;
+        const peer = getStreamChannelPeer(state.members, user.id);
+        setStreamPeer(peer);
         const clearedAt = await getStreamChannelClearedAt(
           user.id,
           `${streamChannelInfo.channelType}:${streamChannelInfo.channelId}`,
@@ -229,6 +238,38 @@ export default function ChatTab() {
       cancelled = true;
     };
   }, [ensureStreamClient, streamChannelInfo, user?.id]);
+
+  useEffect(() => {
+    if (!isStreamConversation) return;
+
+    const peerId = streamPeer?.id?.trim() || data.id?.trim();
+    if (!isChatPeerUserId(peerId)) return;
+
+    const existing = streamPeer?.image?.trim() || data.image?.trim();
+    if (existing) {
+      if (!streamPeer?.image && existing) {
+        setStreamPeer((prev) =>
+          prev
+            ? { ...prev, image: existing }
+            : { id: peerId, name: data.name, image: existing },
+        );
+      }
+      return;
+    }
+
+    let cancelled = false;
+    void resolveChatPeerPhotoUrl(peerId).then((photoUrl) => {
+      if (cancelled || !photoUrl) return;
+      setStreamPeer((prev) => {
+        const name = prev?.name ?? data.name;
+        return { id: peerId, name, image: photoUrl };
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isStreamConversation, streamPeer?.id, streamPeer?.image, data.id, data.name, data.image]);
 
   useEffect(() => {
     if (isStreamConversation) {
@@ -276,9 +317,9 @@ export default function ChatTab() {
   ]);
 
   const participant: ChatParticipant = {
-    id: data.id,
-    name: data.name,
-    image: data.image,
+    id: streamPeer?.id ?? data.id,
+    name: streamPeer?.name ?? data.name,
+    image: streamPeer?.image ?? data.image,
     icon:
       data.id === 'comunicados-oficiais'
         ? 'shield-checkmark'

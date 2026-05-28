@@ -1,6 +1,7 @@
 import EventAttendanceSection from '@/components/events/EventAttendanceSection';
 import EventCoverImage from '@/components/events/EventCoverImage';
 import { AppColors } from '@/constants/theme';
+import { useSavedEvents } from '@/hooks/useSavedEvents';
 import {
     getEventAttendanceCount,
     getMyEventAttendance,
@@ -48,6 +49,7 @@ export default function EventoDetalheScreen() {
   const [myAttendance, setMyAttendance] = useState<MyEventAttendance | null>(null);
   const [attendanceCount, setAttendanceCount] = useState(0);
   const [participants, setParticipants] = useState<EventParticipant[]>([]);
+  const { isSaved, toggleSaved, checkSaved } = useSavedEvents();
 
   const refreshAttendance = useCallback(async () => {
     if (!eventId) return;
@@ -99,7 +101,11 @@ export default function EventoDetalheScreen() {
           setError('Evento não encontrado.');
           setItem(null);
         } else {
-          setItem(eventItemToListItem(data));
+          const mapped = eventItemToListItem(data);
+          setItem(mapped);
+          if (mapped.featured) {
+            void checkSaved(mapped.id, mapped.hostId);
+          }
         }
       } catch (e) {
         if (!mounted) return;
@@ -142,6 +148,8 @@ export default function EventoDetalheScreen() {
   const dateInfo = item ? formatDetailDate(item) : { main: '', sub: '' };
   const timeInfo = item ? formatDetailTime(item) : { main: '', sub: '' };
   const capacity = item ? formatCapacityLabel(item.capacity) : null;
+  const featured = Boolean(item?.featured);
+  const saved = item ? isSaved(item.id) : false;
 
   return (
     <View style={styles.container}>
@@ -158,6 +166,21 @@ export default function EventoDetalheScreen() {
             <Pressable style={styles.iconBtn} onPress={() => router.back()} hitSlop={8}>
               <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
             </Pressable>
+            {featured && item ? (
+              <Pressable
+                style={[styles.iconBtn, saved && styles.iconBtnSaved]}
+                hitSlop={8}
+                onPress={() => void toggleSaved(item)}
+              >
+                <Ionicons
+                  name={saved ? 'bookmark' : 'bookmark-outline'}
+                  size={22}
+                  color={saved ? AppColors.tab.active : '#FFFFFF'}
+                />
+              </Pressable>
+            ) : (
+              <View style={styles.iconBtnSpacer} />
+            )}
           </View>
           {cat ? (
             <View style={styles.heroBottom}>
@@ -344,6 +367,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  iconBtnSaved: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+  },
+  iconBtnSpacer: {
+    width: 40,
+    height: 40,
   },
   heroBottom: {
     position: 'absolute',

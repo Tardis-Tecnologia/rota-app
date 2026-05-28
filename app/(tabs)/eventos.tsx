@@ -1,5 +1,6 @@
 import EventCategoryChips from '@/components/events/EventCategoryChips';
 import EventFeaturedCarousel from '@/components/events/EventFeaturedCarousel';
+import SavedEventToastHost from '@/components/events/SavedEventToastHost';
 import EventUpcomingCard from '@/components/events/EventUpcomingCard';
 import { AppColors } from '@/constants/theme';
 import { getEvents } from '@/services/eventsService';
@@ -125,7 +126,6 @@ export default function EventosScreen() {
         <EventFeaturedCarousel items={featured.length > 0 ? featured : items.filter((e) => e.featured).slice(0, 5)} />
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Próximos eventos</Text>
-          <Text style={styles.sectionLink}>Ver todos</Text>
         </View>
       </View>
     ),
@@ -134,6 +134,7 @@ export default function EventosScreen() {
 
   return (
     <View style={styles.container}>
+      <SavedEventToastHost />
       <EventCategoryChips active={activeCategory} onSelect={setActiveCategory} />
       <FlatList
         style={styles.list}

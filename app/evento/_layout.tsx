@@ -1,3 +1,4 @@
+import SavedEventToastHost from '@/components/events/SavedEventToastHost';
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, router } from 'expo-router';
@@ -18,6 +19,8 @@ function HeaderBack() {
 
 export default function EventoStackLayout() {
   return (
+    <>
+    <SavedEventToastHost />
     <Stack
       screenOptions={{
         headerShown: false,
@@ -60,6 +63,7 @@ export default function EventoStackLayout() {
         }}
       />
     </Stack>
+    </>
   );
 }
 

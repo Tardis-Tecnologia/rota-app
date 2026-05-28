@@ -1,13 +1,21 @@
+import { showSavedEventToast } from '@/components/events/SavedEventToastHost';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  getMyEventFavorite,
+  EventFavoriteApiError,
+  isEventFavorited,
   listMyFavoriteEvents,
   toggleEventFavorite,
-  type EventFavoriteApiError,
 } from '@/services/eventFavoritesService';
 import type { EventListItem } from '@/utils/eventPresentation';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
+
+function savedToastMessage(titulo: string): string {
+  const name = titulo.trim();
+  if (!name) return 'Evento salvo nos favoritos';
+  if (name.length > 32) return 'Evento salvo nos favoritos';
+  return `“${name}” salvo nos favoritos`;
+}
 
 export function useSavedEvents() {
   const { user } = useAuth();
@@ -22,7 +30,7 @@ export function useSavedEvents() {
     }
     try {
       const rows = await listMyFavoriteEvents(0, 100);
-      setSavedIds(new Set(rows.map((r) => r.event.id)));
+      setSavedIds(new Set(rows.map((r) => r.eventId || r.event.id)));
     } catch {
       setSavedIds(new Set());
     } finally {
@@ -42,15 +50,23 @@ export function useSavedEvents() {
         Alert.alert('Entrar na conta', 'Faça login para salvar eventos nos favoritos.');
         return false;
       }
-      const wasSaved = savedIds.has(item.id);
+      const eventId = item.id?.trim();
+      if (!eventId) {
+        Alert.alert('Eventos salvos', 'Não foi possível identificar este evento.');
+        return false;
+      }
+      const wasSaved = savedIds.has(eventId);
       try {
-        const nowSaved = await toggleEventFavorite(item.id, wasSaved);
+        const nowSaved = await toggleEventFavorite(eventId, wasSaved, item.hostId);
         setSavedIds((prev) => {
           const next = new Set(prev);
-          if (nowSaved) next.add(item.id);
-          else next.delete(item.id);
+          if (nowSaved) next.add(eventId);
+          else next.delete(eventId);
           return next;
         });
+        if (nowSaved) {
+          showSavedEventToast(savedToastMessage(item.titulo), 'success');
+        }
         return nowSaved;
       } catch (e) {
         const message =
@@ -67,19 +83,20 @@ export function useSavedEvents() {
   );
 
   const checkSaved = useCallback(
-    async (eventId: string) => {
+    async (eventId: string, hostId?: string) => {
       if (!user) return false;
+      if (savedIds.has(eventId)) return true;
       try {
-        const status = await getMyEventFavorite(eventId);
-        if (status.favorited) {
+        const favorited = await isEventFavorited(eventId, hostId);
+        if (favorited) {
           setSavedIds((prev) => new Set(prev).add(eventId));
         }
-        return status.favorited;
+        return favorited;
       } catch {
         return isSaved(eventId);
       }
     },
-    [isSaved, user],
+    [isSaved, savedIds, user],
   );
 
   return { isSaved, toggleSaved, reload, ready, checkSaved };

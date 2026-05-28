@@ -1,5 +1,6 @@
 import EventCoverImage from '@/components/events/EventCoverImage';
 import { AppColors } from '@/constants/theme';
+import { useSavedEvents } from '@/hooks/useSavedEvents';
 import type { EventListItem } from '@/utils/eventPresentation';
 import {
   formatCapacityLabel,
@@ -29,6 +30,81 @@ type EventFeaturedCarouselProps = {
   items: EventListItem[];
 };
 
+function FeaturedEventCard({ item }: { item: EventListItem }) {
+  const { isSaved, toggleSaved } = useSavedEvents();
+  const cat = getCategoryMeta(primaryCategoryKey(item));
+  const saved = isSaved(item.id);
+
+  return (
+    <Pressable
+      style={styles.card}
+      onPress={() =>
+        router.push({
+          pathname: '/evento/[id]',
+          params: {
+            id: item.id,
+            ...(item.imagem ? { imageUri: item.imagem } : {}),
+          },
+        })
+      }
+    >
+      <EventCoverImage uri={item.imagem} style={styles.image} />
+      <LinearGradient
+        colors={['transparent', 'rgba(15, 23, 42, 0.35)', 'rgba(15, 23, 42, 0.78)']}
+        locations={[0, 0.5, 1]}
+        style={styles.overlay}
+      />
+      <View style={styles.badge}>
+        <Text style={styles.badgeText}>DESTAQUE</Text>
+      </View>
+      <Pressable
+        style={[styles.heroSaveBtn, saved && styles.heroSaveBtnActive]}
+        hitSlop={10}
+        onPress={(e) => {
+          e.stopPropagation();
+          void toggleSaved(item);
+        }}
+      >
+        <Ionicons
+          name={saved ? 'bookmark' : 'bookmark-outline'}
+          size={22}
+          color={saved ? AppColors.tab.active : '#FFFFFF'}
+        />
+      </Pressable>
+      <View style={styles.cardBody}>
+        <View style={styles.categoryPill}>
+          <Text style={[styles.categoryText, { color: cat.color }]}>{cat.label}</Text>
+        </View>
+        <Text style={styles.title} numberOfLines={2}>
+          {item.titulo}
+        </Text>
+        <View style={styles.metaRow}>
+          <Ionicons name="calendar-outline" size={14} color="#FFFFFF" />
+          <Text style={styles.metaText}>{formatFeaturedDateLine(item)}</Text>
+        </View>
+        <View style={styles.metaRow}>
+          <Ionicons name="location-outline" size={14} color="#FFFFFF" />
+          <Text style={styles.metaText} numberOfLines={1}>
+            {formatLocationLine(item)}
+          </Text>
+        </View>
+        <View style={styles.footerRow}>
+          {formatCapacityLabel(item.capacity) ? (
+            <Text style={styles.capacityText}>
+              Capacidade: {formatCapacityLabel(item.capacity)}
+            </Text>
+          ) : (
+            <View style={styles.footerSpacer} />
+          )}
+          <View style={styles.arrowBtn}>
+            <Ionicons name="chevron-forward" size={20} color={AppColors.text.secondary} />
+          </View>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
 export default function EventFeaturedCarousel({ items }: EventFeaturedCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
@@ -54,64 +130,9 @@ export default function EventFeaturedCarousel({ items }: EventFeaturedCarouselPr
         onScroll={onScroll}
         scrollEventThrottle={16}
       >
-        {items.map((item) => {
-          const cat = getCategoryMeta(primaryCategoryKey(item));
-          return (
-            <Pressable
-              key={item.id}
-              style={styles.card}
-              onPress={() =>
-                router.push({
-                  pathname: '/evento/[id]',
-                  params: {
-                    id: item.id,
-                    ...(item.imagem ? { imageUri: item.imagem } : {}),
-                  },
-                })
-              }
-            >
-              <EventCoverImage uri={item.imagem} style={styles.image} />
-              <LinearGradient
-                colors={['transparent', 'rgba(15, 23, 42, 0.35)', 'rgba(15, 23, 42, 0.78)']}
-                locations={[0, 0.5, 1]}
-                style={styles.overlay}
-              />
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>DESTAQUE</Text>
-              </View>
-              <View style={styles.cardBody}>
-                <View style={styles.categoryPill}>
-                  <Text style={[styles.categoryText, { color: cat.color }]}>{cat.label}</Text>
-                </View>
-                <Text style={styles.title} numberOfLines={2}>
-                  {item.titulo}
-                </Text>
-                <View style={styles.metaRow}>
-                  <Ionicons name="calendar-outline" size={14} color="#FFFFFF" />
-                  <Text style={styles.metaText}>{formatFeaturedDateLine(item)}</Text>
-                </View>
-                <View style={styles.metaRow}>
-                  <Ionicons name="location-outline" size={14} color="#FFFFFF" />
-                  <Text style={styles.metaText} numberOfLines={1}>
-                    {formatLocationLine(item)}
-                  </Text>
-                </View>
-                <View style={styles.footerRow}>
-                  {formatCapacityLabel(item.capacity) ? (
-                    <Text style={styles.capacityText}>
-                      Capacidade: {formatCapacityLabel(item.capacity)}
-                    </Text>
-                  ) : (
-                    <View style={styles.footerSpacer} />
-                  )}
-                  <View style={styles.arrowBtn}>
-                    <Ionicons name="chevron-forward" size={20} color={AppColors.text.secondary} />
-                  </View>
-                </View>
-              </View>
-            </Pressable>
-          );
-        })}
+        {items.map((item) => (
+          <FeaturedEventCard key={item.id} item={item} />
+        ))}
       </ScrollView>
       <View style={styles.dots}>
         {items.map((item, i) => (
@@ -160,6 +181,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.5,
+  },
+  heroSaveBtn: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    zIndex: 3,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroSaveBtnActive: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
   },
   cardBody: {
     position: 'absolute',

@@ -1,9 +1,7 @@
 import { getApiBaseUrl, getAuthToken } from './authApi';
-import { normalizeEventItem, type EventItem } from './eventsService';
-import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
+import { normalizeEventItem, resolveEventScopeHostId, type EventItem } from './eventsService';
 
 const BASE_PATH = '/api/v1';
-const PUBLIC_HOST_ID = process.env.EXPO_PUBLIC_HOST_ID?.trim();
 
 export class EventFavoriteApiError extends Error {
   readonly status: number;
@@ -16,29 +14,9 @@ export class EventFavoriteApiError extends Error {
 }
 
 export interface MyFavoriteEventRow {
-  favoriteId: string;
-  event: EventItem;
-  savedAt: string | null;
-}
-
-export interface MyEventFavoriteStatus {
   eventId: string;
-  favorited: boolean;
-}
-
-function resolveHostId(): string {
-  const token = getAuthToken();
-  if (token) {
-    try {
-      const c = parseJwtAccessTokenPayload(token);
-      const fromJwt = c.hostId != null && String(c.hostId).trim() ? String(c.hostId).trim() : null;
-      if (fromJwt) return fromJwt;
-    } catch {
-      /* token inválido */
-    }
-  }
-  if (PUBLIC_HOST_ID) return PUBLIC_HOST_ID;
-  throw new Error('EXPO_PUBLIC_HOST_ID não definida');
+  event: EventItem;
+  favoritedAt: string | null;
 }
 
 function authHeaders(json = false): Record<string, string> {
@@ -102,66 +80,35 @@ function normalizeFavoriteRow(raw: unknown): MyFavoriteEventRow | null {
   const eventRaw = r.event;
   if (!eventRaw || typeof eventRaw !== 'object') return null;
   const event = normalizeEventItem(eventRaw);
-  if (!event.id) return null;
+  const eventId = readString(r.eventId ?? r.event_id) ?? event.id;
+  if (!eventId) return null;
   return {
-    favoriteId:
-      readString(r.favoriteId ?? r.favorite_id ?? r.id) ?? event.id,
-    event,
-    savedAt: readString(r.savedAt ?? r.saved_at ?? r.createdAt ?? r.created_at),
-  };
-}
-
-function normalizeFavoriteMe(raw: unknown, eventId: string): MyEventFavoriteStatus {
-  if (!raw || typeof raw !== 'object') {
-    return { eventId, favorited: false };
-  }
-  const r = raw as Record<string, unknown>;
-  const status = readString(r.status);
-  const favorited =
-    r.favorited === true ||
-    r.isFavorite === true ||
-    r.is_favorite === true ||
-    status === 'saved' ||
-    status === 'favorited' ||
-    status === 'active';
-  return {
-    eventId: readString(r.eventId ?? r.event_id) ?? eventId,
-    favorited,
-  };
-}
-
-export async function getMyEventFavorite(eventId: string): Promise<MyEventFavoriteStatus> {
-  const token = getAuthToken();
-  if (!token) return { eventId, favorited: false };
-
-  const params = new URLSearchParams({
-    hostId: resolveHostId(),
     eventId,
-  });
-  const url = `${getApiBaseUrl()}${BASE_PATH}/event-favorites/me?${params}`;
-  const res = await fetch(url, { headers: authHeaders() });
-  if (res.status === 404) return { eventId, favorited: false };
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throwFavoriteError(text, res.status, 'Erro ao verificar favorito');
-  }
-  const json: unknown = await res.json();
-  return normalizeFavoriteMe(json, eventId);
+    event,
+    favoritedAt: readString(r.favoritedAt ?? r.favorited_at),
+  };
 }
 
+function favoritesQuery(hostId: string, extra?: Record<string, string>): string {
+  const params = new URLSearchParams({ hostId, ...extra });
+  return params.toString();
+}
+
+/** GET /event-favorites?hostId=&init=&end= */
 export async function listMyFavoriteEvents(
   init = 0,
   end = 20,
+  hostId?: string | null,
 ): Promise<MyFavoriteEventRow[]> {
   const token = getAuthToken();
   if (!token) return [];
 
-  const params = new URLSearchParams({
-    hostId: resolveHostId(),
+  const scopedHostId = resolveEventScopeHostId(hostId);
+  const qs = favoritesQuery(scopedHostId, {
     init: String(init),
     end: String(end),
   });
-  const url = `${getApiBaseUrl()}${BASE_PATH}/event-favorites/my-events?${params}`;
+  const url = `${getApiBaseUrl()}${BASE_PATH}/event-favorites?${qs}`;
   const res = await fetch(url, { headers: authHeaders() });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
@@ -173,17 +120,25 @@ export async function listMyFavoriteEvents(
     .filter((r): r is MyFavoriteEventRow => r != null);
 }
 
-export async function addEventFavorite(eventId: string): Promise<void> {
+/** POST /event-favorites?hostId= (idempotente) */
+export async function addEventFavorite(
+  eventId: string,
+  hostId?: string | null,
+): Promise<void> {
   const token = getAuthToken();
   if (!token) {
     throw new EventFavoriteApiError('Faça login para salvar eventos.', 401);
   }
-  const qs = new URLSearchParams({ hostId: resolveHostId() }).toString();
+  const scopedHostId = resolveEventScopeHostId(hostId);
+  const qs = favoritesQuery(scopedHostId);
   const url = `${getApiBaseUrl()}${BASE_PATH}/event-favorites?${qs}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: authHeaders(true),
-    body: JSON.stringify({ eventId }),
+    body: JSON.stringify({
+      eventId,
+      hostId: scopedHostId,
+    }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
@@ -191,12 +146,17 @@ export async function addEventFavorite(eventId: string): Promise<void> {
   }
 }
 
-export async function removeEventFavorite(eventId: string): Promise<void> {
+/** DELETE /event-favorites/:eventId?hostId= */
+export async function removeEventFavorite(
+  eventId: string,
+  hostId?: string | null,
+): Promise<void> {
   const token = getAuthToken();
   if (!token) {
     throw new EventFavoriteApiError('Faça login para remover dos salvos.', 401);
   }
-  const qs = new URLSearchParams({ hostId: resolveHostId() }).toString();
+  const scopedHostId = resolveEventScopeHostId(hostId);
+  const qs = favoritesQuery(scopedHostId);
   const url = `${getApiBaseUrl()}${BASE_PATH}/event-favorites/${encodeURIComponent(eventId)}?${qs}`;
   const res = await fetch(url, {
     method: 'DELETE',
@@ -209,14 +169,25 @@ export async function removeEventFavorite(eventId: string): Promise<void> {
   }
 }
 
+export async function isEventFavorited(
+  eventId: string,
+  hostId?: string | null,
+): Promise<boolean> {
+  const token = getAuthToken();
+  if (!token) return false;
+  const rows = await listMyFavoriteEvents(0, 200, hostId);
+  return rows.some((r) => r.eventId === eventId || r.event.id === eventId);
+}
+
 export async function toggleEventFavorite(
   eventId: string,
   currentlyFavorited: boolean,
+  hostId?: string | null,
 ): Promise<boolean> {
   if (currentlyFavorited) {
-    await removeEventFavorite(eventId);
+    await removeEventFavorite(eventId, hostId);
     return false;
   }
-  await addEventFavorite(eventId);
+  await addEventFavorite(eventId, hostId);
   return true;
 }

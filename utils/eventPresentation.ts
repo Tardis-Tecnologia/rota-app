@@ -4,6 +4,7 @@ import { resolveEventImageUrl } from '@/utils/eventImage';
 import { eventItemToEvento } from '@/utils/eventsCarousel';
 
 export type EventListItem = Evento & {
+  hostId?: string;
   descricao?: string;
   localNome?: string;
   endereco?: string;
@@ -56,6 +57,7 @@ export function eventItemToListItem(item: EventItem): EventListItem {
   return {
     ...base,
     imagem,
+    hostId: item.hostId?.trim() || undefined,
     descricao: item.description?.trim() || undefined,
     localNome: item.locationName?.trim() || undefined,
     endereco: item.locationAddress?.trim() || undefined,

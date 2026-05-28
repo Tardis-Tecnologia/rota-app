@@ -6,16 +6,16 @@ import type { EventListItem } from '@/utils/eventPresentation';
 import { eventItemToListItem } from '@/utils/eventPresentation';
 import { startOfLocalDay } from '@/utils/eventsCarousel';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
+
+const SEARCH_DEBOUNCE_MS = 350;
 
 export default function BuscarEventosScreen() {
   const [query, setQuery] = useState('');
@@ -23,32 +23,68 @@ export default function BuscarEventosScreen() {
   const [items, setItems] = useState<EventListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const requestIdRef = useRef(0);
 
   const startDate = useMemo(() => startOfLocalDay().toISOString(), []);
 
-  const runSearch = useCallback(async () => {
-    const q = query.trim();
-    setApplied(q);
-    setSearched(true);
-    if (!q) {
+  const fetchResults = useCallback(
+    async (q: string) => {
+      const trimmed = q.trim();
+      const requestId = ++requestIdRef.current;
+
+      if (!trimmed) {
+        setApplied('');
+        setItems([]);
+        setSearched(false);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setSearched(true);
+      setApplied(trimmed);
+
+      try {
+        const list = await getEvents({
+          init: 0,
+          end: 30,
+          startDate,
+          title: trimmed,
+        });
+        if (requestId !== requestIdRef.current) return;
+        setItems(list.map(eventItemToListItem));
+      } catch {
+        if (requestId !== requestIdRef.current) return;
+        setItems([]);
+      } finally {
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [startDate],
+  );
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      requestIdRef.current += 1;
+      setApplied('');
       setItems([]);
+      setSearched(false);
+      setLoading(false);
       return;
     }
-    setLoading(true);
-    try {
-      const list = await getEvents({
-        init: 0,
-        end: 30,
-        startDate,
-        title: q,
-      });
-      setItems(list.map(eventItemToListItem));
-    } catch {
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [query, startDate]);
+
+    const timer = setTimeout(() => {
+      void fetchResults(trimmed);
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [query, fetchResults]);
+
+  const showInitialHint = !searched && !loading;
+  const showEmptyResults = searched && !loading && items.length === 0;
 
   return (
     <View style={styles.container}>
@@ -62,50 +98,47 @@ export default function BuscarEventosScreen() {
             value={query}
             onChangeText={setQuery}
             returnKeyType="search"
-            onSubmitEditing={() => void runSearch()}
+            onSubmitEditing={() => void fetchResults(query)}
+            autoCorrect={false}
+            autoCapitalize="none"
           />
         </View>
-        <Pressable style={styles.searchBtn} onPress={() => void runSearch()}>
-          <Text style={styles.searchBtnText}>Buscar</Text>
-        </Pressable>
       </View>
 
-      {loading ? (
-        <View style={styles.loader}>
-          <ActivityIndicator color={AppColors.tab.active} />
-        </View>
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(e) => e.id}
-          contentContainerStyle={styles.listContent}
-          keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={
-            searched ? (
-              <EventListEmpty
-                icon="search-outline"
-                title="Nenhum resultado"
-                subtitle={
-                  applied
-                    ? `Não encontramos eventos para “${applied}”.`
-                    : 'Digite o nome do evento e toque em Buscar.'
-                }
-              />
-            ) : (
-              <EventListEmpty
-                icon="search-outline"
-                title="Buscar na agenda"
-                subtitle="Digite palavras do título do evento para encontrar na cidade."
-              />
-            )
-          }
-          renderItem={({ item }) => (
-            <View style={styles.cardWrap}>
-              <EventUpcomingCard item={item} />
+      <FlatList
+        data={items}
+        keyExtractor={(e) => e.id}
+        contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
+        ListEmptyComponent={
+          showInitialHint ? (
+            <EventListEmpty
+              icon="search-outline"
+              title="Buscar na agenda"
+              subtitle="Digite palavras do título do evento para encontrar na cidade."
+            />
+          ) : showEmptyResults ? (
+            <EventListEmpty
+              icon="search-outline"
+              title="Nenhum resultado"
+              subtitle={
+                applied
+                  ? `Não encontramos eventos para “${applied}”.`
+                  : 'Tente outras palavras do título.'
+              }
+            />
+          ) : loading ? (
+            <View style={styles.loader}>
+              <ActivityIndicator color={AppColors.tab.active} />
             </View>
-          )}
-        />
-      )}
+          ) : null
+        }
+        renderItem={({ item }) => (
+          <View style={styles.cardWrap}>
+            <EventUpcomingCard item={item} />
+          </View>
+        )}
+      />
     </View>
   );
 }
@@ -116,9 +149,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: AppColors.background.default,
@@ -126,7 +156,6 @@ const styles = StyleSheet.create({
     borderBottomColor: AppColors.border.muted,
   },
   inputWrap: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -140,17 +169,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: AppColors.text.secondary,
     paddingVertical: 0,
-  },
-  searchBtn: {
-    backgroundColor: AppColors.tab.active,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  searchBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
   },
   listContent: {
     paddingVertical: 12,

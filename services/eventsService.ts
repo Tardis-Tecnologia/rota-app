@@ -1,10 +1,19 @@
-import { getApiBaseUrl, getAuthToken } from './authApi';
+import { getApiBaseUrl, getAuthToken, getWhitelabelHostId } from './authApi';
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
 
 const BASE_PATH = '/api/v1';
-const PUBLIC_HOST_ID = process.env.EXPO_PUBLIC_HOST_ID?.trim();
 
-function eventsHostIdForRequest(): string {
+/** Mesmo escopo de host usado em listagem, favoritos e RSVP. */
+export function resolveEventScopeHostId(preferredHostId?: string | null): string {
+  const preferred = preferredHostId?.trim();
+  if (preferred) return preferred;
+
+  try {
+    return getWhitelabelHostId();
+  } catch {
+    /* EXPO_PUBLIC_HOST_ID ausente — tenta JWT */
+  }
+
   const token = getAuthToken();
   if (token) {
     try {
@@ -15,7 +24,7 @@ function eventsHostIdForRequest(): string {
       /* token inválido ou não-JWT */
     }
   }
-  if (PUBLIC_HOST_ID) return PUBLIC_HOST_ID;
+
   throw new Error('EXPO_PUBLIC_HOST_ID não definida');
 }
 
@@ -94,7 +103,7 @@ export function normalizeEventItem(raw: unknown): EventItem {
 
   return {
     hostId: r.hostId == null ? (r.host_id == null ? null : readString(r.host_id)) : readString(r.hostId),
-    id: String(r.id ?? ''),
+    id: readString(r.id) ?? readString(r.eventId ?? r.event_id) ?? '',
     title: String(r.title ?? ''),
     description: r.description == null ? null : String(r.description),
     categories: Array.isArray(r.categories) ? r.categories.map(String) : [],
@@ -147,7 +156,7 @@ async function fetchApiList(endpoint: string): Promise<EventItem[]> {
 }
 
 function appendHostIdToEventsPath(path: string): string {
-  const hostId = eventsHostIdForRequest();
+  const hostId = resolveEventScopeHostId();
   const join = path.includes('?') ? '&' : '?';
   return `${path}${join}hostId=${encodeURIComponent(hostId)}`;
 }

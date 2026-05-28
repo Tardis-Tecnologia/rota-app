@@ -173,6 +173,25 @@ export async function getUserRewardPoints(): Promise<UserRewardPoints> {
   return requestApi('/users/reward-points');
 }
 
+export async function createReward(payload: {
+  name: string;
+  description?: string;
+  value?: number | null;
+  active?: boolean;
+}): Promise<RewardItem> {
+  const hostId = getConfiguredRewardsHostId();
+  return requestApi<RewardItem>('/rewards', {
+    method: 'POST',
+    body: {
+      hostId,
+      name: payload.name.trim(),
+      description: payload.description?.trim() || undefined,
+      value: payload.value ?? null,
+      active: payload.active ?? true,
+    },
+  });
+}
+
 export async function getRewards(options?: {
   init?: number;
   end?: number;

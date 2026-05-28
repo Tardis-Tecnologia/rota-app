@@ -2,10 +2,6 @@ import ModalSolicitarLojaParceira from '@/components/ModalSolicitarLojaParceira'
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
-import {
-  isLojaDemoMockEmail,
-  LOJA_DEMO_MOCK_SESSION,
-} from '@/utils/comercioAuth';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -71,19 +67,14 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      if (isLojaDemoMockEmail(email)) {
-        await loginWithSession(LOJA_DEMO_MOCK_SESSION);
-        return;
-      }
-
       await login(email.trim(), password);
     } catch (e) {
       const message =
-        e instanceof Error && e.message === 'EMAIL_OU_SENHA_INCORRETOS'
-          ? 'Email ou senha incorretos.'
-          : e instanceof Error
-            ? e.message
-            : 'Não foi possível entrar. Tente novamente.';
+        e instanceof Error
+          ? e.message === 'EMAIL_OU_SENHA_INCORRETOS'
+            ? 'E-mail ou senha incorretos.'
+            : e.message
+          : 'Não foi possível entrar. Tente novamente.';
       setError(message);
     } finally {
       setLoading(false);
@@ -219,9 +210,6 @@ export default function LoginScreen() {
                     <Text style={styles.comercioButtonText}>Quero ser comércio parceiro</Text>
                   </LinearGradient>
                 </TouchableOpacity>
-                <Text style={styles.comercioDemoHint}>
-                  Demo front: lojademo@rota.com + qualquer senha (sem API).
-                </Text>
               </View>
 
               <View style={styles.dividerRow}>

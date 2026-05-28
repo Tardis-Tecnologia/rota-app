@@ -1,3 +1,4 @@
+import { loginCommercial } from './commercialAuthApi';
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -23,6 +24,12 @@ export interface LoginSuccess {
   themeSlug: string | null;
   photoUrl: string | null;
 }
+
+export type LoginAccountKind = 'citizen' | 'commercial';
+
+export type LoginWithEmailPasswordResult = LoginSuccess & {
+  accountKind: LoginAccountKind;
+};
 
 export interface GoogleLoginSuccess {
   token: string;
@@ -260,6 +267,22 @@ export async function login(
     themeSlug: data.themeSlug ?? null,
     photoUrl: pickPhotoUrl(data as unknown as Record<string, unknown>) ?? null,
   };
+}
+
+export async function loginWithEmailPassword(
+  email: string,
+  password: string,
+): Promise<LoginWithEmailPasswordResult> {
+  try {
+    const citizen = await login(email, password);
+    return { ...citizen, accountKind: 'citizen' };
+  } catch (err) {
+    if (!(err instanceof Error) || err.message !== 'EMAIL_OU_SENHA_INCORRETOS') {
+      throw err;
+    }
+    const commercial = await loginCommercial(email, password);
+    return { ...commercial, accountKind: 'commercial' };
+  }
 }
 
 export async function loginWithGoogle(idToken: string): Promise<GoogleLoginSuccess> {

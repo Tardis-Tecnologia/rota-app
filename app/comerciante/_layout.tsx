@@ -1,4 +1,5 @@
 import { HapticTab } from '@/components/haptic-tab';
+import { ComercianteStoreProvider } from '@/contexts/ComercianteStoreContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React, { useMemo } from 'react';
@@ -28,6 +29,7 @@ export default function ComercianteLayout() {
   }, [insets.bottom]);
 
   return (
+    <ComercianteStoreProvider>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -74,5 +76,6 @@ export default function ComercianteLayout() {
         }}
       />
     </Tabs>
+    </ComercianteStoreProvider>
   );
 }

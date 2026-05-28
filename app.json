@@ -56,6 +56,12 @@
           "cameraPermission": "O aplicativo precisa da câmera para você fotografar o problema e anexar ao relatório."
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O aplicativo precisa da câmera para escanear o QR Code do cupom do cliente."
+        }
+      ],
       "@react-native-google-signin/google-signin", "@maplibre/maplibre-react-native"
     ],
     "experiments": {

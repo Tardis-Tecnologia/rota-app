@@ -79,7 +79,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session.user);
         const uid = session.user.id?.trim();
         const token = session.token;
-        if (uid && token) {
+        const profile = session.user.profile?.trim().toUpperCase() ?? '';
+        const isCommercialProfile =
+          profile === 'LOJA' ||
+          profile.includes('LOJA') ||
+          profile.includes('COMERCIO');
+        if (uid && token && !isCommercialProfile) {
           try {
             const details = await authApi.getUserById(uid);
             if (!mounted) return;
@@ -113,9 +118,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     }
-    const data = await authApi.login(email, password);
+    const data = await authApi.loginWithEmailPassword(email, password);
     authApi.setAuthToken(data.token);
-    const emailNorm = email.trim().toLowerCase();
+    const emailNorm = email.trim();
     let nextUser: AuthUser = {
       id: data.userId,
       email: emailNorm,
@@ -126,6 +131,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       photoUrl: bustPhotoIfPresent(data.photoUrl),
     };
     setUser(nextUser);
+
+    if (data.accountKind === 'commercial') {
+      try {
+        await saveAuthSession({ token: data.token, user: nextUser });
+      } catch {
+        /* ignore */
+      }
+      try {
+        await refreshAppThemeAfterLogin();
+      } catch {
+        /* ignore */
+      }
+      return nextUser;
+    }
+
     try {
       const details = await authApi.getUserById(data.userId);
       nextUser = applyUserDetailsFromApi(nextUser, details);
@@ -133,7 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       nextUser = {
         id: data.userId,
-        email: email.trim().toLowerCase(),
+        email: emailNorm,
         name: '',
         role: profileToRole(data.profile),
         profile: data.profile,

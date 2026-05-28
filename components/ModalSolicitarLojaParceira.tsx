@@ -1,17 +1,21 @@
 import { AppColors } from '@/constants/theme';
+import { registerCommercialAccount } from '@/services/commercialAuthApi';
+import { cepDigitsOnly, formatCepDisplay } from '@/services/viacep';
+import { getPasswordPolicyError, PASSWORD_PLACEHOLDER } from '@/utils/passwordPolicy';
 import { formatBrazilPhoneInput } from '@/utils/phoneMask';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from 'react-native';
 
 type FormState = {
@@ -19,9 +23,12 @@ type FormState = {
   cnpj: string;
   segmento: string;
   endereco: string;
+  cep: string;
   responsavel: string;
   telefone: string;
   email: string;
+  senha: string;
+  confirmarSenha: string;
   sobre: string;
 };
 
@@ -30,9 +37,12 @@ const EMPTY_FORM: FormState = {
   cnpj: '',
   segmento: '',
   endereco: '',
+  cep: '',
   responsavel: '',
   telefone: '',
   email: '',
+  senha: '',
+  confirmarSenha: '',
   sobre: '',
 };
 
@@ -47,7 +57,9 @@ export default function ModalSolicitarLojaParceira({
 }: ModalSolicitarLojaParceiraProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [formError, setFormError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const updateField = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -57,11 +69,13 @@ export default function ModalSolicitarLojaParceira({
   const handleClose = () => {
     setForm(EMPTY_FORM);
     setIsSubmitted(false);
+    setSuccessMessage('');
     setFormError('');
+    setSubmitting(false);
     onClose();
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.nomeLoja.trim()) {
       setFormError('Informe o nome da loja.');
       return;
@@ -78,7 +92,44 @@ export default function ModalSolicitarLojaParceira({
       setFormError('Informe um e-mail válido.');
       return;
     }
-    setIsSubmitted(true);
+    const passwordErr = getPasswordPolicyError(form.senha);
+    if (passwordErr) {
+      setFormError(passwordErr);
+      return;
+    }
+    if (!form.confirmarSenha.trim()) {
+      setFormError('Confirme sua senha.');
+      return;
+    }
+    if (form.senha !== form.confirmarSenha) {
+      setFormError('As senhas não coincidem.');
+      return;
+    }
+
+    setSubmitting(true);
+    setFormError('');
+    try {
+      const result = await registerCommercialAccount({
+        storeName: form.nomeLoja,
+        email: form.email,
+        responsibleName: form.responsavel,
+        phone: form.telefone,
+        password: form.senha,
+        cnpj: form.cnpj || undefined,
+        segment: form.segmento || undefined,
+        address: form.endereco || undefined,
+        cep: cepDigitsOnly(form.cep) || undefined,
+        description: form.sobre || undefined,
+      });
+      setSuccessMessage(result.message);
+      setIsSubmitted(true);
+    } catch (e) {
+      setFormError(
+        e instanceof Error ? e.message : 'Não foi possível enviar a solicitação. Tente novamente.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -160,6 +211,19 @@ export default function ModalSolicitarLojaParceira({
                 </View>
 
                 <View style={styles.formGroup}>
+                  <Text style={styles.label}>CEP</Text>
+                  <TextInput
+                    value={form.cep}
+                    onChangeText={(v) => updateField('cep', formatCepDisplay(v))}
+                    placeholder="00000-000"
+                    placeholderTextColor={AppColors.text.quaternary}
+                    style={styles.input}
+                    keyboardType="numeric"
+                    maxLength={9}
+                  />
+                </View>
+
+                <View style={styles.formGroup}>
                   <Text style={styles.label}>Nome do responsável *</Text>
                   <TextInput
                     value={form.responsavel}
@@ -196,6 +260,37 @@ export default function ModalSolicitarLojaParceira({
                   </View>
                 </View>
 
+                <View style={styles.row}>
+                  <View style={[styles.formGroup, styles.rowItem]}>
+                    <Text style={styles.label}>Senha *</Text>
+                    <TextInput
+                      value={form.senha}
+                      onChangeText={(v) => updateField('senha', v)}
+                      placeholder={PASSWORD_PLACEHOLDER}
+                      placeholderTextColor={AppColors.text.quaternary}
+                      style={styles.input}
+                      secureTextEntry
+                      autoCapitalize="none"
+                    />
+                  </View>
+                  <View style={[styles.formGroup, styles.rowItem]}>
+                    <Text style={styles.label}>Confirmar senha *</Text>
+                    <TextInput
+                      value={form.confirmarSenha}
+                      onChangeText={(v) => updateField('confirmarSenha', v)}
+                      placeholder="Repita a senha"
+                      placeholderTextColor={AppColors.text.quaternary}
+                      style={styles.input}
+                      secureTextEntry
+                      autoCapitalize="none"
+                    />
+                  </View>
+                </View>
+
+                <Text style={styles.passwordHint}>
+                  Após aprovação da equipe, use este e-mail para entrar no app.
+                </Text>
+
                 <View style={styles.formGroup}>
                   <Text style={styles.label}>Conte sobre seu comércio e objetivo da parceria</Text>
                   <TextInput
@@ -212,11 +307,22 @@ export default function ModalSolicitarLojaParceira({
                 {formError ? <Text style={styles.formError}>{formError}</Text> : null}
 
                 <Pressable
-                  onPress={handleSubmit}
-                  style={({ pressed }) => [styles.submitButton, pressed && styles.submitButtonPressed]}
+                  onPress={() => void handleSubmit()}
+                  disabled={submitting}
+                  style={({ pressed }) => [
+                    styles.submitButton,
+                    submitting && styles.submitButtonDisabled,
+                    pressed && !submitting && styles.submitButtonPressed,
+                  ]}
                 >
-                  <Ionicons name="paper-plane" size={18} color="#FFFFFF" />
-                  <Text style={styles.submitButtonText}>Enviar para análise</Text>
+                  {submitting ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="paper-plane" size={18} color="#FFFFFF" />
+                      <Text style={styles.submitButtonText}>Enviar para análise</Text>
+                    </>
+                  )}
                 </Pressable>
               </ScrollView>
             </>
@@ -227,7 +333,8 @@ export default function ModalSolicitarLojaParceira({
               </View>
               <Text style={styles.successTitle}>Pedido enviado!</Text>
               <Text style={styles.successMessage}>
-                Recebemos sua solicitação de parceria. Nossa equipe entrará em contato após a análise.
+                {successMessage ||
+                  'Recebemos sua solicitação de parceria. Nossa equipe entrará em contato após a análise.'}
               </Text>
               <Pressable
                 onPress={handleClose}
@@ -344,6 +451,12 @@ const styles = StyleSheet.create({
     color: AppColors.status.error,
     fontWeight: '500',
   },
+  passwordHint: {
+    fontSize: 12,
+    color: AppColors.gray[500],
+    lineHeight: 18,
+    marginTop: -4,
+  },
   submitButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -356,6 +469,9 @@ const styles = StyleSheet.create({
   },
   submitButtonPressed: {
     opacity: 0.9,
+  },
+  submitButtonDisabled: {
+    opacity: 0.65,
   },
   submitButtonText: {
     color: '#FFFFFF',

@@ -15,4 +15,4 @@ export function getPasswordPolicyError(password: string): string | undefined {
   return undefined;
 }
 
-export const PASSWORD_PLACEHOLDER = 'Ex.: Senha123 (maiúscula e número)';
+export const PASSWORD_PLACEHOLDER = 'Ex.: Senha123';

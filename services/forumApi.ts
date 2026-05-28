@@ -1,3 +1,7 @@
+import type {
+    ForumAuthorCommercial,
+    ForumPromotedCoupon,
+} from '@/types/forumCommercial';
 import { getApiBaseUrl, getAuthToken } from './authApi';
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
 
@@ -12,7 +16,7 @@ export interface ForumAuthorDto {
 export interface ForumPostListItemDto {
   id: string;
   hostId: string;
-  userId: string;
+  userId: string | null;
   title: string;
   postType: string;
   likesCount: number;
@@ -23,6 +27,16 @@ export interface ForumPostListItemDto {
   communityId: string | null;
   createdAt: string;
   author?: ForumAuthorDto;
+  authorCommercial?: ForumAuthorCommercial;
+  promotedCoupon?: ForumPromotedCoupon | null;
+}
+
+export interface ForumContactStoreResponse {
+  cid: string;
+  channelId: string;
+  channelType: string;
+  contactEventId: string;
+  messageId: string;
 }
 
 export interface ForumPostResponseDto extends ForumPostListItemDto {
@@ -53,6 +67,11 @@ function resolveHostId(explicit?: string): string {
   const fromArg = explicit?.trim();
   if (fromArg) return fromArg;
 
+  // App whitelabel: um host por build (.env). Prioriza o host da cidade para o feed
+  // bater com publicações de lojas (cadastradas no mesmo host).
+  const fromEnv = process.env.EXPO_PUBLIC_HOST_ID?.trim();
+  if (fromEnv) return fromEnv;
+
   const token = getAuthToken();
   if (token) {
     try {
@@ -64,13 +83,9 @@ function resolveHostId(explicit?: string): string {
     }
   }
 
-  const fromEnv = process.env.EXPO_PUBLIC_HOST_ID?.trim();
-  if (!fromEnv) {
-    throw new Error(
-      'Não foi possível definir o host. Faça login com usuário vinculado a um host ou defina EXPO_PUBLIC_HOST_ID.',
-    );
-  }
-  return fromEnv;
+  throw new Error(
+    'Não foi possível definir o host. Faça login com usuário vinculado a um host ou defina EXPO_PUBLIC_HOST_ID.',
+  );
 }
 
 async function readErrorMessage(res: Response): Promise<string> {
@@ -214,7 +229,7 @@ export async function findRecentlyCreatedForumPostId(
     end: 10,
   });
   for (const row of rows) {
-    if (userId && row.userId !== userId) continue;
+    if (userId && row.userId != null && row.userId !== userId) continue;
     if (row.title.trim() !== body.title.trim()) continue;
     const full = await getForumPost(row.id);
     if (full.content.trim() === body.content.trim()) {
@@ -272,4 +287,46 @@ export async function likeForumComment(commentId: string): Promise<void> {
     headers: authHeaders(),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res));
+}
+
+export async function contactForumStorePost(
+  forumPostId: string,
+  message: string,
+  hostId?: string,
+): Promise<ForumContactStoreResponse> {
+  const base = getApiBaseUrl();
+  const body: Record<string, string> = { message: message.trim() };
+  const hid = hostId?.trim();
+  if (hid) {
+    body.hostId = hid;
+  } else {
+    try {
+      const resolved = resolveHostId();
+      if (resolved) body.hostId = resolved;
+    } catch {
+      // JWT pode já trazer hostId no backend
+    }
+  }
+  const url = `${base}${BASE_PATH}/forum/posts/${encodeURIComponent(forumPostId)}/contact`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+  const data = (await res.json()) as ForumContactStoreResponse & { channelType?: string };
+  const cid = data.cid?.trim() ?? '';
+  if (cid.includes(':')) {
+    const colon = cid.indexOf(':');
+    return {
+      ...data,
+      channelType: data.channelType?.trim() || cid.slice(0, colon),
+      channelId: data.channelId?.trim() || cid.slice(colon + 1),
+    };
+  }
+  return {
+    ...data,
+    channelType: data.channelType?.trim() || 'messaging',
+    channelId: data.channelId?.trim() || '',
+  };
 }

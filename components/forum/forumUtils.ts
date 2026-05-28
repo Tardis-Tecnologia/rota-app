@@ -1,8 +1,61 @@
 import { getApiBaseUrl } from '@/services/authApi';
-import type { ForumAuthorDto } from '@/services/forumApi';
+import type {
+  ForumAuthorDto,
+  ForumPostListItemDto,
+  ForumPostResponseDto,
+} from '@/services/forumApi';
+import {
+  FORUM_PARTNER_STORE_POST_TYPE,
+  type ForumAuthorCommercial,
+} from '@/types/forumCommercial';
+
+export { FORUM_PARTNER_STORE_POST_TYPE };
 
 /** Posts do módulo Animais Perdidos — não entram no feed geral do fórum. */
 export const FORUM_LOST_ANIMAL_POST_TYPE = 'lost_animal';
+
+export function isPartnerStoreForumPost(post: {
+  postType?: string | null;
+  authorCommercial?: ForumAuthorCommercial | null;
+}): boolean {
+  if ((post.postType?.trim() ?? '') === FORUM_PARTNER_STORE_POST_TYPE) return true;
+  return !!post.authorCommercial?.id?.trim();
+}
+
+/** Autor da publicação (cidadão ou loja comercial). */
+export function isForumPostOwnedByUser(
+  post: {
+    userId?: string | null;
+    authorCommercial?: ForumAuthorCommercial | null;
+    postType?: string | null;
+  },
+  userId: string | undefined | null,
+): boolean {
+  const uid = userId?.trim();
+  if (!uid) return false;
+  if (isPartnerStoreForumPost(post)) {
+    return post.authorCommercial?.id?.trim() === uid;
+  }
+  return post.userId?.trim() === uid;
+}
+
+export function buildStoreContactDraftMessage(storeName: string, postTitle?: string): string {
+  const store = storeName.trim() || 'sua loja';
+  const title = postTitle?.trim();
+  if (title) {
+    return `Olá! Vi a publicação "${title}" no fórum e gostaria de falar com ${store}.`;
+  }
+  return `Olá! Vi uma publicação de ${store} no fórum e gostaria de conversar.`;
+}
+
+export function forumListItemToFeedPost(row: ForumPostListItemDto): ForumPostResponseDto {
+  return {
+    ...row,
+    content: '',
+    updatedAt: row.createdAt,
+    liked: row.liked ?? false,
+  };
+}
 
 export function isExcludedFromGeneralForumFeed(post: {
   postType?: string | null;
@@ -68,6 +121,24 @@ export function openForumAuthorProfile(
       userId: author.id,
       name: author.name ?? '',
       photoUrl: author.photoUrl ?? '',
+    },
+  });
+}
+
+export function openForumCommercialStoreProfile(
+  post: Pick<ForumPostResponseDto, 'id' | 'title' | 'authorCommercial'>,
+  router: { push: (args: { pathname: string; params: Record<string, string> }) => void },
+): void {
+  const commercial = post.authorCommercial;
+  if (!commercial?.id?.trim()) return;
+  router.push({
+    pathname: '/forum/store',
+    params: {
+      commercialId: commercial.id,
+      storeName: commercial.storeName ?? '',
+      photoUrl: commercial.photoUrl ?? '',
+      forumPostId: post.id,
+      postTitle: post.title ?? '',
     },
   });
 }

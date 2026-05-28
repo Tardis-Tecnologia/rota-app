@@ -13,7 +13,7 @@ const RECOMENDACOES = [
 ] as const;
 
 export default function ComercianteMetricasScreen() {
-  const { headerStats } = useComercianteStore();
+  const { headerStats, contactMetrics, statsLoading } = useComercianteStore();
 
   return (
     <View style={styles.container}>
@@ -39,17 +39,42 @@ export default function ComercianteMetricasScreen() {
                 <Text style={styles.performanceHint}>vezes resgatado</Text>
               </View>
               <View style={styles.performanceItem}>
-                <View style={styles.performanceLabelRow}>
-                  <Ionicons name="search-outline" size={14} color="#94a3b8" />
-                  <Text style={styles.performanceLabel}>BUSCAS DA LOJA</Text>
-                </View>
-                <Text style={styles.performanceValue}>24</Text>
-                <Text style={styles.performanceHint}>procura no app</Text>
+                <Text style={styles.performanceLabel}>CONTATOS (TOTAL)</Text>
+                <Text style={styles.performanceValue}>
+                  {statsLoading ? '—' : contactMetrics?.contactsTotal ?? headerStats.contatos}
+                </Text>
+                <Text style={styles.performanceHint}>cliques em falar com a loja</Text>
               </View>
               <View style={styles.performanceItem}>
-                <Text style={styles.performanceLabel}>CONTATOS</Text>
-                <Text style={styles.performanceValue}>{headerStats.contatos}</Text>
-                <Text style={styles.performanceHint}>interesses gerados</Text>
+                <Text style={styles.performanceLabel}>ÚLTIMOS 7 DIAS</Text>
+                <Text style={styles.performanceValue}>
+                  {statsLoading ? '—' : contactMetrics?.contactsLast7Days ?? 0}
+                </Text>
+                <Text style={styles.performanceHint}>contatos recentes</Text>
+              </View>
+            </View>
+
+            <View style={styles.performanceGridSecondary}>
+              <View style={styles.performanceItem}>
+                <Text style={styles.performanceLabel}>ÚLTIMOS 30 DIAS</Text>
+                <Text style={styles.performanceValue}>
+                  {statsLoading ? '—' : contactMetrics?.contactsLast30Days ?? 0}
+                </Text>
+                <Text style={styles.performanceHint}>janela mensal</Text>
+              </View>
+              <View style={styles.performanceItem}>
+                <Text style={styles.performanceLabel}>POSTS NO FÓRUM</Text>
+                <Text style={styles.performanceValue}>
+                  {statsLoading ? '—' : contactMetrics?.forumPostsTotal ?? 0}
+                </Text>
+                <Text style={styles.performanceHint}>publicações da loja</Text>
+              </View>
+              <View style={styles.performanceItem}>
+                <Text style={styles.performanceLabel}>USOS DE CUPOM</Text>
+                <Text style={styles.performanceValue}>
+                  {statsLoading ? '—' : contactMetrics?.couponUsagesTotal ?? headerStats.uso}
+                </Text>
+                <Text style={styles.performanceHint}>resgates no app</Text>
               </View>
             </View>
           </View>
@@ -111,6 +136,11 @@ const styles = StyleSheet.create({
   performanceGrid: {
     flexDirection: 'row',
     gap: 10,
+  },
+  performanceGridSecondary: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
   },
   performanceItem: {
     flex: 1,

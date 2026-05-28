@@ -17,7 +17,9 @@ import {
   formatTimeAgo,
   forumDisplayHandle,
   forumPostImageUrl,
+  isPartnerStoreForumPost,
   openForumAuthorProfile,
+  openForumCommercialStoreProfile,
   withListImageCacheBust,
 } from './forumUtils';
 
@@ -34,6 +36,12 @@ interface ForumPostCardProps {
   onToggleComments: () => void;
   onCommentDraftChange: (text: string) => void;
   onSendComment: () => void;
+  onOpenStore?: () => void;
+  onContactStore?: () => void;
+  contactLoading?: boolean;
+  hideContactButton?: boolean;
+  /** Só passar quando o usuário logado é o autor; exibe lixeira no canto superior direito. */
+  onDelete?: () => void;
 }
 
 export default function ForumPostCard({
@@ -49,8 +57,17 @@ export default function ForumPostCard({
   onToggleComments,
   onCommentDraftChange,
   onSendComment,
+  onOpenStore,
+  onContactStore,
+  contactLoading = false,
+  hideContactButton = false,
+  onDelete,
 }: ForumPostCardProps) {
-  const authorPhotoRaw = post.author?.photoUrl?.trim();
+  const isStorePost = isPartnerStoreForumPost(post);
+  const storeAuthor = post.authorCommercial;
+  const authorPhotoRaw = isStorePost
+    ? storeAuthor?.photoUrl?.trim()
+    : post.author?.photoUrl?.trim();
   const authorPhoto = authorPhotoRaw
     ? withListImageCacheBust(authorPhotoRaw, imageCacheEpoch)
     : '';
@@ -58,8 +75,11 @@ export default function ForumPostCard({
   const postImageUri = postImageRaw
     ? withListImageCacheBust(postImageRaw, imageCacheEpoch)
     : null;
-  const displayName = (post.author?.name || 'Morador(a)').trim();
+  const displayName = isStorePost
+    ? (storeAuthor?.storeName || 'Loja parceira').trim()
+    : (post.author?.name || 'Morador(a)').trim();
   const initial = displayName.charAt(0).toUpperCase() || 'A';
+  const coupon = post.promotedCoupon;
 
   const openAuthor = useCallback(
     (author: typeof post.author) => {
@@ -68,8 +88,43 @@ export default function ForumPostCard({
     [],
   );
 
+  const openStoreHeader = useCallback(() => {
+    if (onOpenStore) {
+      onOpenStore();
+      return;
+    }
+    if (isStorePost) {
+      openForumCommercialStoreProfile(post, router);
+    }
+  }, [isStorePost, onOpenStore, post]);
+
+  const canOpenStoreProfile = isStorePost && (!!onOpenStore || !!post.authorCommercial?.id);
+
   return (
     <View style={styles.card}>
+      {onDelete ? (
+        <Pressable
+          style={styles.deleteIconBtn}
+          onPress={onDelete}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Excluir publicação"
+        >
+          <Ionicons name="trash-outline" size={20} color="#dc2626" />
+        </Pressable>
+      ) : null}
+      {isStorePost ? (
+        <Pressable
+          onPress={openStoreHeader}
+          disabled={!canOpenStoreProfile}
+          style={({ pressed }) => [styles.storeTag, pressed && styles.storeTagPressed]}
+        >
+          <Ionicons name="storefront" size={12} color="#b45309" />
+          <Text style={styles.storeTagText} numberOfLines={1}>
+            Loja parceira · {displayName}
+          </Text>
+        </Pressable>
+      ) : null}
       {channelName ? (
         <View style={styles.channelTag}>
           <Ionicons name="people" size={12} color="#0e7490" />
@@ -78,41 +133,86 @@ export default function ForumPostCard({
           </Text>
         </View>
       ) : null}
-      <View style={styles.postTop}>
-        <Pressable onPress={() => openAuthor(post.author)} disabled={!post.author?.id}>
-          {authorPhoto ? (
-            <Image
-              source={{ uri: authorPhoto }}
-              style={styles.avatarImage}
-            />
-          ) : (
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initial}</Text>
-            </View>
-          )}
-        </Pressable>
-        <View style={styles.postTopBody}>
-          <Pressable onPress={() => openAuthor(post.author)} disabled={!post.author?.id}>
-            <View style={styles.nameHandleRow}>
-              <Text style={styles.authorName} numberOfLines={1}>
-                {displayName}
-              </Text>
-              <Text style={styles.authorHandle} numberOfLines={1}>
-                {forumDisplayHandle(post.author)}
-              </Text>
-            </View>
+      <Pressable
+        onPress={isStorePost ? openStoreHeader : undefined}
+        disabled={!canOpenStoreProfile}
+      >
+        <View style={styles.postTop}>
+          <Pressable
+            onPress={() => (isStorePost ? openStoreHeader() : openAuthor(post.author))}
+            disabled={isStorePost ? !canOpenStoreProfile : !post.author?.id}
+          >
+            {authorPhoto ? (
+              <Image source={{ uri: authorPhoto }} style={styles.avatarImage} />
+            ) : (
+              <View style={[styles.avatar, isStorePost && styles.avatarStore]}>
+                <Text style={styles.avatarText}>{initial}</Text>
+              </View>
+            )}
           </Pressable>
-          <Text style={styles.timeTextSmall}>{formatTimeAgo(post.createdAt)}</Text>
-          <Text style={styles.title}>{post.title}</Text>
-          <Text style={styles.content}>{post.content}</Text>
+          <View style={styles.postTopBody}>
+            <Pressable
+              onPress={() => (isStorePost ? openStoreHeader() : openAuthor(post.author))}
+              disabled={isStorePost ? !canOpenStoreProfile : !post.author?.id}
+            >
+              <View style={styles.nameHandleRow}>
+                <Text style={styles.authorName} numberOfLines={1}>
+                  {displayName}
+                </Text>
+                {!isStorePost ? (
+                  <Text style={styles.authorHandle} numberOfLines={1}>
+                    {forumDisplayHandle(post.author)}
+                  </Text>
+                ) : (
+                  <Text style={styles.storeHandle} numberOfLines={1}>
+                    Comércio local
+                  </Text>
+                )}
+              </View>
+            </Pressable>
+            <Text style={styles.timeTextSmall}>{formatTimeAgo(post.createdAt)}</Text>
+            <Text style={styles.title}>{post.title}</Text>
+            <Text style={styles.content}>{post.content}</Text>
+          </View>
         </View>
-      </View>
+      </Pressable>
+
+      {coupon ? (
+        <View style={styles.couponBanner}>
+          <Ionicons name="pricetag" size={16} color="#0d9488" />
+          <View style={styles.couponTextWrap}>
+            <Text style={styles.couponName} numberOfLines={1}>
+              {coupon.name}
+            </Text>
+            <Text style={styles.couponMeta}>
+              {coupon.discountPercent}% · código {coupon.code}
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       {post.mediaId && postImageUri ? (
         <Image source={{ uri: postImageUri }} style={styles.postImage} resizeMode="cover" />
       ) : null}
       {post.locationDescription ? (
         <Text style={styles.locationText}>📍 {post.locationDescription}</Text>
+      ) : null}
+
+      {isStorePost && !hideContactButton && onContactStore ? (
+        <Pressable
+          style={({ pressed }) => [styles.contactStoreBtn, pressed && styles.contactStoreBtnPressed]}
+          onPress={onContactStore}
+          disabled={!canInteract || contactLoading}
+        >
+          {contactLoading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <>
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color="#fff" />
+              <Text style={styles.contactStoreBtnText}>Falar com a loja</Text>
+            </>
+          )}
+        </Pressable>
       ) : null}
 
       <View style={styles.footer}>
@@ -197,6 +297,7 @@ export default function ForumPostCard({
 
 const styles = StyleSheet.create({
   card: {
+    position: 'relative',
     marginHorizontal: 16,
     marginBottom: 8,
     backgroundColor: AppColors.background.default,
@@ -204,6 +305,15 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: AppColors.border.muted,
+  },
+  deleteIconBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 2,
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.92)',
   },
   channelTag: {
     flexDirection: 'row',
@@ -218,7 +328,52 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   channelTagText: { fontSize: 11, fontWeight: '800', color: '#0e7490', flexShrink: 1 },
+  storeTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginBottom: 10,
+    maxWidth: '100%',
+  },
+  storeTagText: { fontSize: 11, fontWeight: '800', color: '#b45309', flexShrink: 1 },
+  storeTagPressed: { opacity: 0.85 },
   postTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 4 },
+  avatarStore: { backgroundColor: '#d97706' },
+  storeHandle: { fontSize: 12, fontWeight: '600', color: '#b45309' },
+  couponBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#f0fdfa',
+    borderWidth: 1,
+    borderColor: '#99f6e4',
+  },
+  couponTextWrap: { flex: 1, minWidth: 0 },
+  couponName: { fontSize: 14, fontWeight: '700', color: '#0f766e' },
+  couponMeta: { fontSize: 12, color: '#0d9488', marginTop: 2 },
+  contactStoreBtn: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#0d9488',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  contactStoreBtnPressed: { opacity: 0.9 },
+  contactStoreBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   postTopBody: { flex: 1, minWidth: 0 },
   nameHandleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   authorName: { fontSize: 14, fontWeight: '800', color: '#0f172a' },

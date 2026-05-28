@@ -44,6 +44,7 @@ export default function ForumStackLayout() {
       />
       <Stack.Screen name="communities/[id]" options={{ title: 'Comunidade' }} />
       <Stack.Screen name="author" options={{ title: 'Perfil' }} />
+      <Stack.Screen name="store" options={{ title: 'Loja parceira' }} />
     </Stack>
   );
 }

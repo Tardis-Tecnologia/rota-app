@@ -53,13 +53,26 @@ export default function ComercianteHeader({ showForumButton = true }: Comerciant
               </Text>
             </View>
           </View>
-          <Pressable
-            onPress={handleLogout}
-            style={({ pressed }) => [styles.logoutBtn, pressed && styles.logoutBtnPressed]}
-            hitSlop={8}
-          >
-            <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => router.push('/comerciante/mensagens')}
+              style={({ pressed }) => [styles.headerIconBtn, pressed && styles.headerIconBtnPressed]}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Mensagens"
+            >
+              <Ionicons name="chatbubbles-outline" size={20} color="#FFFFFF" />
+            </Pressable>
+            <Pressable
+              onPress={handleLogout}
+              style={({ pressed }) => [styles.headerIconBtn, pressed && styles.headerIconBtnPressed]}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Sair"
+            >
+              <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
+            </Pressable>
+          </View>
         </View>
 
         <Text style={styles.headerDesc}>
@@ -132,7 +145,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: -0.3,
   },
-  logoutBtn: {
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerIconBtn: {
     width: 40,
     height: 40,
     borderRadius: 12,
@@ -140,7 +158,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoutBtnPressed: {
+  headerIconBtnPressed: {
     backgroundColor: 'rgba(255,255,255,0.32)',
   },
   headerDesc: {

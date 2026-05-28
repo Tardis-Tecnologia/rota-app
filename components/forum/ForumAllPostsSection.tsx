@@ -1,26 +1,35 @@
 import ForumFeedContextChip from '@/components/forum/ForumFeedContextChip';
 import ForumPostCard from '@/components/forum/ForumPostCard';
+import {
+    buildStoreContactDraftMessage,
+    forumListItemToFeedPost,
+    isExcludedFromGeneralForumFeed,
+    openForumCommercialStoreProfile,
+} from '@/components/forum/forumUtils';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { isExcludedFromGeneralForumFeed } from '@/components/forum/forumUtils';
 import {
-  createForumComment,
-  getForumPost,
-  likeForumPost,
-  listForumComments,
-  listForumPosts,
-  type ForumPostCommentListItemDto,
-  type ForumPostResponseDto,
+    contactForumStorePost,
+    createForumComment,
+    getForumPost,
+    likeForumPost,
+    listForumComments,
+    listForumPosts,
+    type ForumPostCommentListItemDto,
+    type ForumPostListItemDto,
+    type ForumPostResponseDto,
 } from '@/services/forumApi';
+import { FORUM_PARTNER_STORE_POST_TYPE } from '@/types/forumCommercial';
+import { isComercioUser } from '@/utils/comercioAuth';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator, Alert, RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View
 } from 'react-native';
 
 interface ForumAllPostsSectionProps {
@@ -49,18 +58,43 @@ export default function ForumAllPostsSection({
     {},
   );
   const [commentSendingPostId, setCommentSendingPostId] = useState<string | null>(null);
+  const [contactLoadingPostId, setContactLoadingPostId] = useState<string | null>(null);
+
+  const isCommercialViewer =
+    !!user && isComercioUser(user.email ?? '', user.profile ?? '');
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const rows = (await listForumPosts(undefined, { init: 0, end: 80 })).filter(
-        (r) => !isExcludedFromGeneralForumFeed(r),
+      const [generalRows, storeRows] = await Promise.all([
+        listForumPosts(undefined, { init: 0, end: 80 }),
+        listForumPosts(undefined, {
+          postType: FORUM_PARTNER_STORE_POST_TYPE,
+          init: 0,
+          end: 40,
+        }).catch(() => [] as ForumPostListItemDto[]),
+      ]);
+      const byId = new Map<string, (typeof generalRows)[number]>();
+      for (const row of [...generalRows, ...storeRows]) {
+        if (isExcludedFromGeneralForumFeed(row)) continue;
+        byId.set(row.id, row);
+      }
+      const rows = [...byId.values()].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
-      const top = rows.slice(0, 30);
-      const detailed = (await Promise.all(top.map((r) => getForumPost(r.id)))).filter(
-        (p) => !isExcludedFromGeneralForumFeed(p),
-      );
+      const top = rows.slice(0, 40);
+      const detailed = (
+        await Promise.all(
+          top.map(async (row) => {
+            try {
+              return await getForumPost(row.id);
+            } catch {
+              return forumListItemToFeedPost(row);
+            }
+          }),
+        )
+      ).filter((p) => !isExcludedFromGeneralForumFeed(p));
       const commentEntries = await Promise.all(
         detailed.map(async (p) => {
           const comments = await listForumComments(p.id, { init: 0, end: 50 });
@@ -139,10 +173,46 @@ export default function ForumAllPostsSection({
     [load],
   );
 
+  const onContactStore = useCallback(
+    async (post: ForumPostResponseDto) => {
+      if (!user?.id || user.profile === 'VISITANTE') {
+        Alert.alert('Login necessário', 'Faça login para falar com a loja.');
+        return;
+      }
+      setContactLoadingPostId(post.id);
+      try {
+        const storeName = post.authorCommercial?.storeName ?? 'a loja';
+        const draft = buildStoreContactDraftMessage(storeName, post.title);
+        const channel = await contactForumStorePost(post.id, draft);
+        router.push({
+          pathname: '/ChatTab',
+          params: {
+            provider: JSON.stringify({
+              id: post.authorCommercial?.id ?? post.id,
+              name: storeName,
+              image: post.authorCommercial?.photoUrl ?? undefined,
+              channelType: channel.channelType,
+              channelId: channel.channelId,
+              cid: channel.cid,
+            }),
+          },
+        });
+      } catch (e) {
+        Alert.alert(
+          'Erro',
+          e instanceof Error ? e.message : 'Não foi possível iniciar a conversa.',
+        );
+      } finally {
+        setContactLoadingPostId(null);
+      }
+    },
+    [user],
+  );
+
   return (
     <View style={styles.wrap}>
       <View style={styles.stickyHeader}>
-        <ForumFeedContextChip label="Feed · publicações gerais" />
+        <ForumFeedContextChip label="Fórum do bairro · Todos" />
       </View>
 
       <ScrollView
@@ -198,6 +268,10 @@ export default function ForumAllPostsSection({
                   setCommentDraftByPost((prev) => ({ ...prev, [post.id]: t }))
                 }
                 onSendComment={() => void onSendComment(post.id)}
+                onOpenStore={() => openForumCommercialStoreProfile(post, router)}
+                onContactStore={() => void onContactStore(post)}
+                contactLoading={contactLoadingPostId === post.id}
+                hideContactButton={isCommercialViewer}
               />
             ))
           : null}

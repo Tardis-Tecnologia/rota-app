@@ -1,24 +1,13 @@
-import FilterTabs, { type FilterOption } from '@/components/FilterTabs';
-import ForumAllPostsSection from '@/components/forum/ForumAllPostsSection';
-import ForumCommunitySection from '@/components/forum/ForumCommunitySection';
-import ForumPostCard from '@/components/forum/ForumPostCard';
-import { FORUM_LOST_ANIMAL_POST_TYPE } from '@/components/forum/forumUtils';
+import ComercianteMyStorePostsSection from '@/components/comerciante/ComercianteMyStorePostsSection';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { emailToStoreHandle } from '@/utils/comercianteHandle';
+import { uploadForumImageFromUri } from '@/services/forumApi';
+import { createCommercialForumPost } from '@/services/commercialForumApi';
 import {
-  createForumComment,
-  createForumPost,
-  findRecentlyCreatedForumPostId,
-  getForumPost,
-  likeForumPost,
-  listForumComments,
-  listForumPosts,
-  updateForumPost,
-  uploadForumImageFromUri,
-  type ForumPostCommentListItemDto,
-  type ForumPostResponseDto,
-} from '@/services/forumApi';
+  listCommercialCoupons,
+  type CommercialCoupon,
+} from '@/services/commercialCouponsApi';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -28,7 +17,6 @@ import {
   Image,
   Modal,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -38,178 +26,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const FILTERS: FilterOption[] = [
-  { key: 'todos', label: 'Todos' },
-  { key: 'community', label: 'Comunidade' },
-  { key: 'lost_animal', label: 'Perdidos' },
-];
-
-function ComercianteLostPostsSection({
-  refreshing,
-  onRefresh,
-  onRefreshComplete,
-}: {
-  refreshing: boolean;
-  onRefresh: () => void;
-  onRefreshComplete: () => void;
-}) {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [posts, setPosts] = useState<ForumPostResponseDto[]>([]);
-  const [imageEpoch, setImageEpoch] = useState(() => Date.now());
-  const [commentsByPost, setCommentsByPost] = useState<
-    Record<string, ForumPostCommentListItemDto[]>
-  >({});
-  const [commentDraftByPost, setCommentDraftByPost] = useState<Record<string, string>>({});
-  const [commentsExpandedByPost, setCommentsExpandedByPost] = useState<Record<string, boolean>>(
-    {},
-  );
-  const [commentSendingPostId, setCommentSendingPostId] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const rows = await listForumPosts(undefined, {
-        postType: FORUM_LOST_ANIMAL_POST_TYPE,
-        init: 0,
-        end: 40,
-      });
-      const detailed = await Promise.all(rows.slice(0, 20).map((r) => getForumPost(r.id)));
-      const commentEntries = await Promise.all(
-        detailed.map(async (p) => {
-          const comments = await listForumComments(p.id, { init: 0, end: 50 });
-          return [p.id, comments] as const;
-        }),
-      );
-      setCommentsByPost(Object.fromEntries(commentEntries));
-      setPosts(detailed);
-      setCommentsExpandedByPost({});
-      setImageEpoch(Date.now());
-    } catch (e) {
-      setPosts([]);
-      setCommentsByPost({});
-      setError(e instanceof Error ? e.message : 'Não foi possível carregar avisos de perdidos.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    void load();
-  }, [load]);
-
-  const handleRefresh = useCallback(async () => {
-    onRefresh();
-    try {
-      await load();
-    } finally {
-      onRefreshComplete();
-    }
-  }, [load, onRefresh, onRefreshComplete]);
-
-  const onSendComment = useCallback(
-    async (postId: string) => {
-      const text = (commentDraftByPost[postId] ?? '').trim();
-      if (!text || !user) return;
-      setCommentSendingPostId(postId);
-      try {
-        await createForumComment(postId, text);
-        setCommentDraftByPost((prev) => ({ ...prev, [postId]: '' }));
-        const comments = await listForumComments(postId, { init: 0, end: 50 });
-        setCommentsByPost((prev) => ({ ...prev, [postId]: comments }));
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Não foi possível comentar.');
-      } finally {
-        setCommentSendingPostId(null);
-      }
-    },
-    [commentDraftByPost, user],
-  );
-
-  const onLike = useCallback(
-    async (postId: string) => {
-      setPosts((prev) =>
-        prev.map((p) => {
-          if (p.id !== postId) return p;
-          const wasLiked = !!p.liked;
-          return {
-            ...p,
-            liked: !wasLiked,
-            likesCount: Math.max(0, p.likesCount + (wasLiked ? -1 : 1)),
-          };
-        }),
-      );
-      try {
-        await likeForumPost(postId);
-      } catch {
-        void load();
-      }
-    },
-    [load],
-  );
-
-  if (loading && posts.length === 0) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#0d9488" />
-      </View>
-    );
-  }
-
-  if (error && posts.length === 0) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>{error}</Text>
-      </View>
-    );
-  }
-
-  if (posts.length === 0) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.emptyText}>Nenhum aviso de animal perdido no momento.</Text>
-      </View>
-    );
-  }
-
-  return (
-    <ScrollView
-      contentContainerStyle={styles.lostScroll}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void handleRefresh()} />}
-    >
-      {posts.map((post) => (
-        <ForumPostCard
-          key={post.id}
-          post={post}
-          comments={commentsByPost[post.id] ?? []}
-          imageCacheEpoch={imageEpoch}
-          commentDraft={commentDraftByPost[post.id] ?? ''}
-          commentsExpanded={!!commentsExpandedByPost[post.id]}
-          commentSending={commentSendingPostId === post.id}
-          canInteract={!!user}
-          onLike={() => void onLike(post.id)}
-          onToggleComments={() =>
-            setCommentsExpandedByPost((prev) => ({
-              ...prev,
-              [post.id]: !prev[post.id],
-            }))
-          }
-          onCommentDraftChange={(t) =>
-            setCommentDraftByPost((prev) => ({ ...prev, [post.id]: t }))
-          }
-          onSendComment={() => void onSendComment(post.id)}
-        />
-      ))}
-    </ScrollView>
-  );
-}
-
 export default function ComercianteForumFeed() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const [activeFilter, setActiveFilter] = useState<string>('todos');
   const [refreshing, setRefreshing] = useState(false);
   const [allFeedReloadToken, setAllFeedReloadToken] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -218,46 +37,49 @@ export default function ComercianteForumFeed() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [coupons, setCoupons] = useState<CommercialCoupon[]>([]);
+  const [selectedCouponId, setSelectedCouponId] = useState<string | null>(null);
 
   const lojaNome = user?.name?.trim() || 'Minha loja';
   const lojaHandle = emailToStoreHandle(user?.email ?? 'loja@rota.com');
 
-  const isCommunityHub = activeFilter === 'community';
-  const isAllPosts = activeFilter === 'todos';
-  const isLost = activeFilter === 'lost_animal';
+  const loadCoupons = useCallback(async () => {
+    try {
+      const rows = await listCommercialCoupons('true');
+      setCoupons(rows);
+    } catch {
+      setCoupons([]);
+    }
+  }, []);
 
   const onPublish = useCallback(async () => {
     if (!title.trim() || !content.trim()) return;
     setPublishing(true);
     setError(null);
     try {
-      const payload = {
+      let mediaId: string | undefined;
+      if (imageUri) {
+        const up = await uploadForumImageFromUri(imageUri);
+        mediaId = up.id;
+      }
+      await createCommercialForumPost({
         title: title.trim(),
         content: content.trim(),
-        postType: 'community' as const,
-      };
-      await createForumPost(undefined, payload);
-      if (imageUri) {
-        const createdPostId = await findRecentlyCreatedForumPostId(payload);
-        if (!createdPostId) {
-          throw new Error(
-            'Publicação criada, mas não foi possível localizar o post para anexar a foto.',
-          );
-        }
-        const up = await uploadForumImageFromUri(imageUri);
-        await updateForumPost(createdPostId, { mediaId: up.id });
-      }
+        ...(selectedCouponId ? { commercialCouponId: selectedCouponId } : {}),
+        ...(mediaId ? { mediaId } : {}),
+      });
       setPublishOpen(false);
       setTitle('');
       setContent('');
       setImageUri(null);
+      setSelectedCouponId(null);
       setAllFeedReloadToken((t) => t + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Não foi possível publicar.');
     } finally {
       setPublishing(false);
     }
-  }, [content, imageUri, title]);
+  }, [content, imageUri, selectedCouponId, title]);
 
   const pickImage = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -288,20 +110,12 @@ export default function ComercianteForumFeed() {
           <View style={styles.topBarCenter}>
             <Text style={styles.screenTitle}>Fórum do bairro</Text>
             <Text style={styles.screenSubtitle}>
-              Opiniões, dúvidas e avisos. Publicações de animais perdidos vindas da central de
-              serviços aparecem aqui automaticamente.
+              Divulgue promoções da sua loja. Você vê apenas suas publicações; cidadãos veem no
+              feed geral com a tag da loja.
             </Text>
           </View>
           <View style={styles.topBarSpacer} />
         </View>
-
-        <FilterTabs
-          filters={FILTERS}
-          active={activeFilter}
-          onSelect={setActiveFilter}
-          compact
-          containerStyle={{ paddingBottom: 0 }}
-        />
 
         <View style={styles.identityBar}>
           <Ionicons name="people-outline" size={18} color="#0f766e" />
@@ -312,44 +126,31 @@ export default function ComercianteForumFeed() {
         </View>
       </View>
 
-      {isCommunityHub ? (
-        <ForumCommunitySection
-          refreshing={refreshing}
-          onRefresh={startRefresh}
-          onRefreshComplete={endRefresh}
-        />
-      ) : isLost ? (
-        <ComercianteLostPostsSection
-          refreshing={refreshing}
-          onRefresh={startRefresh}
-          onRefreshComplete={endRefresh}
-        />
-      ) : isAllPosts ? (
-        <ForumAllPostsSection
-          refreshing={refreshing}
-          onRefresh={startRefresh}
-          onRefreshComplete={endRefresh}
-          reloadToken={allFeedReloadToken}
-        />
-      ) : null}
+      <ComercianteMyStorePostsSection
+        refreshing={refreshing}
+        onRefresh={startRefresh}
+        onRefreshComplete={endRefresh}
+        reloadToken={allFeedReloadToken}
+      />
 
-      {isAllPosts || isCommunityHub ? (
-        <TouchableOpacity
-          style={styles.publishBtn}
-          activeOpacity={0.9}
-          onPress={() => setPublishOpen(true)}
+      <TouchableOpacity
+        style={styles.publishBtn}
+        activeOpacity={0.9}
+        onPress={() => {
+          void loadCoupons();
+          setPublishOpen(true);
+        }}
+      >
+        <LinearGradient
+          colors={['#0891b2', '#14b8a6']}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={styles.publishBtnGradient}
         >
-          <LinearGradient
-            colors={['#0891b2', '#14b8a6']}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={styles.publishBtnGradient}
-          >
-            <Ionicons name="chatbubble-outline" size={20} color={AppColors.text.white} />
-            <Text style={styles.publishBtnText}>Publicar</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      ) : null}
+          <Ionicons name="chatbubble-outline" size={20} color={AppColors.text.white} />
+          <Text style={styles.publishBtnText}>Publicar</Text>
+        </LinearGradient>
+      </TouchableOpacity>
 
       {error ? (
         <View style={styles.errorToast}>
@@ -365,7 +166,7 @@ export default function ComercianteForumFeed() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Nova publicação</Text>
+            <Text style={styles.modalTitle}>Nova promoção no fórum</Text>
             <TextInput
               style={styles.input}
               placeholder="Título"
@@ -389,6 +190,46 @@ export default function ComercianteForumFeed() {
               </Text>
             </Pressable>
             {imageUri ? <Image source={{ uri: imageUri }} style={styles.photoPreview} /> : null}
+            {coupons.length > 0 ? (
+              <View style={styles.couponPickSection}>
+                <Text style={styles.couponPickLabel}>Cupom vinculado (opcional)</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <Pressable
+                    style={[styles.couponChip, !selectedCouponId && styles.couponChipActive]}
+                    onPress={() => setSelectedCouponId(null)}
+                  >
+                    <Text
+                      style={[
+                        styles.couponChipText,
+                        !selectedCouponId && styles.couponChipTextActive,
+                      ]}
+                    >
+                      Nenhum
+                    </Text>
+                  </Pressable>
+                  {coupons.map((c) => (
+                    <Pressable
+                      key={c.id}
+                      style={[
+                        styles.couponChip,
+                        selectedCouponId === c.id && styles.couponChipActive,
+                      ]}
+                      onPress={() => setSelectedCouponId(c.id)}
+                    >
+                      <Text
+                        style={[
+                          styles.couponChipText,
+                          selectedCouponId === c.id && styles.couponChipTextActive,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {c.name} ({c.discountPercent}%)
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
             <View style={styles.modalActions}>
               <Pressable onPress={() => setPublishOpen(false)} style={styles.cancelBtn}>
                 <Text style={styles.cancelText}>Cancelar</Text>
@@ -458,27 +299,6 @@ const styles = StyleSheet.create({
   identityBold: {
     fontWeight: '700',
     color: '#0f766e',
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  errorText: {
-    color: '#dc2626',
-    textAlign: 'center',
-    fontSize: 14,
-  },
-  emptyText: {
-    color: '#64748b',
-    textAlign: 'center',
-    fontSize: 14,
-  },
-  lostScroll: {
-    padding: 12,
-    gap: 12,
-    paddingBottom: 100,
   },
   errorToast: {
     position: 'absolute',
@@ -569,4 +389,22 @@ const styles = StyleSheet.create({
   },
   confirmBtnDisabled: { opacity: 0.45 },
   confirmText: { color: AppColors.text.white, fontWeight: '800', fontSize: 16 },
+  couponPickSection: { gap: 8 },
+  couponPickLabel: { fontSize: 12, fontWeight: '700', color: '#64748b' },
+  couponChip: {
+    marginRight: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    backgroundColor: '#f8fafc',
+    maxWidth: 200,
+  },
+  couponChipActive: {
+    borderColor: '#0d9488',
+    backgroundColor: '#ccfbf1',
+  },
+  couponChipText: { fontSize: 12, fontWeight: '600', color: '#64748b' },
+  couponChipTextActive: { color: '#0f766e' },
 });

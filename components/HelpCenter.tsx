@@ -1,4 +1,6 @@
 import { AppColors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
+import { isComercioUser } from '@/utils/comercioAuth';
 import { Feather } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -81,7 +83,14 @@ function FaqRow({
 }
 
 export default function HelpCenter() {
+  const { user } = useAuth();
   const [query, setQuery] = useState('');
+  const forumHref: Href = useMemo(() => {
+    if (user && isComercioUser(user.email ?? '', user.profile ?? '')) {
+      return '/comerciante/forum';
+    }
+    return '/(tabs)/forum';
+  }, [user]);
 
   const faq: HelpItem[] = useMemo(
     () => [
@@ -172,7 +181,7 @@ export default function HelpCenter() {
             icon="message-square"
             title="Fórum"
             description="Tire dúvidas e participe de discussões."
-            onPress={() => router.push('/(tabs)/forum')}
+            onPress={() => router.push(forumHref)}
           />
           <HelpActionCard
             icon="message-circle"

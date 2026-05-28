@@ -124,20 +124,28 @@ export async function ensureStreamChatConnected(
       throw new Error(await readErrorMessage(tokenRes));
     }
 
-    const { token, apiKey } = (await tokenRes.json()) as { token: string; apiKey: string };
+    const { token, apiKey, streamUserId } = (await tokenRes.json()) as {
+      token: string;
+      apiKey: string;
+      streamUserId?: string;
+    };
+    const streamId = (streamUserId ?? uid).trim();
     const client = StreamChat.getInstance(apiKey);
 
-    if (client.userID && client.userID !== uid) {
+    if (client.userID && client.userID !== streamId) {
       await client.disconnectUser();
       connectedUserId = null;
     }
 
-    if (client.userID !== uid) {
-      await client.connectUser({ id: uid, name: displayName.trim() || 'Usuário' }, token);
+    if (client.userID !== streamId) {
+      await client.connectUser(
+        { id: streamId, name: displayName.trim() || 'Usuário' },
+        token,
+      );
     }
 
     connectedApiKey = apiKey;
-    connectedUserId = uid;
+    connectedUserId = streamId;
     return client;
   };
 

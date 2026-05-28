@@ -4,6 +4,8 @@ export interface JwtAccessTokenClaims {
   email?: string;
   hostId?: string | null;
   host?: string | null;
+  accountType?: 'commercial' | 'citizen' | string;
+  profile?: string;
 }
 
 function base64UrlToBinary(segment: string): string {

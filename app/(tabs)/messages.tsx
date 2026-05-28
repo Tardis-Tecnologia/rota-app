@@ -55,10 +55,41 @@ function sortStreamConversationsByRecent(items: StreamConversation[]): StreamCon
   return [...items].sort((a, b) => b.lastMessageAt - a.lastMessageAt);
 }
 
-/** Assistentes virtuais (mock) — sempre visíveis, mesmo sem canais Stream. */
+/** Assistentes virtuais (mock) — só na caixa do cidadão. */
 const systemAssistantConversations = mockSystemConversations;
 
-export default function MensagensScreen() {
+const MOCK_CHAT_PROVIDER_IDS = new Set([
+  'saude',
+  'defesa-civil',
+  'iptu',
+  'comunicados-oficiais',
+]);
+
+type MensagensScreenProps = {
+  /** Caixa da loja: só comunicados oficiais + chats reais com cidadãos. */
+  variant?: 'citizen' | 'commercial';
+};
+
+function shouldShowStreamChannelForCommercialInbox(
+  channel: { data?: Record<string, unknown> | null },
+  peerId: string,
+): boolean {
+  const data = channel.data;
+  if (data?.commercial_store_contact === true) {
+    return true;
+  }
+  const pid = peerId.trim();
+  if (!pid || pid.startsWith('commercial:')) {
+    return false;
+  }
+  if (MOCK_CHAT_PROVIDER_IDS.has(pid)) {
+    return false;
+  }
+  return true;
+}
+
+export default function MensagensScreen({ variant = 'citizen' }: MensagensScreenProps) {
+  const isCommercialInbox = variant === 'commercial';
   const { user } = useAuth();
   const { fixedConversations } = useConversations();
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
@@ -77,10 +108,14 @@ export default function MensagensScreen() {
   };
 
   const buildConversationFromChannel = useCallback(
-    (channel: any, clearedAtByCid: Record<string, string>): StreamConversation => {
+    (
+      channel: any,
+      clearedAtByCid: Record<string, string>,
+      streamUserId: string,
+    ): StreamConversation => {
       const display = resolveStreamConversationDisplay({
         members: channel.state?.members,
-        currentUserId: user?.id,
+        currentUserId: streamUserId,
         channelName: channel?.data?.name,
         channelImage: channel?.data?.image,
         fallbackId: channel.id || channel.cid,
@@ -140,6 +175,7 @@ export default function MensagensScreen() {
     try {
       const displayName = streamAndUiDisplayName(user);
       const client = await ensureStreamChatConnected(user.id, displayName);
+      const streamUserId = client.userID?.trim() || user.id;
 
       const clearedAtByCid = await getStreamChannelClearedMap(user.id);
 
@@ -147,7 +183,7 @@ export default function MensagensScreen() {
       const channels = await client.queryChannels(
         {
           type: 'messaging',
-          members: { $in: [user.id] },
+          members: { $in: [streamUserId] },
           whitelabel_host_id: hostId,
         },
         [{ last_message_at: -1 }],
@@ -157,9 +193,21 @@ export default function MensagensScreen() {
         },
       );
 
-      const built = channels.map((channel) =>
-        buildConversationFromChannel(channel, clearedAtByCid),
-      );
+      const built = channels
+        .filter((channel) => {
+          if (!isCommercialInbox) return true;
+          const peerId = resolveStreamConversationDisplay({
+            members: channel.state?.members,
+            currentUserId: streamUserId,
+            channelName: channel?.data?.name,
+            channelImage: channel?.data?.image,
+            fallbackId: channel.id || channel.cid,
+          }).id;
+          return shouldShowStreamChannelForCommercialInbox(channel, peerId);
+        })
+        .map((channel) =>
+          buildConversationFromChannel(channel, clearedAtByCid, streamUserId),
+        );
       const photoMap = await resolveChatPeerPhotoMap(built.map((c) => c.providerId));
       const withPhotos = built.map((conversation) => {
         const photo = photoMap.get(conversation.providerId);
@@ -177,7 +225,16 @@ export default function MensagensScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [buildConversationFromChannel, user?.id, user?.name, user?.email, user?.profile]);
+  }, [
+    buildConversationFromChannel,
+    isCommercialInbox,
+    user?.id,
+    user?.name,
+    user?.email,
+    user?.profile,
+  ]);
+
+  const assistantConversations = isCommercialInbox ? [] : systemAssistantConversations;
 
   useFocusEffect(
     useCallback(() => {
@@ -316,14 +373,14 @@ export default function MensagensScreen() {
           </View>
         )}
 
-        {systemAssistantConversations.length > 0 && (
+        {assistantConversations.length > 0 && (
           <View
             style={[
               styles.list,
               (fixedConversations.length > 0 || conversations.length > 0) && styles.commonList,
             ]}
           >
-            {systemAssistantConversations.map((conversation) =>
+            {assistantConversations.map((conversation) =>
               renderConversationCard(conversation, false),
             )}
           </View>
@@ -332,7 +389,7 @@ export default function MensagensScreen() {
         {!isLoading &&
           !loadError &&
           fixedConversations.length === 0 &&
-          systemAssistantConversations.length === 0 &&
+          assistantConversations.length === 0 &&
           conversations.length === 0 && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>Nenhuma conversa ainda</Text>

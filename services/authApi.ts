@@ -269,20 +269,32 @@ export async function login(
   };
 }
 
+function isCommercialLoginCredentialFailure(message: string): boolean {
+  const m = message.trim().toLowerCase();
+  return (
+    m === 'email_ou_senha_incorretos' ||
+    m === 'credenciais inválidas' ||
+    m.includes('credenciais inválidas') ||
+    m.includes('email ou senha')
+  );
+}
+
+/** Tenta loja comercial antes do cidadão (mesmo e-mail pode existir nos dois cadastros). */
 export async function loginWithEmailPassword(
   email: string,
   password: string,
 ): Promise<LoginWithEmailPasswordResult> {
   try {
-    const citizen = await login(email, password);
-    return { ...citizen, accountKind: 'citizen' };
-  } catch (err) {
-    if (!(err instanceof Error) || err.message !== 'EMAIL_OU_SENHA_INCORRETOS') {
-      throw err;
-    }
     const commercial = await loginCommercial(email, password);
     return { ...commercial, accountKind: 'commercial' };
+  } catch (err) {
+    if (!(err instanceof Error) || !isCommercialLoginCredentialFailure(err.message)) {
+      throw err;
+    }
   }
+
+  const citizen = await login(email, password);
+  return { ...citizen, accountKind: 'citizen' };
 }
 
 export async function loginWithGoogle(idToken: string): Promise<GoogleLoginSuccess> {

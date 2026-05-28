@@ -4,10 +4,12 @@ import {
   COMERCIANTE_NOTIFICACOES,
   type ComercianteNotificacao,
 } from '@/data/comercianteMock';
+import { getCommercialMetrics } from '@/services/commercialForumApi';
 import {
   listCommercialCoupons,
   summarizeCommercialCoupons,
 } from '@/services/commercialCouponsApi';
+import type { CommercialMetrics } from '@/types/forumCommercial';
 import React, {
   createContext,
   useCallback,
@@ -26,10 +28,12 @@ export type ComercianteHeaderStats = {
 type ComercianteStoreContextValue = {
   headerStats: ComercianteHeaderStats;
   metrics: typeof COMERCIANTE_METRICS & { cuponsAtivosHoje: number };
+  contactMetrics: CommercialMetrics | null;
   notificacoes: ComercianteNotificacao[];
   novasNotificacoes: number;
   statsLoading: boolean;
   refreshCouponStats: () => Promise<void>;
+  refreshContactMetrics: () => Promise<void>;
   setCuponsAtivosCount: (count: number) => void;
   registrarUsoCupom: () => void;
 };
@@ -39,12 +43,25 @@ const ComercianteStoreContext = createContext<ComercianteStoreContextValue | nul
 export function ComercianteStoreProvider({ children }: { children: React.ReactNode }) {
   const [cuponsAtivosCount, setCuponsAtivosCount] = useState(0);
   const [totalUso, setTotalUso] = useState(0);
+  const [contactMetrics, setContactMetrics] = useState<CommercialMetrics | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+
+  const refreshContactMetrics = useCallback(async () => {
+    try {
+      const data = await getCommercialMetrics();
+      setContactMetrics(data);
+    } catch {
+      setContactMetrics(null);
+    }
+  }, []);
 
   const refreshCouponStats = useCallback(async () => {
     setStatsLoading(true);
     try {
-      const coupons = await listCommercialCoupons('all');
+      const [coupons] = await Promise.all([
+        listCommercialCoupons('all'),
+        refreshContactMetrics(),
+      ]);
       const summary = summarizeCommercialCoupons(coupons);
       setCuponsAtivosCount(summary.activeCount);
       setTotalUso(summary.totalUsage);
@@ -54,7 +71,7 @@ export function ComercianteStoreProvider({ children }: { children: React.ReactNo
     } finally {
       setStatsLoading(false);
     }
-  }, []);
+  }, [refreshContactMetrics]);
 
   useEffect(() => {
     void refreshCouponStats();
@@ -64,9 +81,9 @@ export function ComercianteStoreProvider({ children }: { children: React.ReactNo
     () => ({
       cupons: cuponsAtivosCount,
       uso: totalUso,
-      contatos: COMERCIANTE_HEADER_STATS.contatos,
+      contatos: contactMetrics?.contactsTotal ?? COMERCIANTE_HEADER_STATS.contatos,
     }),
-    [cuponsAtivosCount, totalUso],
+    [contactMetrics?.contactsTotal, cuponsAtivosCount, totalUso],
   );
 
   const metrics = useMemo(
@@ -89,15 +106,19 @@ export function ComercianteStoreProvider({ children }: { children: React.ReactNo
       notificacoes: COMERCIANTE_NOTIFICACOES,
       novasNotificacoes: COMERCIANTE_NOTIFICACOES.length,
       statsLoading,
-      refreshCouponStats,
-      setCuponsAtivosCount,
-      registrarUsoCupom,
+        contactMetrics,
+        refreshCouponStats,
+        refreshContactMetrics,
+        setCuponsAtivosCount,
+        registrarUsoCupom,
     }),
     [
       headerStats,
       metrics,
+      contactMetrics,
       statsLoading,
       refreshCouponStats,
+      refreshContactMetrics,
       registrarUsoCupom,
     ],
   );

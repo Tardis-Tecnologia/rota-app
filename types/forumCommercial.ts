@@ -19,6 +19,7 @@ export type CommercialMetrics = {
   contactsLast7Days: number;
   contactsLast30Days: number;
   forumPostsTotal: number;
+  forumEngagementTotal: number;
   couponUsagesTotal: number;
 };
 

@@ -6,6 +6,11 @@ import RewardRedemptionHistory from '@/components/rewards/RewardRedemptionHistor
 import Toast, { type ToastType } from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { getWhitelabelHostId } from '@/services/authApi';
+import {
+  listActiveCommercialCouponsCatalog,
+  type CommercialCouponCatalogItem,
+} from '@/services/commercialCouponsApi';
 import {
   getRewardRedemptions,
   getRewards,
@@ -88,6 +93,9 @@ export default function PointsBadge({
   const [toastType, setToastType] = useState<ToastType>('info');
   const [toastKey, setToastKey] = useState(0);
   const [rewardsFilterTab, setRewardsFilterTab] = useState<RewardsFilterTab>('cupons_lojas');
+  const [commercialCoupons, setCommercialCoupons] = useState<CommercialCouponCatalogItem[]>([]);
+  const [isLoadingCommercialCoupons, setIsLoadingCommercialCoupons] = useState(false);
+  const [commercialCouponsError, setCommercialCouponsError] = useState<string | null>(null);
   const [couponCodesFromRedeem, setCouponCodesFromRedeem] = useState<Record<string, string>>({});
   const [pendingRedeemConfirmation, setPendingRedeemConfirmation] =
     useState<PendingRedeemConfirmation | null>(null);
@@ -203,6 +211,25 @@ export default function PointsBadge({
     }
   };
 
+  const loadCommercialCoupons = useCallback(async () => {
+    setIsLoadingCommercialCoupons(true);
+    setCommercialCouponsError(null);
+    try {
+      const hostId = getWhitelabelHostId();
+      const list = await listActiveCommercialCouponsCatalog(hostId);
+      setCommercialCoupons(list);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar cupons de lojas parceiras';
+      setCommercialCouponsError(message);
+      setCommercialCoupons([]);
+    } finally {
+      setIsLoadingCommercialCoupons(false);
+    }
+  }, []);
+
   const openModal = () => {
     setIsModalVisible(true);
     modalOpacity.value = withTiming(1, { duration: 200 });
@@ -213,6 +240,7 @@ export default function PointsBadge({
     setShowRedemptionHistory(false);
     if (user?.profile !== 'VISITANTE') {
       void loadRewards();
+      void loadCommercialCoupons();
       void loadPoints(false);
       void loadRedemptions();
     }
@@ -437,11 +465,14 @@ export default function PointsBadge({
                     rewardActionError={rewardActionError}
                     rewards={rewards}
                     filteredRewards={earnRewardsFiltered}
+                    commercialCoupons={commercialCoupons}
                     storeCouponHoldIds={storeCouponHoldIds}
                     couponCodeByRewardId={couponCodeByRewardId}
                     loadingRedeemId={loadingRedeemId}
                     isLoadingRewards={isLoadingRewards}
+                    isLoadingCommercialCoupons={isLoadingCommercialCoupons}
                     rewardsError={rewardsError}
+                    commercialCouponsError={commercialCouponsError}
                     loadingMore={loadingMoreRewards}
                     onEndReached={handleEndReached}
                     onRedeem={handleRedeem}
@@ -454,9 +485,13 @@ export default function PointsBadge({
                     onRetryLoadRewards={() => {
                       void loadRewards();
                     }}
+                    onRetryLoadCommercialCoupons={() => {
+                      void loadCommercialCoupons();
+                    }}
                     onCouponCopied={() => {
                       showActionToast('Código copiado!', 'success');
                     }}
+                    citizenUserId={user?.id}
                   />
                 )}
               </View>

@@ -1,17 +1,17 @@
 import {
-  buildCommercialCouponQrPayload,
-  buildCouponQrImageUri,
+    buildCommercialCouponQrPayload,
+    buildCouponQrImageUri,
 } from '@/utils/commercialCouponQr';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
 import React, { useMemo, useState } from 'react';
 import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
+    Modal,
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 
 type CommercialCouponQrModalProps = {
@@ -75,7 +75,7 @@ export default function CommercialCouponQrModal({
           )}
 
           <Text style={styles.hint}>
-            O cliente pode mostrar este QR na loja. A loja confere com o ID do cidadão no app.
+            O cliente pode mostrar este QR na loja.
           </Text>
 
           <Pressable style={styles.copyBtn} onPress={() => void handleCopy()}>

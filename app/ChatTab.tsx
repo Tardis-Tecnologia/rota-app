@@ -16,8 +16,9 @@ import {
   getStreamChannelClearedAt,
 } from '@/services/streamChatClearStore';
 import { getStreamChannelPeer, isSameStreamUser } from '@/utils/streamChatPeer';
+import { resolveMessagesInboxRoute } from '@/utils/comercioAuth';
 import { streamAndUiDisplayName } from '@/utils/userDisplayName';
-import { router, useLocalSearchParams } from 'expo-router';
+import { type Href, router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StreamChat } from 'stream-chat';
 
@@ -126,7 +127,10 @@ function mapChannelStateToMessages(
 
 export default function ChatTab() {
   const { user } = useAuth();
-  const { provider } = useLocalSearchParams();
+  const { provider, returnTo } = useLocalSearchParams<{
+    provider?: string;
+    returnTo?: string | string[];
+  }>();
   const data = JSON.parse(provider as string) as {
     id: string;
     name: string;
@@ -330,8 +334,18 @@ export default function ChatTab() {
     isOnline: true,
   };
 
+  const messagesInboxRoute = useMemo(
+    () =>
+      resolveMessagesInboxRoute({
+        returnTo,
+        email: user?.email,
+        profile: user?.profile,
+      }),
+    [returnTo, user?.email, user?.profile],
+  );
+
   const handleBack = () => {
-    router.replace('/(tabs)/messages');
+    router.replace(messagesInboxRoute as Href);
   };
 
   const handleClearStreamConversation = useCallback(async () => {
@@ -342,8 +356,8 @@ export default function ChatTab() {
       user.id,
     );
     setMessages([]);
-    router.replace('/(tabs)/messages');
-  }, [streamChannelInfo, user?.id]);
+    router.replace(messagesInboxRoute as Href);
+  }, [messagesInboxRoute, streamChannelInfo, user?.id]);
 
   const handleSaveConversation = (lastMessage: string) => {
     if (!isStreamConversation) {

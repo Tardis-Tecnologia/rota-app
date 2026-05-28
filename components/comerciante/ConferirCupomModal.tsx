@@ -1,22 +1,20 @@
 import {
-  checkCommercialCouponUsage,
-  normalizeCommercialCouponCode,
-  validateCommercialCoupon,
-  type MarkCouponUsedResult,
+    checkCommercialCouponUsage,
+    validateCommercialCoupon,
+    type MarkCouponUsedResult,
 } from '@/services/commercialCouponsApi';
 import { parseCommercialCouponQr } from '@/utils/commercialCouponQr';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import React, { useCallback, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 
 type ConferirCupomModalProps = {
@@ -25,26 +23,23 @@ type ConferirCupomModalProps = {
   onSuccess: (result: MarkCouponUsedResult) => void;
 };
 
+const QR_INVALID_MSG =
+  'QR inválido. Peça ao cliente que abra o cupom no app e toque em "QR na loja".';
+
 export default function ConferirCupomModal({
   visible,
   onClose,
   onSuccess,
 }: ConferirCupomModalProps) {
-  const [mode, setMode] = useState<'scan' | 'manual'>('scan');
-  const [clientUserId, setClientUserId] = useState('');
-  const [manualCode, setManualCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [permission, requestPermission] = useCameraPermissions();
   const scanLockRef = useRef(false);
 
   const resetState = useCallback(() => {
-    setClientUserId('');
-    setManualCode('');
     setError('');
     setLoading(false);
     scanLockRef.current = false;
-    setMode('scan');
   }, []);
 
   const handleClose = () => {
@@ -76,65 +71,29 @@ export default function ConferirCupomModal({
     onClose();
   };
 
-  const submitCode = async (raw: string, userIdOverride?: string) => {
-    if (loading) return;
-
-    const userId = (userIdOverride ?? clientUserId).trim();
-    if (!userId) {
-      setError('Informe o ID do cliente (userId do app).');
-      scanLockRef.current = false;
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    try {
-      let code: string;
-      let qrUserId: string | undefined;
-      try {
-        const parsed = parseCommercialCouponQr(raw);
-        code = parsed.code;
-        qrUserId = parsed.userId;
-      } catch {
-        code = normalizeCommercialCouponCode(raw);
-      }
-
-      const finalUserId = (qrUserId ?? userId).trim();
-      if (qrUserId) {
-        setClientUserId(qrUserId);
-      }
-
-      await runValidate(code, finalUserId);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Não foi possível validar o cupom.');
-      scanLockRef.current = false;
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleBarcode = (data: string) => {
     if (scanLockRef.current || loading) return;
     scanLockRef.current = true;
-    try {
-      const parsed = parseCommercialCouponQr(data);
-      if (parsed.userId) {
-        setClientUserId(parsed.userId);
-      }
-      if (!clientUserId.trim() && !parsed.userId) {
-        setError('QR sem userId. Informe o ID do cliente acima e escaneie de novo.');
-        scanLockRef.current = false;
-        return;
-      }
-      void submitCode(data, parsed.userId ?? clientUserId);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'QR inválido.');
-      scanLockRef.current = false;
-    }
-  };
+    setLoading(true);
+    setError('');
 
-  const handleManualSubmit = () => {
-    void submitCode(manualCode);
+    void (async () => {
+      try {
+        const { code, userId } = parseCommercialCouponQr(data);
+        const userIdNorm = userId?.trim();
+        if (!userIdNorm) {
+          setError(QR_INVALID_MSG);
+          scanLockRef.current = false;
+          return;
+        }
+        await runValidate(code, userIdNorm);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Não foi possível validar o cupom.');
+        scanLockRef.current = false;
+      } finally {
+        setLoading(false);
+      }
+    })();
   };
 
   const renderScanner = () => {
@@ -149,17 +108,15 @@ export default function ConferirCupomModal({
     if (!permission.granted) {
       return (
         <View style={styles.centerBlock}>
+          <Ionicons name="camera-outline" size={48} color="#94a3b8" />
           <Text style={styles.permissionText}>
-            Permita o acesso à câmera para escanear o QR Code do cupom.
+            Permita o acesso à câmera para escanear o QR Code que o cliente exibe no app.
           </Text>
           <Pressable
             style={styles.permissionBtn}
             onPress={() => void requestPermission()}
           >
             <Text style={styles.permissionBtnText}>Permitir câmera</Text>
-          </Pressable>
-          <Pressable onPress={() => setMode('manual')}>
-            <Text style={styles.linkText}>Digitar código manualmente</Text>
           </Pressable>
         </View>
       );
@@ -178,7 +135,7 @@ export default function ConferirCupomModal({
         <View style={styles.scannerOverlay}>
           <View style={styles.scannerFrame} />
           <Text style={styles.scannerHint}>
-            QR com código do cupom (e userId, se disponível)
+            Aponte para o QR Code do cliente (Loja de Recompensas → QR na loja)
           </Text>
         </View>
       </View>
@@ -195,104 +152,15 @@ export default function ConferirCupomModal({
           </Pressable>
         </View>
 
-        <View style={styles.modeRow}>
-          <Pressable
-            style={[styles.modeBtn, mode === 'scan' && styles.modeBtnActive]}
-            onPress={() => {
-              setMode('scan');
-              setError('');
-              scanLockRef.current = false;
-            }}
-          >
-            <Ionicons
-              name="qr-code-outline"
-              size={18}
-              color={mode === 'scan' ? '#0d9488' : '#64748b'}
-            />
-            <Text style={[styles.modeBtnText, mode === 'scan' && styles.modeBtnTextActive]}>
-              Escanear QR
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.modeBtn, mode === 'manual' && styles.modeBtnActive]}
-            onPress={() => {
-              setMode('manual');
-              setError('');
-              scanLockRef.current = false;
-            }}
-          >
-            <Ionicons
-              name="keypad-outline"
-              size={18}
-              color={mode === 'manual' ? '#0d9488' : '#64748b'}
-            />
-            <Text style={[styles.modeBtnText, mode === 'manual' && styles.modeBtnTextActive]}>
-              Digitar código
-            </Text>
-          </Pressable>
-        </View>
+        <Text style={styles.intro}>
+          Escaneie apenas o QR gerado pelo cliente no app.
+        </Text>
 
-        <View style={styles.clientIdBlock}>
-          <Text style={styles.clientIdLabel}>ID do cliente (app_user)</Text>
-          <TextInput
-            value={clientUserId}
-            onChangeText={(v) => {
-              setClientUserId(v);
-              setError('');
-            }}
-            placeholder="UUID do cidadão no app"
-            placeholderTextColor="#94a3b8"
-            style={styles.clientIdInput}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
-
-        {mode === 'scan' ? (
-          renderScanner()
-        ) : (
-          <View style={styles.manualBlock}>
-            <Text style={styles.manualLabel}>Código do cupom</Text>
-            <TextInput
-              value={manualCode}
-              onChangeText={(v) => {
-                setManualCode(v);
-                setError('');
-              }}
-              placeholder="BANHO20 ou ROTA-CUP1-ABC123"
-              placeholderTextColor="#94a3b8"
-              style={styles.manualInput}
-              autoCapitalize="characters"
-              autoCorrect={false}
-            />
-            {manualCode.trim() ? (
-              <Text style={styles.previewCode}>
-                {(() => {
-                  try {
-                    return normalizeCommercialCouponCode(manualCode);
-                  } catch {
-                    return '—';
-                  }
-                })()}
-              </Text>
-            ) : null}
-            <Pressable
-              style={[styles.confirmBtn, loading && styles.confirmBtnDisabled]}
-              disabled={loading || !manualCode.trim()}
-              onPress={handleManualSubmit}
-            >
-              {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.confirmBtnText}>Validar cupom</Text>
-              )}
-            </Pressable>
-          </View>
-        )}
+        {renderScanner()}
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        {loading && mode === 'scan' ? (
+        {loading ? (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#0d9488" />
             <Text style={styles.loadingText}>Validando cupom...</Text>
@@ -314,7 +182,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingBottom: 12,
+    paddingBottom: 8,
   },
   title: {
     fontSize: 20,
@@ -324,59 +192,17 @@ const styles = StyleSheet.create({
   closeBtn: {
     padding: 4,
   },
-  modeRow: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  modeBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#FFFFFF',
-  },
-  modeBtnActive: {
-    borderColor: '#0d9488',
-    backgroundColor: '#ccfbf1',
-  },
-  modeBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748b',
-  },
-  modeBtnTextActive: {
-    color: '#0d9488',
-  },
-  clientIdBlock: {
-    paddingHorizontal: 20,
-    gap: 6,
-    marginBottom: 12,
-  },
-  clientIdLabel: {
+  intro: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  clientIdInput: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#e2e8f0',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: '#1e293b',
+    color: '#64748b',
+    lineHeight: 19,
+    paddingHorizontal: 20,
+    marginBottom: 12,
   },
   scannerWrap: {
     flex: 1,
     marginHorizontal: 20,
+    marginBottom: 12,
     borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: '#0f172a',
@@ -407,46 +233,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
-  },
-  manualBlock: {
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  manualLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  manualInput: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#e2e8f0',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#1e293b',
-    fontFamily: 'monospace',
-  },
-  previewCode: {
-    fontSize: 13,
-    color: '#0d9488',
-    fontWeight: '600',
-  },
-  confirmBtn: {
-    backgroundColor: '#0d9488',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  confirmBtnDisabled: {
-    opacity: 0.6,
-  },
-  confirmBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
+    lineHeight: 20,
   },
   centerBlock: {
     flex: 1,
@@ -454,6 +241,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 32,
     gap: 16,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   permissionText: {
     fontSize: 15,
@@ -472,18 +265,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
   },
-  linkText: {
-    color: '#0d9488',
-    fontWeight: '600',
-    fontSize: 14,
-  },
   errorText: {
     marginHorizontal: 20,
-    marginTop: 12,
+    marginBottom: 12,
     fontSize: 14,
     color: '#dc2626',
     textAlign: 'center',
     fontWeight: '500',
+    lineHeight: 20,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,

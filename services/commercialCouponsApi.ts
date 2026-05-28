@@ -47,6 +47,30 @@ export type CommercialCouponStats = {
   topCoupon?: { name: string; code: string; usageCount: number };
 };
 
+export interface CommercialCouponUsageHistoryItem {
+  id: string;
+  usedAt: string;
+  couponCode: string;
+  couponName: string;
+  userId: string;
+  userName?: string;
+  userPhotoUrl?: string;
+}
+
+export interface CommercialCouponCatalogItem {
+  id: string;
+  name: string;
+  code: string;
+  discountPercent: number;
+  validUntil?: string;
+  active: boolean;
+  usageCount: number;
+  commercialAccountId: string;
+  storeName: string;
+  storePhotoUrl?: string;
+  segment?: string;
+}
+
 function parseApiErrorMessage(text: string): string {
   try {
     const j = JSON.parse(text) as { message?: string | string[] };
@@ -99,6 +123,48 @@ export function summarizeCommercialCoupons(
       ? { name: topCoupon.name, code: topCoupon.code, usageCount: topCoupon.usageCount }
       : undefined,
   };
+}
+
+export async function listActiveCommercialCouponsCatalog(
+  whitelabelHostId?: string,
+): Promise<CommercialCouponCatalogItem[]> {
+  const params = new URLSearchParams();
+  const hostId = whitelabelHostId?.trim();
+  if (hostId) {
+    params.set('whitelabelHostId', hostId);
+  }
+  const qs = params.toString();
+  const url = `${getApiBaseUrl()}${BASE_PATH}/commercial-coupons/catalog/active${qs ? `?${qs}` : ''}`;
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(
+      parseApiErrorMessage(text) || `Erro ao carregar cupons de lojas: ${res.status}`,
+    );
+  }
+  const data = await res.json();
+  return Array.isArray(data) ? (data as CommercialCouponCatalogItem[]) : [];
+}
+
+export async function listCommercialCouponUsageHistory(
+  limit = 50,
+): Promise<CommercialCouponUsageHistoryItem[]> {
+  const params = new URLSearchParams();
+  if (limit !== 50) params.set('limit', String(limit));
+  const qs = params.toString();
+  const url = `${getApiBaseUrl()}${BASE_PATH}/commercial-coupons/usages/history${qs ? `?${qs}` : ''}`;
+  const res = await fetch(url, { method: 'GET', headers: authHeaders() });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(
+      parseApiErrorMessage(text) || `Erro ao carregar histórico de uso: ${res.status}`,
+    );
+  }
+  const data = await res.json();
+  return Array.isArray(data) ? (data as CommercialCouponUsageHistoryItem[]) : [];
 }
 
 export async function listCommercialCoupons(

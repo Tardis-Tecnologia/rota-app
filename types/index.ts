@@ -122,6 +122,10 @@ export interface CatalogReward {
   disabled?: boolean;
 }
 
+export type StoreCouponsListEntry =
+  | { kind: 'commercial'; id: string }
+  | { kind: 'reward'; id: string };
+
 /** Abas da Loja de Recompensas (UI segmentada). */
 export type RewardsFilterTab = 'meus_resgates' | 'cupons_lojas';
 

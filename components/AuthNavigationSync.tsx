@@ -1,5 +1,9 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { getPostLoginRoute } from '@/utils/comercioAuth';
+import {
+  getPostLoginRoute,
+  isComercioUser,
+  ROUTE_APP_HOME,
+} from '@/utils/comercioAuth';
 import { type Href, router, useSegments } from 'expo-router';
 import { useLayoutEffect, useRef } from 'react';
 
@@ -21,6 +25,8 @@ export function AuthNavigationSync() {
     const group = segments[0];
     const inAuthGroup = group === '(auth)';
     const onLogin = inAuthGroup && segments[1] === 'login';
+    const inComercianteGroup = group === 'comerciante';
+    const onCommercialChat = group === 'ChatTab';
 
     if (!user) {
       if (inAuthGroup) {
@@ -36,9 +42,22 @@ export function AuthNavigationSync() {
       return;
     }
 
-    if (onLogin) {
-      const target = String(getPostLoginRoute(user.email, user.profile));
-      if (lastTargetRef.current === target) {
+    const isCommercial = isComercioUser(user.email, user.profile);
+    const homeRoute = String(getPostLoginRoute(user.email, user.profile));
+
+    if (isCommercial) {
+      if (inComercianteGroup || onCommercialChat) {
+        lastTargetRef.current = homeRoute;
+        return;
+      }
+      lastTargetRef.current = homeRoute;
+      router.replace(homeRoute as Href);
+      return;
+    }
+
+    if (inComercianteGroup || onLogin) {
+      const target = String(ROUTE_APP_HOME);
+      if (lastTargetRef.current === target && !inComercianteGroup) {
         return;
       }
       lastTargetRef.current = target;

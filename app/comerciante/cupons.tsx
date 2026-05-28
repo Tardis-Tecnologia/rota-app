@@ -1,30 +1,30 @@
-import CommercialCouponQrModal from '@/components/comerciante/CommercialCouponQrModal';
-import ConferirCupomModal from '@/components/comerciante/ConferirCupomModal';
-import EditCommercialCouponModal from '@/components/comerciante/EditCommercialCouponModal';
 import ComercianteHeader from '@/components/comerciante/ComercianteHeader';
 import ComercianteSectionBanner from '@/components/comerciante/ComercianteSectionBanner';
+import ConferirCupomModal from '@/components/comerciante/ConferirCupomModal';
+import DeactivateCommercialCouponModal from '@/components/comerciante/DeactivateCommercialCouponModal';
+import EditCommercialCouponModal from '@/components/comerciante/EditCommercialCouponModal';
 import { useComercianteStore } from '@/contexts/ComercianteStoreContext';
 import {
-  createCommercialCoupon,
-  deactivateCommercialCoupon,
-  formatValidUntilDisplay,
-  listCommercialCoupons,
-  parseValidUntilToIso,
-  type CommercialCoupon,
-  type MarkCouponUsedResult,
+    createCommercialCoupon,
+    deactivateCommercialCoupon,
+    formatValidUntilDisplay,
+    listCommercialCoupons,
+    parseValidUntilToIso,
+    type CommercialCoupon,
+    type MarkCouponUsedResult,
 } from '@/services/commercialCouponsApi';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Alert,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from 'react-native';
 
 export default function ComercianteCuponsScreen() {
@@ -33,8 +33,8 @@ export default function ComercianteCuponsScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [qrModalVisible, setQrModalVisible] = useState(false);
-  const [shareQrCupom, setShareQrCupom] = useState<CommercialCoupon | null>(null);
   const [editCupom, setEditCupom] = useState<CommercialCoupon | null>(null);
+  const [deactivateCupom, setDeactivateCupom] = useState<CommercialCoupon | null>(null);
 
   const [campanha, setCampanha] = useState('');
   const [codigo, setCodigo] = useState('');
@@ -128,32 +128,10 @@ export default function ComercianteCuponsScreen() {
     }
   };
 
-  const handleDesativar = (cupom: CommercialCoupon) => {
-    Alert.alert(
-      'Desativar cupom',
-      `Deseja desativar o cupom ${cupom.code}? Ele deixará de aparecer como ativo.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Desativar',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              try {
-                await deactivateCommercialCoupon(cupom.id);
-                setCupons((prev) => prev.filter((c) => c.id !== cupom.id));
-                await refreshCouponStats();
-              } catch (e) {
-                Alert.alert(
-                  'Erro',
-                  e instanceof Error ? e.message : 'Não foi possível desativar o cupom.',
-                );
-              }
-            })();
-          },
-        },
-      ],
-    );
+  const handleConfirmDeactivate = async (cupom: CommercialCoupon) => {
+    await deactivateCommercialCoupon(cupom.id);
+    setCupons((prev) => prev.filter((c) => c.id !== cupom.id));
+    await refreshCouponStats();
   };
 
   return (
@@ -183,7 +161,6 @@ export default function ComercianteCuponsScreen() {
 
             <Text style={styles.qrHint}>
               Código opcional: se deixar em branco, o sistema gera um ROTA-CUP1-… automaticamente.
-              Cada cliente pode usar o mesmo cupom uma vez.
             </Text>
 
             <View style={styles.divider} />
@@ -261,7 +238,7 @@ export default function ComercianteCuponsScreen() {
               ) : (
                 <>
                   <Ionicons name="add" size={20} color="#FFFFFF" />
-                  <Text style={styles.saveBtnText}>Salvar cupom</Text>
+                  <Text style={styles.saveBtnText}>Criar cupom</Text>
                 </>
               )}
             </Pressable>
@@ -311,16 +288,6 @@ export default function ComercianteCuponsScreen() {
                         styles.actionBtn,
                         pressed && styles.actionBtnPressed,
                       ]}
-                      onPress={() => setShareQrCupom(cupom)}
-                    >
-                      <Ionicons name="qr-code-outline" size={16} color="#0d9488" />
-                      <Text style={styles.actionBtnTextTeal}>QR</Text>
-                    </Pressable>
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.actionBtn,
-                        pressed && styles.actionBtnPressed,
-                      ]}
                       onPress={() => setEditCupom(cupom)}
                     >
                       <Ionicons name="create-outline" size={16} color="#2563eb" />
@@ -329,11 +296,11 @@ export default function ComercianteCuponsScreen() {
                     <Pressable
                       style={({ pressed }) => [
                         styles.actionBtn,
+                        styles.deactivateBtn,
                         pressed && styles.deactivateBtnPressed,
                       ]}
-                      onPress={() => handleDesativar(cupom)}
+                      onPress={() => setDeactivateCupom(cupom)}
                     >
-                      <Ionicons name="trash-outline" size={16} color="#dc2626" />
                       <Text style={styles.deactivateBtnText}>Desativar</Text>
                     </Pressable>
                   </View>
@@ -349,15 +316,6 @@ export default function ComercianteCuponsScreen() {
         onSuccess={handleCouponValidated}
       />
 
-      {shareQrCupom ? (
-        <CommercialCouponQrModal
-          visible
-          code={shareQrCupom.code}
-          campaignName={shareQrCupom.name}
-          onClose={() => setShareQrCupom(null)}
-        />
-      ) : null}
-
       <EditCommercialCouponModal
         visible={!!editCupom}
         cupom={editCupom}
@@ -366,6 +324,13 @@ export default function ComercianteCuponsScreen() {
           setCupons((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
           void refreshCouponStats();
         }}
+      />
+
+      <DeactivateCommercialCouponModal
+        visible={!!deactivateCupom}
+        cupom={deactivateCupom}
+        onClose={() => setDeactivateCupom(null)}
+        onConfirm={handleConfirmDeactivate}
       />
     </View>
   );
@@ -576,15 +541,14 @@ const styles = StyleSheet.create({
   actionBtnPressed: {
     opacity: 0.85,
   },
-  actionBtnTextTeal: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#0d9488',
-  },
   actionBtnTextBlue: {
     fontSize: 13,
     fontWeight: '600',
     color: '#2563eb',
+  },
+  deactivateBtn: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
   },
   deactivateBtnPressed: {
     opacity: 0.85,

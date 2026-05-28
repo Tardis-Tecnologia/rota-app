@@ -1,13 +1,20 @@
 import ComercianteHeader from '@/components/comerciante/ComercianteHeader';
 import ComercianteSectionBanner from '@/components/comerciante/ComercianteSectionBanner';
 import { useComercianteStore } from '@/contexts/ComercianteStoreContext';
+import { formatRelativeTimePt } from '@/utils/formatRelativeTime';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+function displayUserName(name: string | undefined, userId: string): string {
+  const trimmed = name?.trim();
+  if (trimmed) return trimmed;
+  return `Cliente ${userId.slice(0, 6)}`;
+}
 
 export default function ComerciantePainelScreen() {
-  const { metrics, notificacoes, novasNotificacoes } = useComercianteStore();
+  const { metrics, historicoUso, headerStats, statsLoading } = useComercianteStore();
 
   return (
     <View style={styles.container}>
@@ -29,36 +36,59 @@ export default function ComerciantePainelScreen() {
             <View style={styles.metricCard}>
               <Text style={styles.metricLabel}>ENGAJAMENTO</Text>
               <Text style={styles.metricValue}>{metrics.engajamento}</Text>
-              <Text style={styles.metricHint}>Interações estimadas no bairro</Text>
+              <Text style={styles.metricHint}>Curtidas e comentários nos seus posts</Text>
             </View>
           </View>
 
           <View style={styles.notifCard}>
             <View style={styles.notifHeader}>
               <View style={styles.notifTitleRow}>
-                <Ionicons name="notifications-outline" size={20} color="#1e293b" />
-                <Text style={styles.notifTitle}>Notificações de uso de cupom</Text>
+                <Ionicons name="time-outline" size={20} color="#1e293b" />
+                <Text style={styles.notifTitle}>Histórico de uso</Text>
               </View>
-              {novasNotificacoes > 0 ? (
+              {headerStats.uso > 0 ? (
                 <View style={styles.notifBadge}>
                   <Text style={styles.notifBadgeText}>
-                    {novasNotificacoes} {novasNotificacoes === 1 ? 'nova' : 'novas'}
+                    {headerStats.uso} {headerStats.uso === 1 ? 'uso' : 'usos'}
                   </Text>
                 </View>
               ) : null}
             </View>
 
-            {notificacoes.map((item) => (
-              <View key={item.id} style={styles.notifItem}>
-                <Image source={{ uri: item.avatar }} style={styles.notifAvatar} />
-                <View style={styles.notifBody}>
-                  <Text style={styles.notifText}>
-                    <Text style={styles.notifName}>{item.nome}</Text> {item.acao}
-                  </Text>
-                  <Text style={styles.notifTime}>{item.tempo}</Text>
-                </View>
+            {statsLoading ? (
+              <View style={styles.historyLoading}>
+                <ActivityIndicator color="#0d9488" />
               </View>
-            ))}
+            ) : historicoUso.length === 0 ? (
+              <Text style={styles.historyEmpty}>
+                Nenhum cupom usado ainda. Valide um QR na loja para ver o histórico aqui.
+              </Text>
+            ) : (
+              historicoUso.map((item) => {
+                const nome = displayUserName(item.userName, item.userId);
+                return (
+                  <View key={item.id} style={styles.notifItem}>
+                    {item.userPhotoUrl ? (
+                      <Image source={{ uri: item.userPhotoUrl }} style={styles.notifAvatar} />
+                    ) : (
+                      <View style={styles.notifAvatarPlaceholder}>
+                        <Ionicons name="person" size={22} color="#64748b" />
+                      </View>
+                    )}
+                    <View style={styles.notifBody}>
+                      <Text style={styles.notifText}>
+                        <Text style={styles.notifName}>{nome}</Text> usou o cupom{' '}
+                        <Text style={styles.notifCode}>{item.couponCode}</Text>
+                      </Text>
+                      <Text style={styles.notifTime}>
+                        {formatRelativeTimePt(item.usedAt)}
+                        {item.couponName ? ` • ${item.couponName}` : ''}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })
+            )}
           </View>
         </View>
       </ScrollView>
@@ -151,6 +181,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0d9488',
   },
+  historyLoading: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  historyEmpty: {
+    fontSize: 13,
+    color: '#64748b',
+    lineHeight: 19,
+    paddingVertical: 8,
+  },
   notifItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -166,6 +206,14 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
   },
+  notifAvatarPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   notifBody: {
     flex: 1,
     gap: 4,
@@ -176,6 +224,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   notifName: {
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  notifCode: {
     fontWeight: '700',
     color: '#1e293b',
   },

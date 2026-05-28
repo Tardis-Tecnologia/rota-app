@@ -1,6 +1,7 @@
+import type { CommercialCouponCatalogItem } from '@/services/commercialCouponsApi';
 import type { RewardItem as ApiRewardItem, RewardRedemptionItem } from '@/services/rewardService';
 
-import type { CatalogReward, RewardsFilterTab } from '../types/index';
+import type { CatalogReward, RewardsFilterTab, StoreCouponsListEntry } from '../types/index';
 
 export function mapRewardFromApi(item: ApiRewardItem): CatalogReward {
   return {
@@ -67,6 +68,22 @@ export function listStoreCouponsForDisplay(
     if (aRed !== bRed) return aRed - bRed;
     return Math.abs(a.value ?? 0) - Math.abs(b.value ?? 0);
   });
+}
+
+export function buildStoreCouponsListEntries(
+  commercialCoupons: CommercialCouponCatalogItem[],
+  rewards: CatalogReward[],
+  storeHoldIds: Set<string>,
+): StoreCouponsListEntry[] {
+  const commercial: StoreCouponsListEntry[] = commercialCoupons.map((c) => ({
+    kind: 'commercial',
+    id: c.id,
+  }));
+  const rewardItems = listStoreCouponsForDisplay(rewards, storeHoldIds).map((r) => ({
+    kind: 'reward' as const,
+    id: r.id,
+  }));
+  return [...commercial, ...rewardItems];
 }
 
 export function resolveRedemptionDelta(

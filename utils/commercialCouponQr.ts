@@ -32,7 +32,6 @@ export function parseCommercialCouponQr(raw: string): CommercialCouponQrPayload 
   return { code: normalizeCommercialCouponCode(trimmed) };
 }
 
-/** Payload para QR exibido ao cliente (loja pode incluir userId quando disponível). */
 export function buildCommercialCouponQrPayload(
   code: string,
   userId?: string,

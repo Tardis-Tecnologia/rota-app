@@ -254,6 +254,7 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
       pathname: '/ChatTab',
       params: {
         provider: JSON.stringify(conversation.providerData),
+        ...(isCommercialInbox ? { returnTo: '/comerciante/mensagens' } : {}),
       },
     });
   };

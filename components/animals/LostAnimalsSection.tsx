@@ -1,51 +1,51 @@
 import LostAnimalActionMenu from '@/components/animals/LostAnimalActionMenu';
 import LostAnimalCard from '@/components/animals/LostAnimalCard';
-import LostAnimalsFiltersModal, {
-  EMPTY_LOST_ANIMAL_FILTERS,
-  type LostAnimalFilters,
-} from '@/components/animals/LostAnimalsFiltersModal';
 import LostAnimalPublishModal from '@/components/animals/LostAnimalPublishModal';
+import LostAnimalsFiltersModal, {
+    EMPTY_LOST_ANIMAL_FILTERS,
+    type LostAnimalFilters,
+} from '@/components/animals/LostAnimalsFiltersModal';
+import type { LostAnimalDto } from '@/components/animals/lostAnimalUtils';
 import {
-  hasActiveLostAnimalFilters,
-  isLostAnimalOwner,
-  lostAnimalDtoToFormState,
-  markDescriptionAsFound,
-  matchesLostAnimalSearch,
-  sortLostAnimals,
-  type LostAnimalFormState,
+    hasActiveLostAnimalFilters,
+    isLostAnimalOwner,
+    lostAnimalDtoToFormState,
+    markDescriptionAsFound,
+    matchesLostAnimalSearch,
+    sortLostAnimals,
+    type LostAnimalFormState,
 } from '@/components/animals/lostAnimalUtils';
 import { forumDisplayHandle } from '@/components/forum/forumUtils';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  createLostAnimal,
-  deleteLostAnimal,
-  enrichLostAnimalsMedia,
-  listLostAnimals,
-  PAGE_SIZE,
-  updateLostAnimal,
-} from '@/services/lostAnimalApi';
-import {
-  createForumComment,
-  likeForumPost,
-  listForumComments,
-  type ForumPostCommentListItemDto,
+    createForumComment,
+    likeForumPost,
+    listForumComments,
+    type ForumPostCommentListItemDto,
 } from '@/services/forumApi';
+import {
+    createLostAnimal,
+    deleteLostAnimal,
+    enrichLostAnimalsMedia,
+    listLostAnimals,
+    PAGE_SIZE,
+    updateLostAnimal,
+} from '@/services/lostAnimalApi';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import type { LostAnimalDto } from '@/components/animals/lostAnimalUtils';
 
 export default function LostAnimalsSection() {
   const { user } = useAuth();
@@ -379,13 +379,10 @@ export default function LostAnimalsSection() {
       </View>
 
       <View style={styles.listHeader}>
-        <View style={styles.listHeaderLeft}>
-          <Text style={styles.listTitle}>Animais perdidos</Text>
-          <View style={styles.countBadge}>
-            <Text style={styles.countBadgeText}>
-              {displayItems.length} encontrado{displayItems.length === 1 ? '' : 's'}
-            </Text>
-          </View>
+        <View style={styles.countBadge}>
+          <Text style={styles.countBadgeText}>
+            {displayItems.length} encontrado{displayItems.length === 1 ? '' : 's'}
+          </Text>
         </View>
         <TouchableOpacity
           style={styles.sortBtn}
@@ -590,14 +587,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     gap: 8,
   },
-  listHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexShrink: 1,
-    flexWrap: 'wrap',
-  },
-  listTitle: { fontSize: 16, fontWeight: '800', color: '#0f172a' },
   countBadge: {
     backgroundColor: '#ecfdf5',
     paddingHorizontal: 8,

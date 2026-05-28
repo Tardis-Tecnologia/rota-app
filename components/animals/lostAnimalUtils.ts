@@ -65,7 +65,6 @@ function readBoolean(value: unknown): boolean | undefined {
   return undefined;
 }
 
-/** Reescreve localhost/127.0.0.1 para o host do app (ex.: 10.0.2.2 no emulador Android). */
 function rewriteLocalhostMediaUrl(url: string): string {
   try {
     const u = new URL(url);
@@ -165,7 +164,6 @@ export function normalizeLostAnimalList(data: unknown): LostAnimalDto[] {
     .filter((item): item is LostAnimalDto => item != null);
 }
 
-/** Mesma estratégia do fórum: mediaId → /upload/files/{id}; depois imageUrl com host corrigido. */
 export function lostAnimalImageUrl(item: Pick<LostAnimalDto, 'imageUrl' | 'mediaId'>): string | null {
   const mediaId = item.mediaId?.trim();
   if (mediaId) {
@@ -275,7 +273,7 @@ export function isValidIsoDate(value: string): boolean {
   return !Number.isNaN(d.getTime());
 }
 
-/** Máscara DD/MM/AAAA enquanto o usuário digita. */
+
 export function formatBrazilDateInput(raw: string): string {
   const digits = raw.replace(/\D/g, '').slice(0, 8);
   if (digits.length <= 2) return digits;
@@ -283,7 +281,7 @@ export function formatBrazilDateInput(raw: string): string {
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
 
-/** Converte DD/MM/AAAA para YYYY-MM-DD (API). */
+
 export function brazilDateToIso(brDate: string): string | null {
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(brDate.trim());
   if (!m) return null;
@@ -369,7 +367,6 @@ export function validateLostAnimalForm(
   return errors;
 }
 
-/** Prepara o formulário para envio à API (data em ISO). */
 export function matchesLostAnimalSearch(item: LostAnimalDto, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;

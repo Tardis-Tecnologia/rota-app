@@ -1,5 +1,5 @@
 import type { LostAnimalDto } from '@/components/animals/lostAnimalUtils';
-import { isLostAnimalMarkedFound } from '@/components/animals/lostAnimalUtils';
+import { isPetFound } from '@/components/animals/lostAnimalUtils';
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
@@ -9,6 +9,7 @@ interface LostAnimalActionMenuProps {
   item: LostAnimalDto | null;
   onClose: () => void;
   onMarkFound: () => void;
+  onMarkLost: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }
@@ -53,11 +54,12 @@ export default function LostAnimalActionMenu({
   item,
   onClose,
   onMarkFound,
+  onMarkLost,
   onEdit,
   onDelete,
 }: LostAnimalActionMenuProps) {
   if (!item) return null;
-  const alreadyFound = isLostAnimalMarkedFound(item);
+  const found = isPetFound(item);
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
@@ -68,14 +70,20 @@ export default function LostAnimalActionMenu({
           </Text>
           <Text style={styles.sheetSubtitle}>Gerenciar sua publicação</Text>
 
-          {!alreadyFound ? (
+          {!found ? (
             <MenuRow
               icon="checkmark-circle-outline"
               label="Marcar como encontrado"
               onPress={onMarkFound}
               accent
             />
-          ) : null}
+          ) : (
+            <MenuRow
+              icon="refresh-outline"
+              label="Voltar para perdido"
+              onPress={onMarkLost}
+            />
+          )}
 
           <MenuRow icon="create-outline" label="Editar publicação" onPress={onEdit} />
           <MenuRow icon="trash-outline" label="Apagar publicação" onPress={onDelete} danger />

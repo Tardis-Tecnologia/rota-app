@@ -1,26 +1,27 @@
-import {
-  formatContactDisplay,
-  formatMissingDateLabel,
-  isLostAnimalMarkedFound,
-  lostAnimalImageSource,
-  lostAnimalTitle,
-  type LostAnimalDto,
-} from '@/components/animals/lostAnimalUtils';
 import LostAnimalImageLightbox from '@/components/animals/LostAnimalImageLightbox';
-import { formatOpinioesLabel, formatTimeAgo } from '@/components/forum/forumUtils';
+import {
+    formatContactDisplay,
+    formatFoundAtLabel,
+    formatMissingDateLabel,
+    isPetFound,
+    lostAnimalImageSource,
+    lostAnimalTitle,
+    type LostAnimalDto,
+} from '@/components/animals/lostAnimalUtils';
+import { formatTimeAgo } from '@/components/forum/forumUtils';
 import { AppColors } from '@/constants/theme';
 import type { ForumPostCommentListItemDto } from '@/services/forumApi';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Image,
-  Linking,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Image,
+    Linking,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from 'react-native';
 
 interface LostAnimalCardProps {
@@ -80,8 +81,9 @@ export default function LostAnimalCard({
   }, [item.id, item.mediaId, item.imageUrl, imageCacheEpoch]);
 
   const title = lostAnimalTitle(item);
-  const isFound = isLostAnimalMarkedFound(item);
+  const isFound = isPetFound(item);
   const missingDateLabel = formatMissingDateLabel(item.missingDate, item.createdAt);
+  const foundAtLabel = isFound ? formatFoundAtLabel(item.foundAt) : '';
   const contactLabel = formatContactDisplay(item.contact);
   const speciesLine = [item.species?.trim(), item.breed?.trim()].filter(Boolean).join(' • ');
   const canComment = canInteract && !!item.forumPostId?.trim();
@@ -144,6 +146,15 @@ export default function LostAnimalCard({
               <Ionicons name="calendar-outline" size={14} color="#64748b" />
               <Text style={styles.infoText} numberOfLines={1}>
                 Perdido em {missingDateLabel}
+              </Text>
+            </View>
+          ) : null}
+
+          {foundAtLabel ? (
+            <View style={styles.infoRow}>
+              <Ionicons name="checkmark-circle-outline" size={14} color="#047857" />
+              <Text style={[styles.infoText, styles.foundAtText]} numberOfLines={1}>
+                Encontrado em {foundAtLabel}
               </Text>
             </View>
           ) : null}
@@ -358,6 +369,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     color: '#64748b',
+  },
+  foundAtText: {
+    color: '#047857',
+    fontWeight: '600',
     lineHeight: 17,
   },
   contactBtn: {

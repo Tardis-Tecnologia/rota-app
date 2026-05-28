@@ -262,7 +262,7 @@ export default function LostAnimalPublishModal({
             <Text style={styles.label}>Contato do responsável *</Text>
             <TextInput
               style={inputStyle('contact')}
-              placeholder="(11) 99999-9999 ou e-mail"
+              placeholder="(11) 99999-9999"
               value={form.contact}
               onChangeText={patchContact}
               keyboardType={form.contact.includes('@') ? 'email-address' : 'phone-pad'}

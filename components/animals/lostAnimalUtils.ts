@@ -5,6 +5,8 @@ import { formatBrazilPhoneInput } from '@/utils/phoneMask';
 
 export type UploadImageResponse = { id: string; publicUrl: string; path: string };
 
+export type PetStatus = 'LOST' | 'FOUND';
+
 export type LostAnimalDto = {
   id: string;
   hostId: string;
@@ -16,6 +18,8 @@ export type LostAnimalDto = {
   missingLocation: string;
   description: string;
   contact: string;
+  status: PetStatus;
+  foundAt: string | null;
   mediaId?: string | null;
   imageUrl?: string | null;
   createdAt?: string;
@@ -105,6 +109,25 @@ function resolveLostAnimalMediaFields(raw: Record<string, unknown>): {
   return { mediaId, imageUrl };
 }
 
+export function normalizePetStatus(raw: unknown): PetStatus {
+  const s = readString(raw)?.toUpperCase();
+  if (s === 'FOUND' || s === 'ENCONTRADO') return 'FOUND';
+  if (s === 'LOST' || s === 'PERDIDO') return 'LOST';
+  return 'LOST';
+}
+
+export function isPetFound(item: Pick<LostAnimalDto, 'status'>): boolean {
+  return item.status === 'FOUND';
+}
+
+export function formatFoundAtLabel(foundAt: string | null | undefined): string {
+  const raw = foundAt?.trim();
+  if (!raw) return '';
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
 export function normalizeLostAnimalDto(raw: unknown): LostAnimalDto | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
@@ -137,6 +160,8 @@ export function normalizeLostAnimalDto(raw: unknown): LostAnimalDto | null {
     missingLocation: readString(r.missingLocation ?? r.missing_location) ?? '',
     description: readString(r.description) ?? '',
     contact: readString(r.contact) ?? '',
+    status: normalizePetStatus(r.status ?? r.animal_status),
+    foundAt: readString(r.foundAt ?? r.found_at),
     mediaId,
     imageUrl,
     createdAt: readString(r.createdAt ?? r.created_at) ?? undefined,
@@ -192,8 +217,6 @@ export function lostAnimalImageSource(
   return eventImageSource(busted);
 }
 
-export const FOUND_ANIMAL_PREFIX = '✅ ANIMAL ENCONTRADO — ';
-
 export function isLostAnimalOwner(
   item: Pick<LostAnimalDto, 'userId' | 'author'>,
   userId?: string | null,
@@ -203,32 +226,6 @@ export function isLostAnimalOwner(
   return item.userId === uid || item.author?.id === uid;
 }
 
-export function isDescriptionMarkedFound(description: string): boolean {
-  const d = description.trim().toUpperCase();
-  return d.startsWith('✅ ANIMAL ENCONTRADO') || d.includes('ANIMAL ENCONTRADO —');
-}
-
-export function isLostAnimalMarkedFound(item: Pick<LostAnimalDto, 'description'>): boolean {
-  return isDescriptionMarkedFound(item.description ?? '');
-}
-
-export function markDescriptionAsFound(description: string): string {
-  const d = description.trim();
-  if (isDescriptionMarkedFound(d)) return d;
-  const stripped = stripFoundPrefix(d);
-  return `${FOUND_ANIMAL_PREFIX}${stripped}`;
-}
-
-export function stripFoundPrefix(description: string): string {
-  const d = description.trim();
-  if (d.startsWith(FOUND_ANIMAL_PREFIX)) return d.slice(FOUND_ANIMAL_PREFIX.length).trim();
-  if (d.toUpperCase().startsWith('✅ ANIMAL ENCONTRADO')) {
-    const idx = d.indexOf('—');
-    if (idx >= 0) return d.slice(idx + 1).trim();
-  }
-  return d;
-}
-
 export function lostAnimalDtoToFormState(item: LostAnimalDto): LostAnimalFormState {
   return {
     animalName: item.animalName?.trim() ?? '',
@@ -236,7 +233,7 @@ export function lostAnimalDtoToFormState(item: LostAnimalDto): LostAnimalFormSta
     breed: item.breed?.trim() ?? '',
     missingLocation: item.missingLocation?.trim() ?? '',
     missingDate: isoDateToBrazil(item.missingDate),
-    description: stripFoundPrefix(item.description ?? ''),
+    description: item.description?.trim() ?? '',
     contact: formatContactDisplay(item.contact) || item.contact?.trim() || '',
   };
 }

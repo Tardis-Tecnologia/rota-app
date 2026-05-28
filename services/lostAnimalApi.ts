@@ -1,14 +1,21 @@
 import {
-  normalizeLostAnimalDto,
-  normalizeLostAnimalList,
-  prepareLostAnimalFormForApi,
-  type LostAnimalDto,
-  type LostAnimalFormState,
-  type UploadImageResponse,
+    normalizeLostAnimalDto,
+    normalizeLostAnimalList,
+    prepareLostAnimalFormForApi,
+    type LostAnimalDto,
+    type LostAnimalFormState,
+    type PetStatus,
+    type UploadImageResponse,
 } from '@/components/animals/lostAnimalUtils';
 import { getApiBaseUrl, getAuthToken, getWhitelabelHostId } from '@/services/authApi';
 
 const PAGE_SIZE = 20;
+
+async function readJsonBody(res: Response): Promise<unknown> {
+  const raw = await res.text();
+  if (!raw.trim()) return null;
+  return JSON.parse(raw) as unknown;
+}
 
 async function readErrorMessage(res: Response): Promise<string> {
   try {
@@ -47,6 +54,7 @@ export async function listLostAnimals(options?: {
   init?: number;
   end?: number;
   hostId?: string;
+  status?: PetStatus;
   species?: string;
   breed?: string;
   location?: string;
@@ -60,6 +68,7 @@ export async function listLostAnimals(options?: {
   const params = new URLSearchParams();
   params.set('init', String(init));
   params.set('end', String(end));
+  if (options?.status) params.set('status', options.status);
   if (options?.species?.trim()) params.set('species', options.species.trim());
   if (options?.breed?.trim()) params.set('breed', options.breed.trim());
   if (options?.location?.trim()) params.set('location', options.location.trim());
@@ -172,10 +181,25 @@ export async function updateLostAnimal(
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res));
-  const data = (await res.json()) as unknown;
-  const normalized = normalizeLostAnimalDto(data);
-  if (!normalized) throw new Error('Resposta inválida ao atualizar animal perdido.');
-  return normalized;
+
+  const data = await readJsonBody(res);
+  const normalized = data != null ? normalizeLostAnimalDto(data) : null;
+  if (normalized) return normalized;
+
+  return getLostAnimal(id);
+}
+
+/** Atualiza apenas status (FOUND / LOST). Resposta 204 — refetch do detalhe. */
+export async function updateLostAnimalStatus(id: string, status: PetStatus): Promise<LostAnimalDto> {
+  const base = getApiBaseUrl();
+  const url = `${base}/api/v1/lost-animals/${encodeURIComponent(id)}`;
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: authHeadersJson(),
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+  return getLostAnimal(id);
 }
 
 export async function deleteLostAnimal(id: string): Promise<void> {
@@ -219,3 +243,4 @@ export async function enrichLostAnimalsMedia(items: LostAnimalDto[]): Promise<Lo
 }
 
 export { PAGE_SIZE };
+

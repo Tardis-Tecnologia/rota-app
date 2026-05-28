@@ -1,19 +1,14 @@
 import LostAnimalActionMenu from '@/components/animals/LostAnimalActionMenu';
 import LostAnimalCard from '@/components/animals/LostAnimalCard';
+import LostAnimalMarkFoundModal from '@/components/animals/LostAnimalMarkFoundModal';
 import LostAnimalPublishModal from '@/components/animals/LostAnimalPublishModal';
-import LostAnimalsFiltersModal, {
-    EMPTY_LOST_ANIMAL_FILTERS,
-    type LostAnimalFilters,
-} from '@/components/animals/LostAnimalsFiltersModal';
 import type { LostAnimalDto } from '@/components/animals/lostAnimalUtils';
 import {
-    hasActiveLostAnimalFilters,
     isLostAnimalOwner,
-    lostAnimalDtoToFormState,
-    markDescriptionAsFound,
     matchesLostAnimalSearch,
     sortLostAnimals,
     type LostAnimalFormState,
+    type PetStatus,
 } from '@/components/animals/lostAnimalUtils';
 import { forumDisplayHandle } from '@/components/forum/forumUtils';
 import { AppColors } from '@/constants/theme';
@@ -31,6 +26,7 @@ import {
     listLostAnimals,
     PAGE_SIZE,
     updateLostAnimal,
+    updateLostAnimalStatus,
 } from '@/services/lostAnimalApi';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -38,6 +34,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Pressable,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -46,6 +43,12 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+
+type ListTab = 'lost' | 'found';
+
+function listTabToApiStatus(tab: ListTab): PetStatus {
+  return tab === 'found' ? 'FOUND' : 'LOST';
+}
 
 export default function LostAnimalsSection() {
   const { user } = useAuth();
@@ -60,6 +63,7 @@ export default function LostAnimalsSection() {
   const [publishMode, setPublishMode] = useState<'create' | 'edit'>('create');
   const [editingItem, setEditingItem] = useState<LostAnimalDto | null>(null);
   const [actionMenuItem, setActionMenuItem] = useState<LostAnimalDto | null>(null);
+  const [markFoundConfirmItem, setMarkFoundConfirmItem] = useState<LostAnimalDto | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [commentsByItem, setCommentsByItem] = useState<
     Record<string, ForumPostCommentListItemDto[]>
@@ -71,13 +75,12 @@ export default function LostAnimalsSection() {
   const [commentsLoadingByItem, setCommentsLoadingByItem] = useState<Record<string, boolean>>({});
   const [commentSendingItemId, setCommentSendingItemId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState<LostAnimalFilters>(EMPTY_LOST_ANIMAL_FILTERS);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [listTab, setListTab] = useState<ListTab>('lost');
 
   const canInteract = !!user && user.profile !== 'VISITANTE';
+  const apiStatus = listTabToApiStatus(listTab);
 
-  const load = useCallback(async (append = false, currentLength = 0, activeFilters?: LostAnimalFilters) => {
-    const f = activeFilters ?? EMPTY_LOST_ANIMAL_FILTERS;
+  const load = useCallback(async (append = false, currentLength = 0) => {
     if (append) {
       setLoadingMore(true);
     } else {
@@ -87,13 +90,7 @@ export default function LostAnimalsSection() {
     try {
       const init = append ? currentLength : 0;
       const end = init + PAGE_SIZE;
-      const listed = await listLostAnimals({
-        init,
-        end,
-        species: f.species.trim() || undefined,
-        breed: f.breed.trim() || undefined,
-        location: f.location.trim() || undefined,
-      });
+      const listed = await listLostAnimals({ init, end, status: apiStatus });
       const batch = await enrichLostAnimalsMedia(listed);
       setHasMore(batch.length >= PAGE_SIZE);
       setImageEpoch(Date.now());
@@ -121,29 +118,21 @@ export default function LostAnimalsSection() {
       setLoadingMore(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [apiStatus]);
 
   useEffect(() => {
-    void load(false, 0, EMPTY_LOST_ANIMAL_FILTERS);
+    void load(false, 0);
   }, [load]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    void load(false, 0, filters);
-  }, [filters, load]);
+    void load(false, 0);
+  }, [load]);
 
   const displayItems = useMemo(() => {
     const searched = items.filter((item) => matchesLostAnimalSearch(item, searchQuery));
-    return sortLostAnimals(searched, filters.sort);
-  }, [filters.sort, items, searchQuery]);
-
-  const applyFilters = useCallback(
-    (next: LostAnimalFilters) => {
-      setFilters(next);
-      void load(false, 0, next);
-    },
-    [load],
-  );
+    return sortLostAnimals(searched, 'recent');
+  }, [items, searchQuery]);
 
   const onLoadMore = useCallback(() => {
     if (loadingMore || loading || !hasMore) return;
@@ -199,25 +188,56 @@ export default function LostAnimalsSection() {
     [editingItem, load, publishMode],
   );
 
-  const onMarkFound = useCallback(
-    async (item: LostAnimalDto) => {
+  const onMarkFound = useCallback((item: LostAnimalDto) => {
+    setActionMenuItem(null);
+    setMarkFoundConfirmItem(item);
+  }, []);
+
+  const onConfirmMarkFound = useCallback(async () => {
+    const item = markFoundConfirmItem;
+    if (!item) return;
+    setPublishing(true);
+    setError(null);
+    try {
+      await updateLostAnimalStatus(item.id, 'FOUND');
+      setItems((prev) => prev.filter((p) => p.id !== item.id));
+      setMarkFoundConfirmItem(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Não foi possível marcar como encontrado.');
+    } finally {
+      setPublishing(false);
+    }
+  }, [markFoundConfirmItem]);
+
+  const onMarkLost = useCallback(
+    (item: LostAnimalDto) => {
       setActionMenuItem(null);
-      const nextDescription = markDescriptionAsFound(item.description ?? '');
-      setPublishing(true);
-      setError(null);
-      try {
-        const updated = await updateLostAnimal(item.id, {
-          ...lostAnimalDtoToFormState(item),
-          description: nextDescription,
-        }, {
-          keepMediaId: item.mediaId,
-        });
-        setItems((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Não foi possível marcar como encontrado.');
-      } finally {
-        setPublishing(false);
-      }
+      Alert.alert(
+        'Voltar para perdido',
+        'Reabrir este aviso como animal perdido?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Confirmar',
+            onPress: () => {
+              void (async () => {
+                setPublishing(true);
+                setError(null);
+                try {
+                  await updateLostAnimalStatus(item.id, 'LOST');
+                  setItems((prev) => prev.filter((p) => p.id !== item.id));
+                } catch (e) {
+                  setError(
+                    e instanceof Error ? e.message : 'Não foi possível reabrir como perdido.',
+                  );
+                } finally {
+                  setPublishing(false);
+                }
+              })();
+            },
+          },
+        ],
+      );
     },
     [],
   );
@@ -347,9 +367,6 @@ export default function LostAnimalsSection() {
     </View>
   ) : null;
 
-  const filtersActive = hasActiveLostAnimalFilters(filters);
-  const sortLabel = filters.sort === 'recent' ? 'Mais recentes' : 'Mais antigos';
-
   return (
     <View style={styles.wrap}>
       {userChip}
@@ -366,33 +383,36 @@ export default function LostAnimalsSection() {
             returnKeyType="search"
           />
         </View>
-        <TouchableOpacity
-          style={[styles.filterBtn, filtersActive && styles.filterBtnActive]}
-          activeOpacity={0.85}
-          onPress={() => setFiltersOpen(true)}
-        >
-          <Ionicons name="options-outline" size={18} color={filtersActive ? '#047857' : '#64748b'} />
-          <Text style={[styles.filterBtnText, filtersActive && styles.filterBtnTextActive]}>
-            Filtros
-          </Text>
-        </TouchableOpacity>
       </View>
 
-      <View style={styles.listHeader}>
-        <View style={styles.countBadge}>
-          <Text style={styles.countBadgeText}>
-            {displayItems.length} encontrado{displayItems.length === 1 ? '' : 's'}
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={styles.sortBtn}
-          activeOpacity={0.85}
-          onPress={() => setFiltersOpen(true)}
+      <View style={styles.tabRow}>
+        <Pressable
+          onPress={() => setListTab('lost')}
+          style={[styles.tabBtn, listTab === 'lost' && styles.tabBtnActive]}
         >
-          <Text style={styles.sortBtnText}>{sortLabel}</Text>
-          <Ionicons name="chevron-down" size={16} color="#64748b" />
-        </TouchableOpacity>
+          <Text style={[styles.tabBtnText, listTab === 'lost' && styles.tabBtnTextActive]}>
+            Perdidos
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setListTab('found')}
+          style={[styles.tabBtn, listTab === 'found' && styles.tabBtnActive]}
+        >
+          <Text style={[styles.tabBtnText, listTab === 'found' && styles.tabBtnTextActive]}>
+            Encontrados
+          </Text>
+        </Pressable>
       </View>
+
+      {displayItems.length > 0 || searchQuery.trim() ? (
+        <View style={styles.listHeader}>
+          <View style={styles.countBadge}>
+            <Text style={styles.countBadgeText}>
+              {displayItems.length} aviso{displayItems.length === 1 ? '' : 's'}
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       <ScrollView
         style={styles.listScroll}
@@ -422,10 +442,18 @@ export default function LostAnimalsSection() {
 
         {!loading && !error && items.length === 0 ? (
           <View style={styles.emptyBlock}>
-            <Ionicons name="paw-outline" size={36} color={AppColors.text.quaternary} />
-            <Text style={styles.emptyTitle}>Nenhum animal perdido publicado</Text>
+            <Ionicons
+              name={listTab === 'found' ? 'checkmark-circle-outline' : 'paw-outline'}
+              size={36}
+              color={AppColors.text.quaternary}
+            />
+            <Text style={styles.emptyTitle}>
+              {listTab === 'found' ? 'Nenhum animal encontrado' : 'Nenhum animal perdido'}
+            </Text>
             <Text style={styles.emptyHint}>
-              Seja o primeiro a publicar um avistamento usando o botão abaixo.
+              {listTab === 'found'
+                ? 'Animais marcados como encontrados aparecem nesta aba.'
+                : 'Seja o primeiro a publicar um avistamento usando o botão abaixo.'}
             </Text>
           </View>
         ) : null}
@@ -434,9 +462,7 @@ export default function LostAnimalsSection() {
           <View style={styles.emptyBlock}>
             <Ionicons name="search-outline" size={36} color={AppColors.text.quaternary} />
             <Text style={styles.emptyTitle}>Nenhum resultado</Text>
-            <Text style={styles.emptyHint}>
-              Tente outro termo de busca ou ajuste os filtros.
-            </Text>
+            <Text style={styles.emptyHint}>Tente outro termo de busca.</Text>
           </View>
         ) : null}
 
@@ -501,11 +527,23 @@ export default function LostAnimalsSection() {
         onSubmit={(form, uri) => void onFormSubmit(form, uri)}
       />
 
+      <LostAnimalMarkFoundModal
+        item={markFoundConfirmItem}
+        loading={publishing}
+        onClose={() => {
+          if (!publishing) setMarkFoundConfirmItem(null);
+        }}
+        onConfirm={() => void onConfirmMarkFound()}
+      />
+
       <LostAnimalActionMenu
         item={actionMenuItem}
         onClose={() => setActionMenuItem(null)}
         onMarkFound={() => {
-          if (actionMenuItem) void onMarkFound(actionMenuItem);
+          if (actionMenuItem) onMarkFound(actionMenuItem);
+        }}
+        onMarkLost={() => {
+          if (actionMenuItem) onMarkLost(actionMenuItem);
         }}
         onEdit={() => {
           if (actionMenuItem) openEditModal(actionMenuItem);
@@ -515,12 +553,6 @@ export default function LostAnimalsSection() {
         }}
       />
 
-      <LostAnimalsFiltersModal
-        visible={filtersOpen}
-        value={filters}
-        onClose={() => setFiltersOpen(false)}
-        onApply={applyFilters}
-      />
     </View>
   );
 }
@@ -563,29 +595,37 @@ const styles = StyleSheet.create({
     color: AppColors.text.secondary,
     paddingVertical: 0,
   },
-  filterBtn: {
+  tabRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    height: 44,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    gap: 8,
+    marginBottom: 12,
+    backgroundColor: '#fff',
+    borderRadius: 999,
+    padding: 4,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    backgroundColor: '#fff',
   },
-  filterBtnActive: {
-    borderColor: '#059669',
-    backgroundColor: '#ecfdf5',
+  tabBtn: {
+    flex: 1,
+    borderRadius: 999,
+    paddingVertical: 10,
+    alignItems: 'center',
   },
-  filterBtnText: { fontSize: 13, fontWeight: '700', color: '#64748b' },
-  filterBtnTextActive: { color: '#047857' },
+  tabBtnActive: {
+    backgroundColor: '#059669',
+  },
+  tabBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#64748b',
+  },
+  tabBtnTextActive: {
+    color: '#fff',
+  },
   listHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: 12,
-    gap: 8,
   },
   countBadge: {
     backgroundColor: '#ecfdf5',
@@ -594,14 +634,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   countBadgeText: { fontSize: 11, fontWeight: '700', color: '#047857' },
-  sortBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-  },
-  sortBtnText: { fontSize: 12, fontWeight: '600', color: '#64748b' },
   listScroll: { flex: 1 },
   listContent: { paddingBottom: 100 },
   centerBlock: { paddingVertical: 24, alignItems: 'center', gap: 6 },

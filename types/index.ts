@@ -91,6 +91,8 @@ export type MuralPost = {
 export type Profile = {
   id: string;
   type: ProfileType;
+  /** Dono do perfil (prestador) para chat direto */
+  ownerUserId?: string;
   name: string;
   categoryId: string;
   rating: number;

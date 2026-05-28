@@ -22,12 +22,35 @@ export interface CreateServiceProviderBody {
   latitude?: number;
   longitude?: number;
   imageId?: string;
+  businessHours?: Record<string, unknown> | string;
+}
+
+/** Campos editáveis pelo dono do prestador (PATCH parcial). */
+export interface ServiceProviderOwnerUpdateBody {
+  name?: string;
+  category?: string;
+  description?: string;
+  phone?: string;
+  email?: string;
+  whatsapp?: string;
+  cep?: string;
+  locationName?: string;
+  locationAddress?: string;
+  latitude?: number;
+  longitude?: number;
+  imageId?: string;
   businessHours?: Record<string, unknown>;
 }
 
-export type UpdateServiceProviderBody = Partial<
-  Omit<CreateServiceProviderBody, 'hostId'>
->;
+/** Superadmin: pode incluir type e hostId; CNPJ continua fora do body. */
+export type ServiceProviderSuperAdminUpdateBody = ServiceProviderOwnerUpdateBody & {
+  type?: ServiceProviderType;
+  hostId?: string;
+};
+
+export type UpdateServiceProviderBody =
+  | ServiceProviderOwnerUpdateBody
+  | ServiceProviderSuperAdminUpdateBody;
 
 export interface ServiceProviderListItem {
   id: string;
@@ -69,7 +92,7 @@ export interface ServiceProviderResponse {
   locationAddress?: string | null;
   latitude?: string | null;
   longitude?: string | null;
-  businessHours?: Record<string, unknown> | null;
+  businessHours?: Record<string, unknown> | string | null;
   ratingAverage: string;
   ratingCount: number;
   createdAt: string;

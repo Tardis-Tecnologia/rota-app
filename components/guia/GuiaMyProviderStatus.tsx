@@ -10,6 +10,26 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const POLL_MS = 45_000;
 
+function getProviderRejectionReason(provider: ServiceProviderResponse): string | null {
+  const raw = provider as ServiceProviderResponse & Record<string, unknown>;
+  const candidates = [
+    raw.rejectionReason,
+    raw.rejection_reason,
+    raw.rejectionComment,
+    raw.rejection_comment,
+    raw.statusReason,
+    raw.status_reason,
+    raw.analysisNote,
+    raw.adminNote,
+    raw.reviewNote,
+    raw.reason,
+  ];
+  for (const value of candidates) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return null;
+}
+
 function formatDate(iso: string): string {
   try {
     return new Date(iso).toLocaleString('pt-BR', {
@@ -53,6 +73,7 @@ export default function GuiaMyProviderStatus({
 
   const ui = STATUS_UI[provider.status];
   const isRejected = provider.status === 'REJECTED';
+  const rejectionReason = isRejected ? getProviderRejectionReason(provider) : null;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -81,6 +102,12 @@ export default function GuiaMyProviderStatus({
               ? 'Seu cadastro foi analisado e não foi aprovado. Entre em contato com o administrativo da Rota para mais informações.'
               : 'Seu cadastro foi recebido e está em análise. Assim que for aprovado, seu perfil ficará visível para todos no Guia da Cidade.'}
           </Text>
+          {rejectionReason ? (
+            <View style={styles.reasonCard}>
+              <Text style={styles.reasonLabel}>Motivo da reprovação</Text>
+              <Text style={styles.reasonText}>{rejectionReason}</Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.infoCard}>
@@ -146,6 +173,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     color: AppColors.text.tertiary,
+  },
+  reasonCard: {
+    marginTop: 6,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    gap: 4,
+  },
+  reasonLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#b91c1c',
+    textTransform: 'uppercase',
+  },
+  reasonText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#7f1d1d',
   },
   infoCard: {
     backgroundColor: '#fff',

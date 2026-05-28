@@ -6,6 +6,7 @@ import type {
 } from '@/types/serviceProvider';
 import type { Profile } from '@/types';
 import { GUIA_DEFAULT_CENTER } from '@/utils/guiaGeo';
+import { businessHoursFromApi } from '@/utils/serviceProviderForm';
 
 export type GuiaProviderApprovalStatus = ServiceProviderStatus;
 
@@ -21,7 +22,7 @@ export function serviceProviderListItemToGuia(
   let latitude = parseCoord(item.latitude);
   let longitude = parseCoord(item.longitude);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    if (item.status === 'APPROVED') return null;
+    // Alguns aprovados ainda podem não ter coord registrada; mantemos visível no Guia.
     latitude = GUIA_DEFAULT_CENTER.latitude;
     longitude = GUIA_DEFAULT_CENTER.longitude;
   }
@@ -66,9 +67,25 @@ export function serviceProviderResponseToProfile(
     longitude: provider.longitude,
   });
 
+  const hoursText = businessHoursFromApi(provider.businessHours);
+  const hours = hoursText || undefined;
+
+  const normalizedDescription = provider.description?.trim() ?? '';
+  const services =
+    normalizedDescription.length > 0
+      ? [
+          {
+            name: provider.category,
+            description: normalizedDescription,
+            price: 'A combinar',
+          },
+        ]
+      : [];
+
   return {
     id: provider.id,
     type: 'PROVIDER',
+    ownerUserId: provider.userId,
     name: provider.name,
     categoryId: provider.category,
     rating: Number.parseFloat(provider.ratingAverage) || 0,
@@ -79,11 +96,12 @@ export function serviceProviderResponseToProfile(
     longitude: item?.longitude ?? GUIA_DEFAULT_CENTER.longitude,
     address: provider.locationAddress?.trim() ?? provider.locationName?.trim(),
     serviceArea: provider.locationName?.trim(),
+    hours,
     phone: provider.phone,
     email: provider.email?.trim() ?? undefined,
     reviews: [],
     gallery: provider.imagePublicUrl ? [provider.imagePublicUrl] : [],
-    services: [],
+    services,
   };
 }
 

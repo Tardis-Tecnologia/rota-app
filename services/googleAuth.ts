@@ -4,6 +4,9 @@ import { Platform } from 'react-native';
 const FALLBACK_GOOGLE_WEB_CLIENT_ID =
   '845258052347-t5qnlt30q4t1emjf4rfhu8badqpkh4co.apps.googleusercontent.com';
 
+  const FALLBACK_GOOGLE_IOS_CLIENT_ID =
+  '845258052347-ah9dgfqh0dsjburvlcsr234qnacimf88.apps.googleusercontent.com';
+
 let configured = false;
 
 export function configureGoogleSignIn(): void {
@@ -11,6 +14,7 @@ export function configureGoogleSignIn(): void {
 
   GoogleSignin.configure({
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? FALLBACK_GOOGLE_WEB_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? FALLBACK_GOOGLE_IOS_CLIENT_ID
   });
 
   configured = true;

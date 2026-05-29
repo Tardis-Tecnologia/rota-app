@@ -2,6 +2,11 @@ import { getApiBaseUrl, getWhitelabelHostId } from './authApi';
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
 import type { LoginSuccess } from './authApi';
 
+export type CommercialLoginSuccess = LoginSuccess & {
+  commercialCep?: string | null;
+  commercialCnpj?: string | null;
+};
+
 const BASE_PATH = '/api/v1';
 
 interface CommercialLoginResponseBody {
@@ -12,6 +17,7 @@ interface CommercialLoginResponseBody {
   themeSlug?: string | null;
   photoUrl?: string | null;
   cep?: string | null;
+  cnpj?: string | null;
 }
 
 function parseApiErrorBody(text: string): string {
@@ -46,7 +52,7 @@ export interface RegisterCommercialAccountPayload {
 export async function loginCommercial(
   email: string,
   password: string,
-): Promise<LoginSuccess> {
+): Promise<CommercialLoginSuccess> {
   const url = `${getApiBaseUrl()}${BASE_PATH}/commercial-auth/login`;
   const res = await fetch(url, {
     method: 'POST',
@@ -97,6 +103,10 @@ export async function loginCommercial(
     profile: data.profile,
     themeSlug: data.themeSlug ?? null,
     photoUrl,
+    commercialCep:
+      typeof data.cep === 'string' && data.cep.trim() ? data.cep.trim() : null,
+    commercialCnpj:
+      typeof data.cnpj === 'string' && data.cnpj.trim() ? data.cnpj.trim() : null,
   };
 }
 

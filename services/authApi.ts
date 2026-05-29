@@ -29,6 +29,8 @@ export type LoginAccountKind = 'citizen' | 'commercial';
 
 export type LoginWithEmailPasswordResult = LoginSuccess & {
   accountKind: LoginAccountKind;
+  commercialCep?: string | null;
+  commercialCnpj?: string | null;
 };
 
 export interface GoogleLoginSuccess {

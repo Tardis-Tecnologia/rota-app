@@ -1,10 +1,11 @@
+import ComercianteProfileModal from '@/components/comerciante/ComercianteProfileModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useComercianteStore } from '@/contexts/ComercianteStoreContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -28,6 +29,7 @@ export default function ComercianteHeader({ showForumButton = true }: Comerciant
   const { user, logout } = useAuth();
   const { headerStats } = useComercianteStore();
   const insets = useSafeAreaInsets();
+  const [profileOpen, setProfileOpen] = useState(false);
   const lojaNome = user?.name?.trim() || 'Minha loja';
   const avatarUri = user?.photoUrl?.trim() || DEFAULT_AVATAR;
 
@@ -45,7 +47,15 @@ export default function ComercianteHeader({ showForumButton = true }: Comerciant
       <View style={styles.headerInner}>
         <View style={styles.headerTop}>
           <View style={styles.headerProfile}>
-            <Image source={{ uri: avatarUri }} style={styles.avatar} />
+            <Pressable
+              onPress={() => setProfileOpen(true)}
+              style={({ pressed }) => [pressed && styles.avatarPressed]}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Editar perfil da loja"
+            >
+              <Image source={{ uri: avatarUri }} style={styles.avatar} />
+            </Pressable>
             <View style={styles.headerTitles}>
               <Text style={styles.contaLabel}>CONTA COMÉRCIO</Text>
               <Text style={styles.lojaNome} numberOfLines={2}>
@@ -95,6 +105,8 @@ export default function ComercianteHeader({ showForumButton = true }: Comerciant
           </Pressable>
         ) : null}
       </View>
+
+      <ComercianteProfileModal visible={profileOpen} onClose={() => setProfileOpen(false)} />
     </LinearGradient>
   );
 }
@@ -128,6 +140,9 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.5)',
+  },
+  avatarPressed: {
+    opacity: 0.85,
   },
   headerTitles: {
     flex: 1,

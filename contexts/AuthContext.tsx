@@ -19,6 +19,8 @@ export interface AuthUser {
   govbrSub?: string | null;
   cpf?: string | null;
   photoUrl?: string | null;
+  commercialCep?: string | null;
+  commercialCnpj?: string | null;
 }
 
 interface AuthContextValue {
@@ -31,6 +33,12 @@ interface AuthContextValue {
   updateProfile: (payload: UpdateUserProfilePayload) => Promise<void>;
   uploadProfilePhoto: (uri: string, options?: { mimeType?: string; fileName?: string }) => Promise<void>;
   refreshUserFromApi: () => Promise<void>;
+  syncCommercialProfileSession: (profile: {
+    storeName?: string;
+    photoUrl?: string | null;
+    cep?: string | null;
+    cnpj?: string | null;
+  }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -129,6 +137,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile: data.profile,
       themeSlug: data.themeSlug ?? null,
       photoUrl: bustPhotoIfPresent(data.photoUrl),
+      ...(data.accountKind === 'commercial'
+        ? {
+            commercialCep: data.commercialCep ?? null,
+            commercialCnpj: data.commercialCnpj ?? null,
+          }
+        : {}),
     };
     setUser(nextUser);
 
@@ -322,6 +336,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.id]);
 
+  const syncCommercialProfileSession = useCallback(
+    async (profile: {
+      storeName?: string;
+      photoUrl?: string | null;
+      cep?: string | null;
+      cnpj?: string | null;
+    }) => {
+      const token = authApi.getAuthToken();
+      if (!token) return;
+      setUser((prev) => {
+        if (!prev) return prev;
+        const next: AuthUser = {
+          ...prev,
+          ...(profile.storeName !== undefined ? { name: profile.storeName.trim() } : {}),
+          ...(Object.prototype.hasOwnProperty.call(profile, 'photoUrl')
+            ? { photoUrl: bustPhotoIfPresent(profile.photoUrl) }
+            : {}),
+          ...(Object.prototype.hasOwnProperty.call(profile, 'cep')
+            ? { commercialCep: profile.cep?.trim() || null }
+            : {}),
+          ...(Object.prototype.hasOwnProperty.call(profile, 'cnpj')
+            ? { commercialCnpj: profile.cnpj?.trim() || null }
+            : {}),
+        };
+        void saveAuthSession({ token, user: next });
+        return next;
+      });
+    },
+    [],
+  );
+
   const value: AuthContextValue = {
     user,
     isLoading,
@@ -332,6 +377,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     updateProfile,
     uploadProfilePhoto,
     refreshUserFromApi,
+    syncCommercialProfileSession,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -143,15 +143,23 @@ export function ModalReportPrefeitura({
 
     const contactName = nome.trim();
     const contactPhone = telefone.trim();
-    const contactLine =
-      contactName || contactPhone ? `\n\nContato: ${[contactName, contactPhone].filter(Boolean).join(' - ')}` : '';
+    if (!contactName) {
+      Alert.alert('Nome obrigatório', 'Informe seu nome para contato.');
+      return;
+    }
+    if (!contactPhone) {
+      Alert.alert('Telefone obrigatório', 'Informe um telefone para contato.');
+      return;
+    }
 
     setSubmitting(true);
     try {
       await createUrbanReport(
         {
           title,
-          description: `${desc}${contactLine}`,
+          description: desc,
+          contactName,
+          contactPhone,
           category: mapCategoriaToUrbanReportCategory(categoriaId),
         },
         { imageUri: imagem },
@@ -270,6 +278,7 @@ export function ModalReportPrefeitura({
                   placeholder="Ex: João da Silva"
                   placeholderTextColor="#9CA3AF"
                   style={styles.input}
+                  maxLength={255}
                 />
               </View>
               <View style={styles.formGroup}>

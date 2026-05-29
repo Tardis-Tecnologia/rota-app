@@ -18,6 +18,8 @@ export type UploadImageResponse = { id: string; publicUrl: string; path: string 
 export interface CreateUrbanReportBody {
   title: string;
   description: string;
+  contactName: string;
+  contactPhone: string;
   category: UrbanReportCategory;
   hostId?: string;
   mediaId?: string | null;
@@ -29,6 +31,8 @@ export interface UrbanReportResponseDto {
   userId: string;
   title: string;
   description: string;
+  contactName: string;
+  contactPhone: string;
   category: UrbanReportCategory;
   status: UrbanReportStatus;
   mediaId?: string | null;
@@ -108,6 +112,8 @@ export async function createUrbanReport(
   const payload: Record<string, unknown> = {
     title: body.title.trim(),
     description: body.description.trim(),
+    contactName: body.contactName.trim(),
+    contactPhone: body.contactPhone.trim(),
     category: body.category,
     hostId: body.hostId?.trim() || getWhitelabelHostId(),
   };

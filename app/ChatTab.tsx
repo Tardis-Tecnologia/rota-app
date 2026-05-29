@@ -139,6 +139,7 @@ export default function ChatTab() {
     channelType?: string;
     cid?: string;
     draftMessage?: string;
+    autoSentDraftMessageId?: string;
   };
   const { addOrUpdateConversation, getConversation } = useConversations();
   const streamClientRef = useRef<StreamChat | null>(null);
@@ -223,7 +224,17 @@ export default function ChatTab() {
           user.id,
           `${streamChannelInfo.channelType}:${streamChannelInfo.channelId}`,
         );
-        const mapped = mapChannelStateToMessages(state, user.id);
+        let mapped = mapChannelStateToMessages(state, user.id);
+        const autoSentId = data.autoSentDraftMessageId?.trim();
+        if (autoSentId) {
+          try {
+            await client.deleteMessage(autoSentId);
+          } catch {
+            // mantém mensagem visível se não for possível remover
+          }
+          mapped = mapped.filter((msg) => msg.id !== autoSentId);
+        }
+        if (cancelled) return;
         setMessages(filterMessagesAfterClear(mapped, clearedAt));
         setIsStreamReady(true);
         void markStreamChannelRead(

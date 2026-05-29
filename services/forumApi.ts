@@ -291,11 +291,15 @@ export async function likeForumComment(commentId: string): Promise<void> {
 
 export async function contactForumStorePost(
   forumPostId: string,
-  message: string,
+  message?: string,
   hostId?: string,
 ): Promise<ForumContactStoreResponse> {
   const base = getApiBaseUrl();
-  const body: Record<string, string> = { message: message.trim() };
+  const body: Record<string, string> = {};
+  const trimmedMessage = message?.trim();
+  if (trimmedMessage) {
+    body.message = trimmedMessage;
+  }
   const hid = hostId?.trim();
   if (hid) {
     body.hostId = hid;

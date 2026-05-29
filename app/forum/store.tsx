@@ -63,10 +63,10 @@ export default function ForumStoreProfileScreen() {
     setContactLoading(true);
     setContactError(null);
     try {
-      const draft = buildStoreContactDraftMessage(storeName, postTitle);
+      const draftMessage = buildStoreContactDraftMessage(storeName, postTitle);
       const channel = forumPostId
-        ? await contactForumStorePost(forumPostId, draft)
-        : await contactCommercialStore(commercialId, draft);
+        ? await contactForumStorePost(forumPostId, draftMessage)
+        : await contactCommercialStore(commercialId, draftMessage);
       router.push({
         pathname: '/ChatTab',
         params: {
@@ -77,6 +77,8 @@ export default function ForumStoreProfileScreen() {
             channelType: channel.channelType,
             channelId: channel.channelId,
             cid: channel.cid,
+            draftMessage,
+            autoSentDraftMessageId: channel.messageId?.trim() || undefined,
           }),
         },
       });

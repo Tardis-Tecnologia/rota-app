@@ -133,11 +133,15 @@ export async function updateCommercialForumPost(
 
 export async function contactCommercialStore(
   commercialAccountId: string,
-  message: string,
+  message?: string,
   hostId?: string,
 ): Promise<ForumContactStoreResponse> {
   const url = `${getApiBaseUrl()}${BASE_PATH}/commercial/stores/${encodeURIComponent(commercialAccountId)}/contact`;
-  const body: Record<string, string> = { message: message.trim() };
+  const body: Record<string, string> = {};
+  const trimmedMessage = message?.trim();
+  if (trimmedMessage) {
+    body.message = trimmedMessage;
+  }
   const hid = hostId?.trim();
   if (hid) body.hostId = hid;
 

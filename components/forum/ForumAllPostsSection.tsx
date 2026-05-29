@@ -182,8 +182,8 @@ export default function ForumAllPostsSection({
       setContactLoadingPostId(post.id);
       try {
         const storeName = post.authorCommercial?.storeName ?? 'a loja';
-        const draft = buildStoreContactDraftMessage(storeName, post.title);
-        const channel = await contactForumStorePost(post.id, draft);
+        const draftMessage = buildStoreContactDraftMessage(storeName, post.title);
+        const channel = await contactForumStorePost(post.id, draftMessage);
         router.push({
           pathname: '/ChatTab',
           params: {
@@ -194,6 +194,8 @@ export default function ForumAllPostsSection({
               channelType: channel.channelType,
               channelId: channel.channelId,
               cid: channel.cid,
+              draftMessage,
+              autoSentDraftMessageId: channel.messageId?.trim() || undefined,
             }),
           },
         });

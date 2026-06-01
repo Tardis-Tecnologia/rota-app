@@ -5,6 +5,28 @@ export type ForumAuthorCommercial = {
   id: string;
   storeName: string;
   photoUrl: string | null;
+  description?: string | null;
+  segment?: string | null;
+  address?: string | null;
+  cep?: string | null;
+  phone?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+};
+
+/** Perfil público de loja parceira exibido no fórum cidadão. */
+export type CommercialStorePublicProfile = {
+  id: string;
+  storeName: string;
+  photoUrl?: string | null;
+  description?: string | null;
+  segment?: string | null;
+  address?: string | null;
+  cep?: string | null;
+  phone?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  locationDescription?: string | null;
 };
 
 export type ForumPromotedCoupon = {

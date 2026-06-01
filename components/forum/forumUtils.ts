@@ -126,21 +126,34 @@ export function openForumAuthorProfile(
 }
 
 export function openForumCommercialStoreProfile(
-  post: Pick<ForumPostResponseDto, 'id' | 'title' | 'authorCommercial'>,
+  post: Pick<
+    ForumPostResponseDto,
+    'id' | 'title' | 'locationDescription' | 'authorCommercial'
+  >,
   router: { push: (args: { pathname: string; params: Record<string, string> }) => void },
 ): void {
   const commercial = post.authorCommercial;
   if (!commercial?.id?.trim()) return;
-  router.push({
-    pathname: '/forum/store',
-    params: {
-      commercialId: commercial.id,
-      storeName: commercial.storeName ?? '',
-      photoUrl: commercial.photoUrl ?? '',
-      forumPostId: post.id,
-      postTitle: post.title ?? '',
-    },
-  });
+  const params: Record<string, string> = {
+    commercialId: commercial.id,
+    storeName: commercial.storeName ?? '',
+    photoUrl: commercial.photoUrl ?? '',
+    forumPostId: post.id,
+    postTitle: post.title ?? '',
+  };
+  const locationDescription = post.locationDescription?.trim();
+  if (locationDescription) params.locationDescription = locationDescription;
+  if (commercial.description?.trim()) params.description = commercial.description.trim();
+  if (commercial.address?.trim()) params.address = commercial.address.trim();
+  if (commercial.cep?.trim()) params.cep = commercial.cep.trim();
+  if (commercial.phone?.trim()) params.phone = commercial.phone.trim();
+  if (commercial.latitude != null && Number.isFinite(commercial.latitude)) {
+    params.latitude = String(commercial.latitude);
+  }
+  if (commercial.longitude != null && Number.isFinite(commercial.longitude)) {
+    params.longitude = String(commercial.longitude);
+  }
+  router.push({ pathname: '/forum/store', params });
 }
 
 export function profileLabel(profile?: string | null): string | null {

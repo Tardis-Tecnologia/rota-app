@@ -2,6 +2,7 @@ import type {
     ForumAuthorCommercial,
     ForumPromotedCoupon,
 } from '@/types/forumCommercial';
+import { mapForumAuthorCommercial } from '@/utils/commercialStoreProfile';
 import { getApiBaseUrl, getAuthToken } from './authApi';
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
 
@@ -137,7 +138,19 @@ export async function listForumPosts(
   const res = await fetch(url, { method: 'GET', headers: authHeaders() });
   if (!res.ok) throw new Error(await readErrorMessage(res));
   const data = (await res.json()) as unknown;
-  return Array.isArray(data) ? (data as ForumPostListItemDto[]) : [];
+  if (!Array.isArray(data)) return [];
+  return data.map((row) => normalizeForumPostResponse(row));
+}
+
+function normalizeForumPostResponse(raw: unknown): ForumPostResponseDto {
+  const row = raw as ForumPostResponseDto & Record<string, unknown>;
+  const authorCommercial =
+    mapForumAuthorCommercial(row.authorCommercial) ??
+    mapForumAuthorCommercial(row.author_commercial);
+  return {
+    ...row,
+    ...(authorCommercial ? { authorCommercial } : {}),
+  };
 }
 
 export async function getForumPost(postId: string): Promise<ForumPostResponseDto> {
@@ -145,7 +158,7 @@ export async function getForumPost(postId: string): Promise<ForumPostResponseDto
   const url = `${base}${BASE_PATH}/forum/posts/${encodeURIComponent(postId)}`;
   const res = await fetch(url, { method: 'GET', headers: authHeaders() });
   if (!res.ok) throw new Error(await readErrorMessage(res));
-  return (await res.json()) as ForumPostResponseDto;
+  return normalizeForumPostResponse(await res.json());
 }
 
 export async function listForumComments(

@@ -5,17 +5,33 @@ import {
 import { VisitanteLoginOverlay } from '@/components/VisitanteLoginOverlay';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { getCommercialStorePublicProfile } from '@/services/commercialStoreApi';
 import { contactCommercialStore } from '@/services/commercialForumApi';
-import { contactForumStorePost } from '@/services/forumApi';
+import { getCommercialMyProfile } from '@/services/commercialProfileApi';
+import { contactForumStorePost, getForumPost } from '@/services/forumApi';
+import type { CommercialStorePublicProfile } from '@/types/forumCommercial';
 import { isComercioUser } from '@/utils/comercioAuth';
+import {
+  commercialMyProfileToPublic,
+  forumPostToStoreProfile,
+  buildStoreGeocodeQuery,
+  geocodeStoreLocation,
+  mergeCommercialStoreProfiles,
+  resolveStoreDirectionsCoords,
+  resolveStoreMapTarget,
+  storeProfileFromRouteParams,
+} from '@/utils/commercialStoreProfile';
+import { navigateToDirections } from '@/utils/navigateDirections';
+import { openExternalDirections, openMapsSearchQuery } from '@/utils/openExternalMaps';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,6 +39,38 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+function InfoRow({
+  icon,
+  label,
+  value,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+  onPress?: () => void;
+}) {
+  const content = (
+    <View style={styles.infoRow}>
+      <View style={styles.infoIconWrap}>
+        <Ionicons name={icon} size={18} color="#0d9488" />
+      </View>
+      <View style={styles.infoTextWrap}>
+        <Text style={styles.infoLabel}>{label}</Text>
+        <Text style={[styles.infoValue, onPress && styles.infoValueLink]}>{value}</Text>
+      </View>
+      {onPress ? <Ionicons name="chevron-forward" size={18} color="#94a3b8" /> : null}
+    </View>
+  );
+
+  if (!onPress) return content;
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => pressed && styles.infoRowPressed}>
+      {content}
+    </Pressable>
+  );
+}
 
 export default function ForumStoreProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -33,23 +81,210 @@ export default function ForumStoreProfileScreen() {
     photoUrl?: string;
     forumPostId?: string;
     postTitle?: string;
+    locationDescription?: string;
+    address?: string;
+    phone?: string;
+    description?: string;
+    cep?: string;
+    latitude?: string;
+    longitude?: string;
   }>();
 
   const commercialId = String(params.commercialId ?? '').trim();
-  const storeName = (params.storeName ?? 'Loja parceira').trim() || 'Loja parceira';
   const forumPostId = String(params.forumPostId ?? '').trim();
   const postTitle = String(params.postTitle ?? '').trim();
   const photoRaw = String(params.photoUrl ?? '').trim();
   const imageEpoch = useMemo(() => Date.now(), []);
-  const photoUri = photoRaw ? withListImageCacheBust(photoRaw, imageEpoch) : null;
+
+  const [storeProfile, setStoreProfile] = useState<CommercialStorePublicProfile | null>(() =>
+    storeProfileFromRouteParams(params),
+  );
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [geocodedCoords, setGeocodedCoords] = useState<{ latitude: number; longitude: number } | null>(
+    null,
+  );
+  const [geocodeLoading, setGeocodeLoading] = useState(false);
+  const [routeLoading, setRouteLoading] = useState(false);
+
+  const storeName =
+    (storeProfile?.storeName ?? params.storeName ?? 'Loja parceira').trim() || 'Loja parceira';
+  const photoUri = useMemo(() => {
+    const raw = storeProfile?.photoUrl?.trim() || photoRaw;
+    return raw ? withListImageCacheBust(raw, imageEpoch) : null;
+  }, [imageEpoch, photoRaw, storeProfile?.photoUrl]);
   const initial = storeName.charAt(0).toUpperCase() || 'L';
 
   const isVisitante = user?.profile === 'VISITANTE';
-  const isCommercialSelf =
-    !!user && isComercioUser(user.email ?? '', user.profile ?? '') && commercialId.length > 0;
+  const isCommercialUser = !!user && isComercioUser(user.email ?? '', user.profile ?? '');
 
   const [contactLoading, setContactLoading] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
+  const [isOwnStore, setIsOwnStore] = useState(false);
+
+  const routeProfile = useMemo(() => storeProfileFromRouteParams(params), [
+    commercialId,
+    params.storeName,
+    params.photoUrl,
+    params.address,
+    params.phone,
+    params.description,
+    params.cep,
+    params.latitude,
+    params.longitude,
+    params.locationDescription,
+  ]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfile() {
+      if (!commercialId) {
+        setProfileLoading(false);
+        return;
+      }
+
+      setProfileLoading(true);
+      const sources: Array<CommercialStorePublicProfile | null> = [routeProfile];
+      let fromPost: CommercialStorePublicProfile | null = null;
+      let fromApi: CommercialStorePublicProfile | null = null;
+
+      if (forumPostId) {
+        try {
+          const post = await getForumPost(forumPostId);
+          if (!cancelled) fromPost = forumPostToStoreProfile(post);
+        } catch {
+          /* ignore */
+        }
+      }
+
+      if (isCommercialUser) {
+        try {
+          const mine = await getCommercialMyProfile();
+          if (!cancelled && mine.id.trim() === commercialId) {
+            setIsOwnStore(true);
+            sources.push(commercialMyProfileToPublic(mine));
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+
+      try {
+        fromApi = await getCommercialStorePublicProfile(commercialId);
+      } catch {
+        /* API indisponível: usa dados do post e da navegação */
+      }
+
+      if (!cancelled) {
+        if (fromPost) sources.push(fromPost);
+        if (fromApi) sources.push(fromApi);
+        setStoreProfile(mergeCommercialStoreProfiles(...sources));
+        setProfileLoading(false);
+      }
+    }
+
+    void loadProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, [commercialId, forumPostId, isCommercialUser, routeProfile]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function geocode() {
+      if (!storeProfile) {
+        setGeocodedCoords(null);
+        return;
+      }
+      if (
+        storeProfile.latitude != null &&
+        Number.isFinite(storeProfile.latitude) &&
+        storeProfile.longitude != null &&
+        Number.isFinite(storeProfile.longitude)
+      ) {
+        setGeocodedCoords(null);
+        return;
+      }
+
+      const query = buildStoreGeocodeQuery(storeProfile);
+      if (!query) {
+        setGeocodedCoords(null);
+        return;
+      }
+
+      setGeocodeLoading(true);
+      const coords = await geocodeStoreLocation(query);
+      if (!cancelled) {
+        setGeocodedCoords(coords);
+        setGeocodeLoading(false);
+      }
+    }
+
+    void geocode();
+    return () => {
+      cancelled = true;
+    };
+  }, [storeProfile]);
+
+  const mapTarget = useMemo(
+    () => resolveStoreMapTarget(storeProfile, geocodedCoords),
+    [geocodedCoords, storeProfile],
+  );
+
+  const hasMapCoords = mapTarget != null && 'latitude' in mapTarget;
+
+  const locationLine = useMemo(() => {
+    if (!storeProfile) return null;
+    return (
+      storeProfile.address?.trim() ||
+      storeProfile.locationDescription?.trim() ||
+      null
+    );
+  }, [storeProfile]);
+
+  const canShowDirections = !profileLoading && !!(locationLine || hasMapCoords);
+
+  const openInAppDirections = useCallback(async () => {
+    if (!storeProfile || routeLoading) return;
+    setRouteLoading(true);
+    try {
+      const coords = await resolveStoreDirectionsCoords(storeProfile, geocodedCoords);
+      if (!coords) {
+        Alert.alert(
+          'Localização',
+          'Não foi possível localizar o endereço da loja. Verifique se o endereço está cadastrado corretamente.',
+        );
+        return;
+      }
+      setGeocodedCoords(coords);
+      navigateToDirections({
+        destLat: coords.latitude,
+        destLng: coords.longitude,
+        destName: storeName,
+      });
+    } finally {
+      setRouteLoading(false);
+    }
+  }, [geocodedCoords, routeLoading, storeName, storeProfile]);
+
+  const openExternalMap = useCallback(() => {
+    if (!mapTarget) {
+      Alert.alert('Localização', 'Esta loja ainda não informou um endereço no perfil.');
+      return;
+    }
+    if ('latitude' in mapTarget) {
+      openExternalDirections(mapTarget.latitude, mapTarget.longitude, mapTarget.label);
+      return;
+    }
+    openMapsSearchQuery(mapTarget.searchQuery, mapTarget.label);
+  }, [mapTarget]);
+
+  const callStore = useCallback(() => {
+    const digits = storeProfile?.phone?.replace(/\D/g, '');
+    if (!digits) return;
+    void Linking.openURL(`tel:${digits}`);
+  }, [storeProfile?.phone]);
 
   const startContact = useCallback(async () => {
     if (!user?.id || isVisitante) {
@@ -73,7 +308,7 @@ export default function ForumStoreProfileScreen() {
           provider: JSON.stringify({
             id: commercialId || forumPostId,
             name: storeName,
-            image: photoRaw || undefined,
+            image: storeProfile?.photoUrl?.trim() || photoRaw || undefined,
             channelType: channel.channelType,
             channelId: channel.channelId,
             cid: channel.cid,
@@ -89,7 +324,22 @@ export default function ForumStoreProfileScreen() {
     } finally {
       setContactLoading(false);
     }
-  }, [commercialId, forumPostId, isVisitante, photoRaw, postTitle, storeName, user?.id]);
+  }, [
+    commercialId,
+    forumPostId,
+    isVisitante,
+    photoRaw,
+    postTitle,
+    storeName,
+    storeProfile?.photoUrl,
+    user?.id,
+  ]);
+
+  const description = storeProfile?.description?.trim() || '';
+  const phone = storeProfile?.phone?.trim() || '';
+  const cep = storeProfile?.cep?.trim() || '';
+  const hasEstablishmentDetails = !!(phone || cep);
+  const hasAbout = !!description;
 
   return (
     <View style={styles.container}>
@@ -111,9 +361,86 @@ export default function ForumStoreProfileScreen() {
           </View>
           <Text style={styles.storeName}>{storeName}</Text>
           <Text style={styles.storeHint}>
-            Publicações desta loja aparecem no fórum do bairro com cupons e promoções.
+            Loja parceira do fórum do bairro — cupons, promoções e atendimento direto pelo app.
           </Text>
         </LinearGradient>
+
+        {profileLoading ? (
+          <View style={styles.loadingCard}>
+            <ActivityIndicator color="#0d9488" />
+            <Text style={styles.loadingText}>Carregando informações da loja…</Text>
+          </View>
+        ) : null}
+
+        {!profileLoading && hasAbout ? (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Sobre a loja</Text>
+            <Text style={styles.aboutText}>{description}</Text>
+          </View>
+        ) : null}
+
+        {!profileLoading && hasEstablishmentDetails ? (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Contato e dados</Text>
+            {cep ? <InfoRow icon="mail-outline" label="CEP" value={cep} /> : null}
+            {phone ? (
+              <InfoRow icon="call-outline" label="Telefone" value={phone} onPress={callStore} />
+            ) : null}
+          </View>
+        ) : null}
+
+        {!profileLoading && !hasAbout && !hasEstablishmentDetails && !locationLine ? (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Informações</Text>
+            <Text style={styles.locationMuted}>
+              Esta loja ainda não completou o cadastro de endereço e contato no perfil.
+            </Text>
+          </View>
+        ) : null}
+
+        {canShowDirections ? (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Localização</Text>
+            {locationLine ? (
+              <Text style={styles.locationText}>{locationLine}</Text>
+            ) : geocodeLoading ? (
+              <Text style={styles.locationMuted}>Buscando localização no mapa…</Text>
+            ) : null}
+
+            <View style={styles.mapActions}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.mapBtnPrimary,
+                  pressed && styles.btnPressed,
+                  (routeLoading || geocodeLoading) && styles.mapBtnDisabled,
+                ]}
+                onPress={() => void openInAppDirections()}
+                disabled={routeLoading || geocodeLoading}
+              >
+                {routeLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Ionicons name="navigate-outline" size={18} color="#fff" />
+                )}
+                <Text style={styles.mapBtnPrimaryText}>
+                  {routeLoading ? 'Calculando rota…' : 'Como chegar'}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.mapBtnSecondary,
+                  pressed && styles.btnPressed,
+                  !mapTarget && styles.mapBtnDisabled,
+                ]}
+                onPress={openExternalMap}
+                disabled={!mapTarget}
+              >
+                <Ionicons name="open-outline" size={18} color="#0d9488" />
+                <Text style={styles.mapBtnSecondaryText}>Abrir no app de mapas</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
 
         {postTitle ? (
           <View style={styles.postRefCard}>
@@ -122,9 +449,9 @@ export default function ForumStoreProfileScreen() {
           </View>
         ) : null}
 
-        {!isCommercialSelf ? (
+        {!isOwnStore ? (
           <Pressable
-            style={({ pressed }) => [styles.contactBtn, pressed && styles.contactBtnPressed]}
+            style={({ pressed }) => [styles.contactBtn, pressed && styles.btnPressed]}
             onPress={() => void startContact()}
             disabled={contactLoading || isVisitante}
           >
@@ -141,7 +468,7 @@ export default function ForumStoreProfileScreen() {
 
         {contactError ? <Text style={styles.errorText}>{contactError}</Text> : null}
 
-        {isCommercialSelf ? (
+        {isOwnStore ? (
           <Text style={styles.selfHint}>Este é o perfil da sua loja no fórum.</Text>
         ) : null}
       </ScrollView>
@@ -204,6 +531,96 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  aboutText: {
+    fontSize: 15,
+    color: '#334155',
+    lineHeight: 22,
+  },
+  loadingCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 20,
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  loadingText: { fontSize: 13, color: '#64748b' },
+  sectionCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    gap: 4,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#64748b',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#f1f5f9',
+  },
+  infoRowPressed: { opacity: 0.85 },
+  infoIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#f0fdfa',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoTextWrap: { flex: 1, gap: 2 },
+  infoLabel: { fontSize: 11, fontWeight: '700', color: '#94a3b8', letterSpacing: 0.3 },
+  infoValue: { fontSize: 15, fontWeight: '600', color: '#1e293b', lineHeight: 20 },
+  infoValueLink: { color: '#0d9488' },
+  locationText: {
+    fontSize: 15,
+    color: '#334155',
+    lineHeight: 22,
+    marginBottom: 12,
+  },
+  locationMuted: {
+    fontSize: 13,
+    color: '#94a3b8',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  mapActions: { gap: 10 },
+  mapBtnPrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#0d9488',
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  mapBtnPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  mapBtnSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#f0fdfa',
+    borderRadius: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#99f6e4',
+  },
+  mapBtnSecondaryText: { color: '#0d9488', fontSize: 15, fontWeight: '700' },
+  mapBtnDisabled: { opacity: 0.5 },
   postRefCard: {
     backgroundColor: '#fff',
     borderRadius: 14,
@@ -223,7 +640,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
   },
-  contactBtnPressed: { opacity: 0.9 },
+  btnPressed: { opacity: 0.9 },
   contactBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   errorText: { marginTop: 10, color: AppColors.status.error, fontSize: 13, textAlign: 'center' },
   selfHint: { marginTop: 12, fontSize: 13, color: '#64748b', textAlign: 'center' },

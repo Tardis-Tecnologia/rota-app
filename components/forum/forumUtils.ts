@@ -156,6 +156,23 @@ export function openForumCommercialStoreProfile(
   router.push({ pathname: '/forum/store', params });
 }
 
+/** Abre o perfil público da loja logada (painel comercial ou ícone no fórum). */
+export function openMyCommercialStoreProfile(
+  user: { id?: string; name?: string | null; photoUrl?: string | null },
+  router: { push: (args: { pathname: string; params: Record<string, string> }) => void },
+): void {
+  const commercialId = user.id?.trim();
+  if (!commercialId) return;
+  router.push({
+    pathname: '/forum/store',
+    params: {
+      commercialId,
+      storeName: user.name?.trim() || 'Minha loja',
+      photoUrl: user.photoUrl?.trim() || '',
+    },
+  });
+}
+
 export function profileLabel(profile?: string | null): string | null {
   const p = profile?.trim().toUpperCase();
   if (!p) return null;

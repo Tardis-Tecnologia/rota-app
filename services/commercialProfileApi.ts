@@ -14,6 +14,7 @@ export type CommercialMyProfile = {
   phone: string;
   description?: string | null;
   photoUrl?: string | null;
+  galleryImageUrls?: string[];
   status: string;
 };
 
@@ -80,8 +81,18 @@ function mapCommercialProfile(raw: unknown): CommercialMyProfile {
     phone: String(r.phone ?? ''),
     description: pickOptionalString(r, 'description'),
     photoUrl: pickOptionalString(r, 'photoUrl', 'photo_url'),
+    galleryImageUrls: parseGalleryUrls(r.galleryImageUrls ?? r.gallery_image_urls),
     status: String(r.status ?? ''),
   };
+}
+
+function parseGalleryUrls(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 8);
 }
 
 export async function getCommercialMyProfile(): Promise<CommercialMyProfile> {
@@ -158,4 +169,53 @@ export async function uploadCommercialMyProfilePhotoFromUri(
     throw new Error('Resposta inválida ao enviar foto de perfil');
   }
   return { photoUrl };
+}
+
+export async function uploadCommercialGalleryPhotoFromUri(
+  uri: string,
+  options?: { mimeType?: string; fileName?: string },
+): Promise<{ galleryImageUrls: string[] }> {
+  const mime = normalizeProfileUploadMime(options?.mimeType);
+  const name = options?.fileName?.trim() || 'gallery-photo.jpg';
+
+  const form = new FormData();
+  form.append('file', {
+    uri,
+    name,
+    type: mime,
+  } as unknown as Blob);
+
+  const url = `${getApiBaseUrl()}${BASE_PATH}/commercial/me/gallery-photo`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: form,
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(parseApiErrorMessage(text) || `Erro ao enviar imagem: ${res.status}`);
+  }
+
+  const raw = (await res.json()) as { galleryImageUrls?: unknown };
+  return { galleryImageUrls: parseGalleryUrls(raw.galleryImageUrls) };
+}
+
+export async function removeCommercialGalleryPhoto(
+  imageUrl: string,
+): Promise<{ galleryImageUrls: string[] }> {
+  const url = `${getApiBaseUrl()}${BASE_PATH}/commercial/me/gallery-photo`;
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: authHeaders(true),
+    body: JSON.stringify({ imageUrl: imageUrl.trim() }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(parseApiErrorMessage(text) || `Erro ao remover imagem: ${res.status}`);
+  }
+
+  const raw = (await res.json()) as { galleryImageUrls?: unknown };
+  return { galleryImageUrls: parseGalleryUrls(raw.galleryImageUrls) };
 }

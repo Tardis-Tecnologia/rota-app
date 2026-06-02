@@ -27,6 +27,7 @@ export type CommercialStorePublicProfile = {
   latitude?: number | null;
   longitude?: number | null;
   locationDescription?: string | null;
+  galleryImageUrls?: string[];
 };
 
 export type ForumPromotedCoupon = {

@@ -1,3 +1,5 @@
+import ComercianteProfileModal from '@/components/comerciante/ComercianteProfileModal';
+import StoreProfileGallery from '@/components/forum/StoreProfileGallery';
 import {
   buildStoreContactDraftMessage,
   withListImageCacheBust,
@@ -24,8 +26,8 @@ import {
 import { navigateToDirections } from '@/utils/navigateDirections';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -73,6 +75,7 @@ function InfoRow({
 
 export default function ForumStoreProfileScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const { user } = useAuth();
   const params = useLocalSearchParams<{
     commercialId?: string;
@@ -119,6 +122,15 @@ export default function ForumStoreProfileScreen() {
   const [contactLoading, setContactLoading] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
   const [isOwnStore, setIsOwnStore] = useState(false);
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [profileReloadToken, setProfileReloadToken] = useState(0);
+
+  const ownsThisStore =
+    isCommercialUser &&
+    !!user?.id?.trim() &&
+    !!commercialId &&
+    commercialId === user.id.trim();
+  const viewingOwnStore = ownsThisStore || isOwnStore;
 
   const routeProfile = useMemo(() => storeProfileFromRouteParams(params), [
     commercialId,
@@ -186,7 +198,27 @@ export default function ForumStoreProfileScreen() {
     return () => {
       cancelled = true;
     };
-  }, [commercialId, forumPostId, isCommercialUser, routeProfile]);
+  }, [commercialId, forumPostId, isCommercialUser, routeProfile, profileReloadToken]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: viewingOwnStore ? 'Minha loja' : 'Loja parceira',
+      headerRight: () =>
+        viewingOwnStore ? (
+          <Pressable
+            onPress={() => setEditProfileOpen(true)}
+            style={({ pressed }) => [styles.headerSettingsBtn, pressed && styles.btnPressed]}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Editar informações da loja"
+          >
+            <Ionicons name="settings-outline" size={22} color="#475569" />
+          </Pressable>
+        ) : (
+          <View style={styles.headerSettingsSpacer} />
+        ),
+    });
+  }, [navigation, viewingOwnStore]);
 
   useEffect(() => {
     let cancelled = false;
@@ -268,10 +300,23 @@ export default function ForumStoreProfileScreen() {
   }, [geocodedCoords, routeLoading, storeName, storeProfile]);
 
   const callStore = useCallback(() => {
-    const digits = storeProfile?.phone?.replace(/\D/g, '');
+    const displayPhone = storeProfile?.phone?.trim() || '';
+    const digits = displayPhone.replace(/\D/g, '');
     if (!digits) return;
-    void Linking.openURL(`tel:${digits}`);
-  }, [storeProfile?.phone]);
+    Alert.alert(
+      'Ligar para a loja',
+      `Deseja ligar para ${storeName}?\n\nTelefone: ${displayPhone}`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Ligar',
+          onPress: () => {
+            void Linking.openURL(`tel:${digits}`);
+          },
+        },
+      ],
+    );
+  }, [storeName, storeProfile?.phone]);
 
   const startContact = useCallback(async () => {
     if (!user?.id || isVisitante) {
@@ -327,6 +372,11 @@ export default function ForumStoreProfileScreen() {
   const cep = storeProfile?.cep?.trim() || '';
   const hasEstablishmentDetails = !!(phone || cep);
   const hasAbout = !!description;
+  const galleryImages = storeProfile?.galleryImageUrls ?? [];
+
+  const handleGalleryChange = useCallback((urls: string[]) => {
+    setStoreProfile((prev) => (prev ? { ...prev, galleryImageUrls: urls } : prev));
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -364,6 +414,15 @@ export default function ForumStoreProfileScreen() {
             <Text style={styles.sectionTitle}>Sobre a loja</Text>
             <Text style={styles.aboutText}>{description}</Text>
           </View>
+        ) : null}
+
+        {!profileLoading ? (
+          <StoreProfileGallery
+            images={galleryImages}
+            editable={viewingOwnStore}
+            imageEpoch={imageEpoch}
+            onImagesChange={viewingOwnStore ? handleGalleryChange : undefined}
+          />
         ) : null}
 
         {!profileLoading && hasEstablishmentDetails ? (
@@ -455,12 +514,26 @@ export default function ForumStoreProfileScreen() {
 
         {contactError ? <Text style={styles.errorText}>{contactError}</Text> : null}
 
-        {isOwnStore ? (
-          <Text style={styles.selfHint}>Este é o perfil da sua loja no fórum.</Text>
+        {viewingOwnStore ? (
+          <View style={styles.ownStoreBanner}>
+            <Ionicons name="storefront-outline" size={18} color="#0d9488" />
+            <Text style={styles.ownStoreBannerText}>
+              Este é o perfil público da sua loja no fórum. Toque na engrenagem para editar dados de
+              contato e endereço.
+            </Text>
+          </View>
         ) : null}
       </ScrollView>
 
       <VisitanteLoginOverlay message="Faça login para conversar com lojas parceiras no fórum." />
+
+      <ComercianteProfileModal
+        visible={editProfileOpen}
+        onClose={() => {
+          setEditProfileOpen(false);
+          setProfileReloadToken((t) => t + 1);
+        }}
+      />
     </View>
   );
 }
@@ -630,5 +703,30 @@ const styles = StyleSheet.create({
   btnPressed: { opacity: 0.9 },
   contactBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   errorText: { marginTop: 10, color: AppColors.status.error, fontSize: 13, textAlign: 'center' },
-  selfHint: { marginTop: 12, fontSize: 13, color: '#64748b', textAlign: 'center' },
+  headerSettingsBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 4,
+  },
+  headerSettingsSpacer: { width: 40, height: 40 },
+  ownStoreBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: '#f0fdfa',
+    borderWidth: 1,
+    borderColor: '#99f6e4',
+  },
+  ownStoreBannerText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#0f766e',
+    fontWeight: '500',
+  },
 });

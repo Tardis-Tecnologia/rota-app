@@ -46,7 +46,17 @@ export function mapCommercialStorePublicProfile(raw: unknown): CommercialStorePu
     latitude,
     longitude,
     locationDescription: pickOptionalString(r, 'locationDescription', 'location_description'),
+    galleryImageUrls: parseGalleryUrls(r.galleryImageUrls ?? r.gallery_image_urls),
   };
+}
+
+function parseGalleryUrls(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 8);
 }
 
 function authHeaders(): HeadersInit {

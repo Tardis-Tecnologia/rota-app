@@ -1,11 +1,11 @@
-import ComercianteProfileModal from '@/components/comerciante/ComercianteProfileModal';
+import { openMyCommercialStoreProfile } from '@/components/forum/forumUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useComercianteStore } from '@/contexts/ComercianteStoreContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -29,9 +29,13 @@ export default function ComercianteHeader({ showForumButton = true }: Comerciant
   const { user, logout } = useAuth();
   const { headerStats } = useComercianteStore();
   const insets = useSafeAreaInsets();
-  const [profileOpen, setProfileOpen] = useState(false);
   const lojaNome = user?.name?.trim() || 'Minha loja';
   const avatarUri = user?.photoUrl?.trim() || DEFAULT_AVATAR;
+
+  const openStoreProfile = () => {
+    if (!user?.id) return;
+    openMyCommercialStoreProfile(user, router);
+  };
 
   const handleLogout = () => {
     void logout();
@@ -48,11 +52,11 @@ export default function ComercianteHeader({ showForumButton = true }: Comerciant
         <View style={styles.headerTop}>
           <View style={styles.headerProfile}>
             <Pressable
-              onPress={() => setProfileOpen(true)}
+              onPress={openStoreProfile}
               style={({ pressed }) => [pressed && styles.avatarPressed]}
               hitSlop={6}
               accessibilityRole="button"
-              accessibilityLabel="Editar perfil da loja"
+              accessibilityLabel="Ver perfil da loja no fórum"
             >
               <Image source={{ uri: avatarUri }} style={styles.avatar} />
             </Pressable>
@@ -106,7 +110,6 @@ export default function ComercianteHeader({ showForumButton = true }: Comerciant
         ) : null}
       </View>
 
-      <ComercianteProfileModal visible={profileOpen} onClose={() => setProfileOpen(false)} />
     </LinearGradient>
   );
 }

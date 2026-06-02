@@ -1,4 +1,5 @@
 import Toast from '@/components/Toast';
+import { withListImageCacheBust } from '@/components/forum/forumUtils';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -12,7 +13,7 @@ import { formatCepDisplay } from '@/services/viacep';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -61,6 +62,7 @@ export default function ComercianteProfileModal({
   const [showToast, setShowToast] = useState(false);
   const [toastKey, setToastKey] = useState(0);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoCacheEpoch, setPhotoCacheEpoch] = useState(() => Date.now());
 
   const [email, setEmail] = useState('');
   const [storeName, setStoreName] = useState('');
@@ -88,7 +90,9 @@ export default function ComercianteProfileModal({
     setResponsibleName(profile.responsibleName);
     setPhone(profile.phone);
     setDescription(profile.description ?? '');
-    setPhotoPreview(profile.photoUrl?.trim() || null);
+    const url = profile.photoUrl?.trim() || null;
+    setPhotoPreview(url);
+    if (url) setPhotoCacheEpoch(Date.now());
   }, []);
 
   const mergeProfileWithSession = useCallback(
@@ -128,7 +132,9 @@ export default function ComercianteProfileModal({
       setServerError('');
       setFieldErrors({});
     }
-  }, [visible, loadProfile]);
+    // Recarrega só ao abrir o modal; evita sobrescrever foto recém-enviada.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   const clearFieldError = (key: FieldKey) => {
     setFieldErrors((prev) => {
@@ -141,6 +147,8 @@ export default function ComercianteProfileModal({
 
   const applyAvatarFromUri = useCallback(
     async (uri: string, mimeType?: string | null, fileName?: string | null) => {
+      setPhotoPreview(uri);
+      setPhotoCacheEpoch(Date.now());
       setPhotoUploading(true);
       setServerError('');
       try {
@@ -149,6 +157,7 @@ export default function ComercianteProfileModal({
           fileName: fileName ?? undefined,
         });
         setPhotoPreview(result.photoUrl);
+        setPhotoCacheEpoch(Date.now());
         await syncCommercialProfileSession({
           storeName: storeName.trim() || undefined,
           photoUrl: result.photoUrl,
@@ -271,7 +280,14 @@ export default function ComercianteProfileModal({
     }
   };
 
-  const avatarUri = photoPreview?.trim() || DEFAULT_AVATAR;
+  const avatarUri = useMemo(() => {
+    const raw = photoPreview?.trim() || user?.photoUrl?.trim() || '';
+    if (!raw || raw === DEFAULT_AVATAR) return DEFAULT_AVATAR;
+    if (raw.startsWith('file://') || raw.startsWith('ph://') || raw.startsWith('content://')) {
+      return raw;
+    }
+    return withListImageCacheBust(raw, photoCacheEpoch);
+  }, [photoCacheEpoch, photoPreview, user?.photoUrl]);
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
@@ -309,17 +325,25 @@ export default function ComercianteProfileModal({
             >
               <View style={styles.photoSection}>
                 <Pressable onPress={onPressChangePhoto} disabled={photoUploading || saving}>
-                  <View style={styles.photoWrap}>
-                    <Image source={{ uri: avatarUri }} style={styles.photo} />
-                    {photoUploading ? (
-                      <View style={styles.photoOverlay}>
-                        <ActivityIndicator color="#fff" />
-                      </View>
-                    ) : (
+                  <View style={styles.photoOuter}>
+                    <View style={styles.photoWrap}>
+                      <Image
+                        key={avatarUri}
+                        source={{ uri: avatarUri }}
+                        style={styles.photo}
+                        cachePolicy="none"
+                      />
+                      {photoUploading ? (
+                        <View style={styles.photoOverlay}>
+                          <ActivityIndicator color="#fff" />
+                        </View>
+                      ) : null}
+                    </View>
+                    {!photoUploading ? (
                       <View style={styles.photoBadge}>
-                        <Ionicons name="camera" size={16} color="#fff" />
+                        <Ionicons name="camera" size={18} color="#fff" />
                       </View>
-                    )}
+                    ) : null}
                   </View>
                 </Pressable>
                 <TouchableOpacity
@@ -572,6 +596,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
+  photoOuter: {
+    width: 96,
+    height: 96,
+    position: 'relative',
+  },
   photoWrap: {
     width: 96,
     height: 96,
@@ -591,16 +620,22 @@ const styles = StyleSheet.create({
   },
   photoBadge: {
     position: 'absolute',
-    right: 4,
-    bottom: 4,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    right: -2,
+    bottom: -2,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: AppColors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: '#fff',
+    zIndex: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
   },
   changePhotoText: {
     marginTop: 10,

@@ -41,6 +41,7 @@ export function commercialMyProfileToPublic(
     phone: profile.phone || null,
     latitude: null,
     longitude: null,
+    galleryImageUrls: profile.galleryImageUrls ?? [],
   };
 }
 
@@ -115,8 +116,25 @@ export function mergeCommercialStoreProfiles(
       base.latitude = next.latitude;
       base.longitude = next.longitude;
     }
+    base.galleryImageUrls = mergeGalleryImageUrls(base.galleryImageUrls, next.galleryImageUrls);
   }
   return base;
+}
+
+function mergeGalleryImageUrls(
+  a?: string[] | null,
+  b?: string[] | null,
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const url of [...(a ?? []), ...(b ?? [])]) {
+    const trimmed = url?.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    out.push(trimmed);
+    if (out.length >= 8) break;
+  }
+  return out;
 }
 
 export function storeProfileFromRouteParams(params: {

@@ -21,8 +21,8 @@ export default function TabBarItem({ label, icon, color, focused }: TabBarItemPr
       <Text
         style={[styles.label, { color }, focused && styles.labelFocused]}
         numberOfLines={1}
-        ellipsizeMode="tail"
         allowFontScaling={false}
+        includeFontPadding={false}
       >
         {label}
       </Text>
@@ -32,11 +32,11 @@ export default function TabBarItem({ label, icon, color, focused }: TabBarItemPr
 
 const styles = StyleSheet.create({
   root: {
+    flex: 1,
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
-    paddingTop: 2,
+    gap: 2,
   },
   label: {
     width: '100%',

@@ -1,8 +1,8 @@
 import ComercianteHeader from '@/components/comerciante/ComercianteHeader';
 import ComercianteSectionBanner from '@/components/comerciante/ComercianteSectionBanner';
-import ConferirCupomModal from '@/components/comerciante/ConferirCupomModal';
 import DeactivateCommercialCouponModal from '@/components/comerciante/DeactivateCommercialCouponModal';
 import EditCommercialCouponModal from '@/components/comerciante/EditCommercialCouponModal';
+import { useConferirCupom } from '@/contexts/ConferirCupomContext';
 import { useComercianteStore } from '@/contexts/ComercianteStoreContext';
 import {
     createCommercialCoupon,
@@ -11,8 +11,7 @@ import {
     listCommercialCoupons,
     parseValidUntilToIso,
     type CommercialCoupon,
-    type MarkCouponUsedResult,
-} from '@/services/commercialCouponsApi';
+  } from '@/services/commercialCouponsApi';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
@@ -28,11 +27,11 @@ import {
 } from 'react-native';
 
 export default function ComercianteCuponsScreen() {
-  const { refreshCouponStats, registrarUsoCupom } = useComercianteStore();
+  const { refreshCouponStats } = useComercianteStore();
+  const { openConferirCupom } = useConferirCupom();
   const [cupons, setCupons] = useState<CommercialCoupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [qrModalVisible, setQrModalVisible] = useState(false);
   const [editCupom, setEditCupom] = useState<CommercialCoupon | null>(null);
   const [deactivateCupom, setDeactivateCupom] = useState<CommercialCoupon | null>(null);
 
@@ -64,20 +63,6 @@ export default function ComercianteCuponsScreen() {
       void loadCupons();
     }, [loadCupons]),
   );
-
-  const handleCouponValidated = (result: MarkCouponUsedResult) => {
-    registrarUsoCupom();
-    void loadCupons();
-    const title =
-      result.status === 'already_used'
-        ? 'Cliente já usou este cupom'
-        : 'Uso registrado com sucesso';
-    const message =
-      result.status === 'already_used'
-        ? `Este cliente já havia utilizado o cupom ${result.code}.`
-        : `Cupom ${result.code} validado. Total de usos desta campanha: ${result.usageCount}.`;
-    Alert.alert(title, message);
-  };
 
   const handleSalvar = async () => {
     if (!campanha.trim()) {
@@ -153,7 +138,7 @@ export default function ComercianteCuponsScreen() {
 
             <Pressable
               style={({ pressed }) => [styles.qrBtn, pressed && styles.qrBtnPressed]}
-              onPress={() => setQrModalVisible(true)}
+              onPress={openConferirCupom}
             >
               <Ionicons name="qr-code-outline" size={20} color="#FFFFFF" />
               <Text style={styles.qrBtnText}>Conferir cupom (QR Code)</Text>
@@ -309,12 +294,6 @@ export default function ComercianteCuponsScreen() {
             : null}
         </View>
       </ScrollView>
-
-      <ConferirCupomModal
-        visible={qrModalVisible}
-        onClose={() => setQrModalVisible(false)}
-        onSuccess={handleCouponValidated}
-      />
 
       <EditCommercialCouponModal
         visible={!!editCupom}

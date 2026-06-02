@@ -7,6 +7,7 @@ import {
 } from '@/services/directionsService';
 import { ensureForegroundLocationPermission } from '@/services/locationPermission';
 import type { DirectionsProfile } from '@/types/directions';
+import { distanceMeters } from '@/utils/guiaGeo';
 import { openExternalDirections } from '@/utils/openExternalMaps';
 import { regionFromRouteCoordinates } from '@/utils/routeBounds';
 import { Ionicons } from '@expo/vector-icons';
@@ -48,8 +49,12 @@ export default function DirectionsScreen() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [routeWarning, setRouteWarning] = useState<string | null>(null);
   const [origin, setOrigin] = useState<{ latitude: number; longitude: number } | null>(null);
   const [route, setRoute] = useState<Awaited<ReturnType<typeof getDirectionsRoute>> | null>(null);
+
+  /** Acima disso não há rota rodoviária viável (ex.: emulador nos EUA → loja no Brasil). */
+  const MAX_ROUTE_DISTANCE_METERS = 2_000_000;
 
   const destination = useMemo(() => {
     if (destLat == null || destLng == null) return null;
@@ -65,6 +70,7 @@ export default function DirectionsScreen() {
 
     setLoading(true);
     setError(null);
+    setRouteWarning(null);
 
     try {
       let fromLat = parseCoord(params.originLat);
@@ -73,7 +79,12 @@ export default function DirectionsScreen() {
       if (fromLat == null || fromLng == null) {
         const ok = await ensureForegroundLocationPermission();
         if (!ok) {
-          throw new Error('Permita o acesso à localização para traçar a rota.');
+          setOrigin(null);
+          setRoute(null);
+          setRouteWarning(
+            'Permita a localização para traçar a rota. O endereço de destino está marcado no mapa.',
+          );
+          return;
         }
         const pos = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
@@ -85,15 +96,31 @@ export default function DirectionsScreen() {
       const originPoint = { latitude: fromLat, longitude: fromLng };
       setOrigin(originPoint);
 
+      const distToDest = distanceMeters(
+        fromLat,
+        fromLng,
+        destination.latitude,
+        destination.longitude,
+      );
+      if (distToDest > MAX_ROUTE_DISTANCE_METERS) {
+        setRoute(null);
+        setRouteWarning(
+          'Sua localização atual está muito longe do destino. O endereço está marcado no mapa — ajuste a localização do simulador para o Brasil para testar a rota completa.',
+        );
+        return;
+      }
+
       const result = await getDirectionsRoute(
         [fromLng, fromLat],
         [destination.longitude, destination.latitude],
         profile,
       );
       setRoute(result);
-    } catch (e) {
+    } catch {
       setRoute(null);
-      setError(e instanceof Error ? e.message : 'Não foi possível carregar a rota.');
+      setRouteWarning(
+        'Não foi possível traçar a rota da sua posição atual. O endereço de destino está marcado no mapa.',
+      );
     } finally {
       setLoading(false);
     }
@@ -123,6 +150,9 @@ export default function DirectionsScreen() {
     };
   }, [route, destination]);
 
+  const showDestinationMap = !!destination && !loading && (!!route || !!routeWarning);
+  const showFatalError = !!error && !loading && !showDestinationMap;
+
   if (!destination) {
     return (
       <SafeAreaView style={styles.centered} edges={['top']}>
@@ -146,22 +176,22 @@ export default function DirectionsScreen() {
           <ActivityIndicator size="large" color="#7C3AED" />
           <Text style={styles.loadingText}>Calculando rota…</Text>
         </View>
-      ) : error || !route ? (
+      ) : showFatalError ? (
         <View style={styles.centeredMap}>
           <Ionicons name="navigate-outline" size={44} color={AppColors.gray[400]} />
-          <Text style={styles.errorText}>{error ?? 'Rota indisponível.'}</Text>
+          <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity onPress={() => void loadRoute()} style={styles.retryBtn}>
             <Text style={styles.retryBtnText}>Tentar novamente</Text>
           </TouchableOpacity>
         </View>
-      ) : (
+      ) : showDestinationMap ? (
         <DirectionsMapView
           localizacao={mapRegion}
-          routeCoordinates={route.coordinates}
+          routeCoordinates={route?.coordinates ?? []}
           destination={destination}
           origin={origin}
         />
-      )}
+      ) : null}
 
       <SafeAreaView style={styles.overlay} edges={['top']} pointerEvents="box-none">
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
@@ -169,21 +199,25 @@ export default function DirectionsScreen() {
         </Pressable>
       </SafeAreaView>
 
-      {route && !loading && !error ? (
+      {showDestinationMap ? (
         <View style={[styles.panel, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <Text style={styles.destTitle} numberOfLines={2}>
             {destName}
           </Text>
-          <View style={styles.metaRow}>
-            <View style={styles.metaItem}>
-              <Ionicons name="time-outline" size={18} color="#6d28d9" />
-              <Text style={styles.metaValue}>{formatRouteDuration(route.durationSeconds)}</Text>
+          {route ? (
+            <View style={styles.metaRow}>
+              <View style={styles.metaItem}>
+                <Ionicons name="time-outline" size={18} color="#6d28d9" />
+                <Text style={styles.metaValue}>{formatRouteDuration(route.durationSeconds)}</Text>
+              </View>
+              <View style={styles.metaItem}>
+                <Ionicons name="navigate-outline" size={18} color="#6d28d9" />
+                <Text style={styles.metaValue}>{formatRouteDistance(route.distanceMeters)}</Text>
+              </View>
             </View>
-            <View style={styles.metaItem}>
-              <Ionicons name="navigate-outline" size={18} color="#6d28d9" />
-              <Text style={styles.metaValue}>{formatRouteDistance(route.distanceMeters)}</Text>
-            </View>
-          </View>
+          ) : routeWarning ? (
+            <Text style={styles.warningText}>{routeWarning}</Text>
+          ) : null}
           <TouchableOpacity
             style={styles.externalBtn}
             onPress={() =>
@@ -194,6 +228,11 @@ export default function DirectionsScreen() {
             <Ionicons name="open-outline" size={18} color={AppColors.text.secondary} />
             <Text style={styles.externalBtnText}>Abrir no app de mapas</Text>
           </TouchableOpacity>
+          {routeWarning ? (
+            <TouchableOpacity onPress={() => void loadRoute()} style={styles.retryLink} activeOpacity={0.85}>
+              <Text style={styles.retryLinkText}>Tentar calcular rota novamente</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -325,5 +364,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: AppColors.text.secondary,
+  },
+  warningText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.gray[600],
+    fontWeight: '500',
+  },
+  retryLink: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  retryLinkText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#7C3AED',
   },
 });

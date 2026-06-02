@@ -205,6 +205,9 @@ export async function geocodeStoreLocation(
   const q = query.trim();
   if (!q) return null;
 
+  const fromMapTiler = await geocodeWithMapTiler(q);
+  if (fromMapTiler) return fromMapTiler;
+
   try {
     const results = await Location.geocodeAsync(q);
     const first = results[0];
@@ -212,10 +215,10 @@ export async function geocodeStoreLocation(
       return { latitude: first.latitude, longitude: first.longitude };
     }
   } catch {
-    /* tenta MapTiler */
+    /* ignore */
   }
 
-  return geocodeWithMapTiler(q);
+  return null;
 }
 
 /** Coordenadas para a tela de rotas (/directions), como no Guia de empresas. */

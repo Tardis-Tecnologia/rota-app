@@ -22,7 +22,6 @@ import {
   storeProfileFromRouteParams,
 } from '@/utils/commercialStoreProfile';
 import { navigateToDirections } from '@/utils/navigateDirections';
-import { openExternalDirections, openMapsSearchQuery } from '@/utils/openExternalMaps';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -268,18 +267,6 @@ export default function ForumStoreProfileScreen() {
     }
   }, [geocodedCoords, routeLoading, storeName, storeProfile]);
 
-  const openExternalMap = useCallback(() => {
-    if (!mapTarget) {
-      Alert.alert('Localização', 'Esta loja ainda não informou um endereço no perfil.');
-      return;
-    }
-    if ('latitude' in mapTarget) {
-      openExternalDirections(mapTarget.latitude, mapTarget.longitude, mapTarget.label);
-      return;
-    }
-    openMapsSearchQuery(mapTarget.searchQuery, mapTarget.label);
-  }, [mapTarget]);
-
   const callStore = useCallback(() => {
     const digits = storeProfile?.phone?.replace(/\D/g, '');
     if (!digits) return;
@@ -430,13 +417,13 @@ export default function ForumStoreProfileScreen() {
                 style={({ pressed }) => [
                   styles.mapBtnSecondary,
                   pressed && styles.btnPressed,
-                  !mapTarget && styles.mapBtnDisabled,
+                  (routeLoading || geocodeLoading) && styles.mapBtnDisabled,
                 ]}
-                onPress={openExternalMap}
-                disabled={!mapTarget}
+                onPress={() => void openInAppDirections()}
+                disabled={routeLoading || geocodeLoading}
               >
-                <Ionicons name="open-outline" size={18} color="#0d9488" />
-                <Text style={styles.mapBtnSecondaryText}>Abrir no app de mapas</Text>
+                <Ionicons name="map-outline" size={18} color="#0d9488" />
+                <Text style={styles.mapBtnSecondaryText}>Ver rota no mapa</Text>
               </Pressable>
             </View>
           </View>

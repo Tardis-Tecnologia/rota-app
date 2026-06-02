@@ -28,11 +28,13 @@ export function AuthNavigationSync() {
     }
 
     const group = segments[0];
+    const hasForumSegment = segments.includes('forum');
     const inAuthGroup = group === '(auth)';
     const onLogin = inAuthGroup && segments[1] === 'login';
     const inComercianteGroup = group === 'comerciante';
     const onCommercialChat = group === 'ChatTab';
-    const onForumStoreProfile = group === 'forum' && segments[1] === 'store';
+    const onForumStoreProfile = hasForumSegment && segments.includes('store');
+    const inForumFlow = hasForumSegment;
 
     if (!user) {
       if (inAuthGroup) {
@@ -52,7 +54,7 @@ export function AuthNavigationSync() {
     const homeRoute = String(getPostLoginRoute(user.email, user.profile));
 
     if (isCommercial) {
-      if (inComercianteGroup || onCommercialChat || onForumStoreProfile) {
+      if (inComercianteGroup || onCommercialChat || onForumStoreProfile || inForumFlow) {
         lastTargetRef.current = homeRoute;
         return;
       }

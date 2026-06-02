@@ -4,7 +4,6 @@ import {
   buildStoreContactDraftMessage,
   withListImageCacheBust,
 } from '@/components/forum/forumUtils';
-import { VisitanteLoginOverlay } from '@/components/VisitanteLoginOverlay';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { getCommercialStorePublicProfile } from '@/services/commercialStoreApi';
@@ -495,11 +494,17 @@ export default function ForumStoreProfileScreen() {
           </View>
         ) : null}
 
-        {!isOwnStore ? (
+        {isVisitante && !isOwnStore ? (
+          <Text style={styles.loginHint}>
+            Faça login com uma conta cadastrada para conversar com a loja.
+          </Text>
+        ) : null}
+
+        {!isOwnStore && !isVisitante ? (
           <Pressable
             style={({ pressed }) => [styles.contactBtn, pressed && styles.btnPressed]}
             onPress={() => void startContact()}
-            disabled={contactLoading || isVisitante}
+            disabled={contactLoading}
           >
             {contactLoading ? (
               <ActivityIndicator color="#fff" />
@@ -524,8 +529,6 @@ export default function ForumStoreProfileScreen() {
           </View>
         ) : null}
       </ScrollView>
-
-      <VisitanteLoginOverlay message="Faça login para conversar com lojas parceiras no fórum." />
 
       <ComercianteProfileModal
         visible={editProfileOpen}
@@ -702,6 +705,14 @@ const styles = StyleSheet.create({
   },
   btnPressed: { opacity: 0.9 },
   contactBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  loginHint: {
+    fontSize: 13,
+    color: AppColors.text.tertiary,
+    textAlign: 'center',
+    fontWeight: '500',
+    lineHeight: 18,
+    marginBottom: 8,
+  },
   errorText: { marginTop: 10, color: AppColors.status.error, fontSize: 13, textAlign: 'center' },
   headerSettingsBtn: {
     width: 40,

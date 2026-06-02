@@ -2,6 +2,7 @@ import { AuthNavigationSync } from '@/components/AuthNavigationSync';
 import { ThemeSyncOnNavigation } from '@/components/ThemeSyncOnNavigation';
 import { AppThemeProvider } from '@/contexts/AppThemeContext';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { VisitanteLoginDialogProvider } from '@/contexts/VisitanteLoginDialogContext';
 import { ConversationsProvider } from '@/contexts/ConversationsContext';
 import { configureGoogleSignIn } from '@/services/googleAuth';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
@@ -23,6 +24,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
+        <VisitanteLoginDialogProvider>
         <AppThemeProvider>
         <AuthNavigationSync />
         <ThemeSyncOnNavigation />
@@ -67,6 +69,7 @@ export default function RootLayout() {
           </ThemeProvider>
         </ConversationsProvider>
         </AppThemeProvider>
+        </VisitanteLoginDialogProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

@@ -1,9 +1,9 @@
 import FilterTabs, { type FilterOption } from '@/components/FilterTabs';
 import ForumAllPostsSection from '@/components/forum/ForumAllPostsSection';
 import ForumCommunitySection from '@/components/forum/ForumCommunitySection';
-import { VisitanteLoginOverlay } from '@/components/VisitanteLoginOverlay';
 import { AppColors } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
+import { useCanInteractAsCitizen } from '@/hooks/useIsVisitante';
+import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import {
   createForumPost,
   findRecentlyCreatedForumPostId,
@@ -33,7 +33,7 @@ const FILTERS: FilterOption[] = [
 ];
 
 export default function ForumScreen() {
-  const { user } = useAuth();
+  const canInteract = useCanInteractAsCitizen();
   const [activeFilter, setActiveFilter] = useState<string>('todos');
   const isCommunityHub = activeFilter === 'community';
   const isAllPosts = activeFilter === 'todos';
@@ -48,6 +48,10 @@ export default function ForumScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
 
   const onPublish = useCallback(async () => {
+    if (!canInteract) {
+      promptVisitanteLogin('publicar no fórum');
+      return;
+    }
     if (!title.trim() || !content.trim()) return;
     setPublishing(true);
     setError(null);
@@ -78,7 +82,7 @@ export default function ForumScreen() {
     } finally {
       setPublishing(false);
     }
-  }, [content, imageUri, title]);
+  }, [canInteract, content, imageUri, title]);
 
   const pickImage = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -128,7 +132,7 @@ export default function ForumScreen() {
         />
       ) : null}
 
-      {isAllPosts ? (
+      {isAllPosts && canInteract ? (
         <TouchableOpacity
           style={styles.publishBtn}
           activeOpacity={0.9}
@@ -203,8 +207,6 @@ export default function ForumScreen() {
           </View>
         </View>
       </Modal>
-
-      <VisitanteLoginOverlay message="Para participar do fórum, faça login com uma conta cadastrada." />
     </View>
   );
 }

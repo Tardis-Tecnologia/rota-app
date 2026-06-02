@@ -1,5 +1,5 @@
 import CpfRequiredModal from '@/components/CpfRequiredModal';
-import { VisitanteLoginOverlay } from '@/components/VisitanteLoginOverlay';
+import { VisitanteRestrictedZone } from '@/components/VisitanteRestrictedZone';
 import { AppColors, hexToRgba, resolvePollAccentColor } from '@/constants/theme';
 import { useAppTheme } from '@/contexts/AppThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -221,7 +221,7 @@ export default function OpinionCard({ hostId, onVoteSuccess }: OpinionCardProps)
 
   return (
     <View style={styles.section}>
-      <View style={styles.pollShell}>
+      <VisitanteRestrictedZone message="Para votar nas enquetes e acumular pontos, faça login com uma conta cadastrada.">
         <View style={styles.pollCard}>
           <View
             style={styles.cardInner}
@@ -329,8 +329,7 @@ export default function OpinionCard({ hostId, onVoteSuccess }: OpinionCardProps)
             {voteError ? <Text style={styles.voteErrorText}>{voteError}</Text> : null}
           </View>
         </View>
-        <VisitanteLoginOverlay message="Para votar nas enquetes e acumular pontos, faça login com uma conta cadastrada." />
-      </View>
+      </VisitanteRestrictedZone>
       <CpfRequiredModal
         visible={showCpfModal}
         onClose={() => setShowCpfModal(false)}
@@ -350,9 +349,6 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: 24,
     marginBottom: 16,
-  },
-  pollShell: {
-    position: 'relative',
   },
   pollCard: {
     borderRadius: 20,

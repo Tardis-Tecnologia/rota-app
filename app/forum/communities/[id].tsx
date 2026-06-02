@@ -27,7 +27,10 @@ import {
   type ForumCommunityDetail,
 } from '@/services/forumCommunityApi';
 import { AppColors } from '@/constants/theme';
+import { VisitanteRestrictedZone } from '@/components/VisitanteRestrictedZone';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCanInteractAsCitizen, useIsVisitante } from '@/hooks/useIsVisitante';
+import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -50,6 +53,8 @@ import {
 
 export default function CommunityChannelScreen() {
   const { user } = useAuth();
+  const isVisitante = useIsVisitante();
+  const canInteract = useCanInteractAsCitizen();
   const params = useLocalSearchParams<{ id?: string }>();
   const communityId = String(params.id ?? '').trim();
 
@@ -75,7 +80,7 @@ export default function CommunityChannelScreen() {
   const [postContent, setPostContent] = useState('');
   const [postImageUri, setPostImageUri] = useState<string | null>(null);
 
-  const canPost = !!(user && community?.canPost);
+  const canPost = !!(user && community?.canPost && !isVisitante);
   const coords = community ? parseCommunityCoords(community) : null;
 
   const load = useCallback(
@@ -127,6 +132,10 @@ export default function CommunityChannelScreen() {
 
   const runAction = useCallback(
     async (fn: () => Promise<void>) => {
+      if (isVisitante) {
+        promptVisitanteLogin('interagir com este canal');
+        return;
+      }
       setActionLoading(true);
       setError(null);
       try {
@@ -138,7 +147,7 @@ export default function CommunityChannelScreen() {
         setActionLoading(false);
       }
     },
-    [load],
+    [isVisitante, load],
   );
 
   const onFollow = () => void runAction(() => followForumCommunity(communityId));
@@ -373,7 +382,15 @@ export default function CommunityChannelScreen() {
           community={community}
           imageEpoch={imageEpoch}
           postsCount={posts.length}
-          actionButtons={actionButtons}
+          actionButtons={
+            isVisitante && actionButtons ? (
+              <VisitanteRestrictedZone message="Para seguir, participar ou gerenciar este canal, faça login com uma conta cadastrada.">
+                {actionButtons}
+              </VisitanteRestrictedZone>
+            ) : (
+              actionButtons
+            )
+          }
           onOpenMap={coords ? openMap : undefined}
         />
 
@@ -403,7 +420,7 @@ export default function CommunityChannelScreen() {
                   commentDraft={commentDraftByPost[post.id] ?? ''}
                   commentsExpanded={!!commentsExpandedByPost[post.id]}
                   commentSending={commentSendingPostId === post.id}
-                  canInteract={!!user}
+                  canInteract={canInteract}
                   onLike={() => void onLike(post.id)}
                   onToggleComments={() =>
                     setCommentsExpandedByPost((prev) => ({

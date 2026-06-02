@@ -1,5 +1,7 @@
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsVisitante } from '@/hooks/useIsVisitante';
+import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import {
   cancelEventAttendance,
   confirmEventAttendance,
@@ -82,6 +84,7 @@ export default function EventAttendanceSection({
   onRefresh,
 }: EventAttendanceSectionProps) {
   const { user } = useAuth();
+  const isVisitante = useIsVisitante();
   const [actionLoading, setActionLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
 
@@ -122,6 +125,10 @@ export default function EventAttendanceSection({
       ]);
       return;
     }
+    if (isVisitante) {
+      promptVisitanteLogin('confirmar presença no evento');
+      return;
+    }
     if (!isPublished) {
       Alert.alert('Indisponível', 'Este evento ainda não está aberto para confirmação de presença.');
       return;
@@ -137,7 +144,7 @@ export default function EventAttendanceSection({
     }
 
     void runAttendanceAction();
-  }, [actionLoading, isConfirmed, isPublished, runAttendanceAction, user]);
+  }, [actionLoading, isConfirmed, isPublished, isVisitante, runAttendanceAction, user]);
 
   const primaryLabel = isConfirmed ? 'Confirmado' : 'Vou';
   const showCancelAction = isConfirmed;
@@ -185,8 +192,12 @@ export default function EventAttendanceSection({
             </View>
           ) : null}
 
-          {!user ? (
-            <Text style={styles.loginHint}>Entre na sua conta para confirmar presença.</Text>
+          {!user || isVisitante ? (
+            <Text style={styles.loginHint}>
+              {isVisitante
+                ? 'Faça login com uma conta cadastrada para confirmar presença.'
+                : 'Entre na sua conta para confirmar presença.'}
+            </Text>
           ) : null}
 
           <Pressable

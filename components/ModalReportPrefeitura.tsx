@@ -1,4 +1,7 @@
+import { VisitanteBottomSheetPrompt } from '@/components/VisitanteBottomSheetPrompt';
 import { AppColors } from '@/constants/theme';
+import { useIsVisitante } from '@/hooks/useIsVisitante';
+import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import { createUrbanReport, type UrbanReportCategory } from '@/services/urbanReportsApi';
 import { formatBrazilPhoneInput } from '@/utils/phoneMask';
 import { Ionicons } from '@expo/vector-icons';
@@ -66,16 +69,13 @@ export function ModalReportPrefeitura({
   onClose,
   initialAssunto,
 }: ModalReportPrefeituraProps) {
+  const isVisitante = useIsVisitante();
   const insets = useSafeAreaInsets();
   const windowHeight = Dimensions.get('window').height;
-  const sheetMaxHeight = useMemo(
-    () =>
-      Math.min(
-        windowHeight * SHEET_HEIGHT_RATIO,
-        windowHeight - insets.top - 12,
-      ),
-    [windowHeight, insets.top],
-  );
+  const sheetMaxHeight = useMemo(() => {
+    const ratio = isVisitante ? 0.62 : SHEET_HEIGHT_RATIO;
+    return Math.min(windowHeight * ratio, windowHeight - insets.top - 12);
+  }, [windowHeight, insets.top, isVisitante]);
   const sheetPaddingBottom = Math.max(insets.bottom, 20) + 8;
   const scrollMaxHeight = sheetMaxHeight - 24 - sheetPaddingBottom;
 
@@ -125,6 +125,10 @@ export function ModalReportPrefeitura({
   }, [isSubmitted]);
 
   const handleSubmit = useCallback(async () => {
+    if (isVisitante) {
+      promptVisitanteLogin('enviar relatórios à Prefeitura');
+      return;
+    }
     if (submitting) return;
     const title = assunto.trim();
     const desc = descricao.trim();
@@ -173,7 +177,7 @@ export function ModalReportPrefeitura({
     } finally {
       setSubmitting(false);
     }
-  }, [assunto, categoriaId, descricao, imagem, nome, submitting, telefone]);
+  }, [assunto, categoriaId, descricao, imagem, isVisitante, nome, submitting, telefone]);
 
   const handleClose = () => {
     setIsSubmitted(false);
@@ -247,6 +251,33 @@ export function ModalReportPrefeitura({
 
         <View style={[styles.bottomSheet, { maxHeight: sheetMaxHeight, paddingBottom: sheetPaddingBottom }]}>
           {!isSubmitted ? (
+            isVisitante ? (
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+                contentContainerStyle={styles.visitanteSheetContent}
+              >
+                <View style={styles.sheetHeader}>
+                  <Text style={styles.sheetTitle}>Reportar à Prefeitura</Text>
+                  <Text style={styles.sheetSubtitle}>
+                    Canal oficial para solicitações, reclamações e sugestões.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={handleClose}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <Ionicons name="close" size={24} color="#374151" />
+                  </TouchableOpacity>
+                </View>
+                <VisitanteBottomSheetPrompt
+                  headline="Login necessário"
+                  featureLabel="enviar relatórios à Prefeitura"
+                  onDismiss={handleClose}
+                  dismissLabel="Fechar"
+                />
+              </ScrollView>
+            ) : (
             <ScrollView
               style={{ maxHeight: scrollMaxHeight }}
               showsVerticalScrollIndicator
@@ -430,6 +461,7 @@ export function ModalReportPrefeitura({
                 )}
               </TouchableOpacity>
             </ScrollView>
+            )
           ) : (
             <Animated.View style={[styles.successContainer, successAnimatedStyle]}>
               <View style={styles.successIcon}>
@@ -500,6 +532,9 @@ const styles = StyleSheet.create({
   },
   formContent: {
     paddingBottom: 28,
+  },
+  visitanteSheetContent: {
+    paddingBottom: 8,
   },
   formGroup: {
     marginBottom: 20,

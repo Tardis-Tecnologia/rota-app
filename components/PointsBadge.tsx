@@ -1,5 +1,6 @@
 import CpfRequiredModal from '@/components/CpfRequiredModal';
-import { VisitanteLoginOverlay } from '@/components/VisitanteLoginOverlay';
+import { VisitanteBottomSheetPrompt } from '@/components/VisitanteBottomSheetPrompt';
+import { useIsVisitante } from '@/hooks/useIsVisitante';
 import RewardsModalBody from '@/components/rewards/RewardsModalBody';
 import RewardsModalHeader from '@/components/rewards/RewardsModalHeader';
 import RewardRedemptionHistory from '@/components/rewards/RewardRedemptionHistory';
@@ -70,6 +71,7 @@ export default function PointsBadge({
   onRedeem,
 }: PointsBadgeProps) {
   const { user } = useAuth();
+  const isVisitante = useIsVisitante();
   const cpfKnown = user?.cpf !== undefined;
   const hasCpf = Boolean(user?.cpf && user.cpf.replace(/\D/g, '').length === 11);
   const needsCpf = cpfKnown && !hasCpf;
@@ -238,7 +240,7 @@ export default function PointsBadge({
     setCouponCodesFromRedeem({});
     setRewardsFilterTab('cupons_lojas');
     setShowRedemptionHistory(false);
-    if (user?.profile !== 'VISITANTE') {
+    if (!isVisitante) {
       void loadRewards();
       void loadCommercialCoupons();
       void loadPoints(false);
@@ -445,10 +447,28 @@ export default function PointsBadge({
                 filterTab={rewardsFilterTab}
                 onFilterChange={setRewardsFilterTab}
                 isHistoryView={showRedemptionHistory}
-                showFilterTabs={!showRedemptionHistory}
-                onHistoryPress={() => setShowRedemptionHistory((v) => !v)}
+                showFilterTabs={!showRedemptionHistory && !isVisitante}
+                onHistoryPress={() => {
+                  if (isVisitante) return;
+                  setShowRedemptionHistory((v) => !v);
+                }}
               />
 
+              {isVisitante ? (
+                <ScrollView
+                  style={styles.rewardsListContainer}
+                  contentContainerStyle={styles.visitantePromptContent}
+                  showsVerticalScrollIndicator={false}
+                  bounces={false}
+                >
+                  <VisitanteBottomSheetPrompt
+                    headline="Login necessário"
+                    featureLabel="resgatar pontos e cupons na loja de recompensas"
+                    onDismiss={closeModal}
+                    dismissLabel="Fechar"
+                  />
+                </ScrollView>
+              ) : (
               <View style={styles.rewardsListContainer}>
                 {showRedemptionHistory ? (
                   <ScrollView
@@ -495,7 +515,7 @@ export default function PointsBadge({
                   />
                 )}
               </View>
-              <VisitanteLoginOverlay message="A loja de recompensas e o resgate de pontos exigem login com uma conta cadastrada." />
+              )}
             </View>
           </Animated.View>
         </View>
@@ -733,6 +753,11 @@ const styles = StyleSheet.create({
   rewardsListContainer: {
     flex: 1,
     minHeight: 0,
+  },
+  visitantePromptContent: {
+    flexGrow: 1,
+    paddingHorizontal: 4,
+    paddingBottom: 12,
   },
   historyScroll: {
     flex: 1,

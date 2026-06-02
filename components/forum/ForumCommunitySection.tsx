@@ -4,6 +4,8 @@ import ForumCommunityChannelsCarousel from '@/components/forum/ForumCommunityCha
 import ForumCommunityExploreFeed from '@/components/forum/ForumCommunityExploreFeed';
 import ForumCommunityListRow from '@/components/forum/ForumCommunityListRow';
 import { AppColors } from '@/constants/theme';
+import { useIsVisitante } from '@/hooks/useIsVisitante';
+import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import {
   followForumCommunity,
   listFollowingForumCommunities,
@@ -76,6 +78,7 @@ export default function ForumCommunitySection({
   onRefresh,
   onRefreshComplete,
 }: ForumCommunitySectionProps) {
+  const isVisitante = useIsVisitante();
   const [activeTab, setActiveTab] = useState('explore');
   const [loading, setLoading] = useState(true);
   const [carouselLoading, setCarouselLoading] = useState(true);
@@ -157,6 +160,10 @@ export default function ForumCommunitySection({
 
   const handleFollowChannel = useCallback(
     async (id: string) => {
+      if (isVisitante) {
+        promptVisitanteLogin('seguir canais da comunidade');
+        return;
+      }
       await followForumCommunity(id);
       await loadCarousel();
       setFeedReloadToken((t) => t + 1);
@@ -171,7 +178,7 @@ export default function ForumCommunitySection({
         );
       }
     },
-    [loadCarousel, menuChannel?.id, selectedChannel?.id],
+    [isVisitante, loadCarousel, menuChannel?.id, selectedChannel?.id],
   );
 
   const selectChannel = useCallback((channel: ForumCommunityListItem) => {
@@ -209,7 +216,13 @@ export default function ForumCommunitySection({
           loading={carouselLoading}
           selectedChannelId={selectedChannel?.id ?? null}
           onChannelPress={setMenuChannel}
-          onCreatePress={() => router.push('/forum/communities/create')}
+          onCreatePress={() => {
+            if (isVisitante) {
+              promptVisitanteLogin('criar comunidades');
+              return;
+            }
+            router.push('/forum/communities/create');
+          }}
           onFollowChannel={handleFollowChannel}
         />
         <CommunitySegmentTabs

@@ -1,5 +1,6 @@
 import { showSavedEventToast } from '@/components/events/SavedEventToastHost';
 import { useAuth } from '@/contexts/AuthContext';
+import { isVisitanteProfile, promptVisitanteLogin } from '@/utils/visitanteAccess';
 import {
   EventFavoriteApiError,
   isEventFavorited,
@@ -48,6 +49,10 @@ export function useSavedEvents() {
     async (item: EventListItem) => {
       if (!user) {
         Alert.alert('Entrar na conta', 'Faça login para salvar eventos nos favoritos.');
+        return false;
+      }
+      if (isVisitanteProfile(user.profile)) {
+        promptVisitanteLogin('salvar eventos nos favoritos');
         return false;
       }
       const eventId = item.id?.trim();

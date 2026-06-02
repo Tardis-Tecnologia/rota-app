@@ -1,4 +1,6 @@
 import { AppColors } from '@/constants/theme';
+import { useIsVisitante } from '@/hooks/useIsVisitante';
+import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import {
   communityCoverUrl,
   createForumCommunity,
@@ -97,7 +99,14 @@ interface CommunityChannelFormProps {
 
 export default function CommunityChannelForm({ mode, communityId }: CommunityChannelFormProps) {
   const isEdit = mode === 'edit';
+  const isVisitante = useIsVisitante();
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    if (!isVisitante) return;
+    promptVisitanteLogin(isEdit ? 'editar comunidades' : 'criar comunidades');
+    router.back();
+  }, [isEdit, isVisitante]);
   const [loadingInitial, setLoadingInitial] = useState(isEdit);
   const [initialSnapshot, setInitialSnapshot] = useState<FormSnapshot | null>(null);
   const [existingCoverUrl, setExistingCoverUrl] = useState<string | null>(null);

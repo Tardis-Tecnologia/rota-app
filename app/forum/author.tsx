@@ -3,7 +3,6 @@ import {
   profileLabel,
   withListImageCacheBust,
 } from '@/components/forum/forumUtils';
-import { VisitanteLoginOverlay } from '@/components/VisitanteLoginOverlay';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserById, type UserSummary } from '@/services/authApi';
@@ -213,7 +212,6 @@ export default function ForumAuthorScreen() {
         ) : null}
       </ScrollView>
 
-      <VisitanteLoginOverlay message="Para ver perfis e conversar no fórum, faça login com uma conta cadastrada." />
     </>
   );
 }

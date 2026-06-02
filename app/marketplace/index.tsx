@@ -5,9 +5,10 @@ import MarketplaceSearchBar from '@/components/marketplace/MarketplaceSearchBar'
 import MarketplaceSegmentTabs, {
   type MarketplaceSegment,
 } from '@/components/marketplace/MarketplaceSegmentTabs';
-import { VisitanteLoginOverlay } from '@/components/VisitanteLoginOverlay';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsVisitante } from '@/hooks/useIsVisitante';
+import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import { listMarketplaceListings, listMyMarketplaceListings } from '@/services/marketplaceApi';
 import type { MarketplaceListFilter, MarketplaceListing } from '@/types/marketplace';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +30,7 @@ const PAGE_SIZE = 20;
 
 export default function MarketplaceIndexScreen() {
   const { user } = useAuth();
+  const isVisitante = useIsVisitante();
   const [segment, setSegment] = useState<MarketplaceSegment>('todos');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<MarketplaceListFilter>('todos');
@@ -45,6 +47,7 @@ export default function MarketplaceIndexScreen() {
   const fetchPage = useCallback(
     async (offset: number) => {
       if (segment === 'meus') {
+        if (isVisitante) return [];
         return listMyMarketplaceListings({ init: offset, end: offset + PAGE_SIZE });
       }
       return listMarketplaceListings({
@@ -54,7 +57,7 @@ export default function MarketplaceIndexScreen() {
         end: offset + PAGE_SIZE,
       });
     },
-    [category, search, segment],
+    [category, isVisitante, search, segment],
   );
 
   const load = useCallback(async () => {
@@ -118,7 +121,16 @@ export default function MarketplaceIndexScreen() {
     () => (
       <View style={styles.listHeader}>
         <MarketplaceHeroBanner />
-        <MarketplaceSegmentTabs active={segment} onChange={setSegment} />
+        <MarketplaceSegmentTabs
+          active={segment}
+          onChange={(next) => {
+            if (next === 'meus' && isVisitante) {
+              promptVisitanteLogin('gerenciar seus anúncios');
+              return;
+            }
+            setSegment(next);
+          }}
+        />
         <MarketplaceSearchBar value={search} onChangeText={setSearch} />
         <MarketplaceCategoryFilter active={category} onSelect={setCategory} />
       </View>
@@ -195,7 +207,7 @@ export default function MarketplaceIndexScreen() {
         onEndReachedThreshold={0.35}
       />
 
-      {user && user.profile !== 'VISITANTE' ? (
+      {!isVisitante ? (
         <TouchableOpacity
           activeOpacity={0.9}
           style={styles.fab}
@@ -212,8 +224,6 @@ export default function MarketplaceIndexScreen() {
           </LinearGradient>
         </TouchableOpacity>
       ) : null}
-
-      <VisitanteLoginOverlay message="Para publicar e gerenciar anúncios no marketplace, faça login com uma conta cadastrada." />
     </View>
   );
 }

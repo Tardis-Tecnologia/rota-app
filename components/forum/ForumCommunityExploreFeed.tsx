@@ -2,6 +2,7 @@ import ForumFeedContextChip from '@/components/forum/ForumFeedContextChip';
 import ForumPostCard from '@/components/forum/ForumPostCard';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCanInteractAsCitizen } from '@/hooks/useIsVisitante';
 import {
   createForumComment,
   getForumPost,
@@ -53,6 +54,7 @@ export default function ForumCommunityExploreFeed({
 }: ForumCommunityExploreFeedProps) {
   const isSingleChannel = !!communityId?.trim();
   const { user } = useAuth();
+  const canInteract = useCanInteractAsCitizen();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [posts, setPosts] = useState<ForumPostResponseDto[]>([]);
@@ -220,7 +222,7 @@ export default function ForumCommunityExploreFeed({
               commentDraft={commentDraftByPost[post.id] ?? ''}
               commentsExpanded={!!commentsExpandedByPost[post.id]}
               commentSending={commentSendingPostId === post.id}
-              canInteract={!!user}
+              canInteract={canInteract}
               onLike={() => void onLike(post.id)}
               onToggleComments={() =>
                 setCommentsExpandedByPost((prev) => ({

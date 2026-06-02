@@ -8,6 +8,7 @@ import {
 } from '@/components/forum/forumUtils';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCanInteractAsCitizen } from '@/hooks/useIsVisitante';
 import {
     contactForumStorePost,
     createForumComment,
@@ -45,6 +46,7 @@ export default function ForumAllPostsSection({
   onRefreshComplete,
   reloadToken,
 }: ForumAllPostsSectionProps) {
+  const canInteract = useCanInteractAsCitizen();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -258,7 +260,7 @@ export default function ForumAllPostsSection({
                 commentDraft={commentDraftByPost[post.id] ?? ''}
                 commentsExpanded={!!commentsExpandedByPost[post.id]}
                 commentSending={commentSendingPostId === post.id}
-                canInteract={!!user}
+                canInteract={canInteract}
                 onLike={() => void onLike(post.id)}
                 onToggleComments={() =>
                   setCommentsExpandedByPost((prev) => ({

@@ -66,6 +66,58 @@ function authHeaders(): HeadersInit {
   return headers;
 }
 
+export type CommercialStoreMapItem = {
+  id: string;
+  storeName: string;
+  photoUrl?: string | null;
+  segment?: string | null;
+  address?: string | null;
+  cep?: string | null;
+  phone: string;
+};
+
+function mapCommercialStoreMapItem(raw: unknown): CommercialStoreMapItem | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const id = String(r.id ?? '').trim();
+  if (!id) return null;
+  const storeName = String(r.storeName ?? r.store_name ?? '').trim();
+  const phone = String(r.phone ?? '').trim();
+  return {
+    id,
+    storeName: storeName || 'Loja parceira',
+    photoUrl: pickOptionalString(r, 'photoUrl', 'photo_url'),
+    segment: pickOptionalString(r, 'segment'),
+    address: pickOptionalString(r, 'address'),
+    cep: pickOptionalString(r, 'cep'),
+    phone: phone || '',
+  };
+}
+
+/** Lojas parceiras aprovadas para o filtro do mapa. */
+export async function listCommercialStoresForMap(): Promise<CommercialStoreMapItem[]> {
+  const url = `${getApiBaseUrl()}${BASE_PATH}/commercial/stores/map`;
+  const res = await fetch(url, { method: 'GET', headers: authHeaders() });
+  if (!res.ok) {
+    let message = res.statusText || `HTTP ${res.status}`;
+    try {
+      const raw = await res.text();
+      if (raw) {
+        const j = JSON.parse(raw) as { message?: string };
+        if (typeof j.message === 'string' && j.message.trim()) message = j.message.trim();
+      }
+    } catch {
+      // ignore
+    }
+    throw new Error(message);
+  }
+  const data = (await res.json()) as unknown;
+  if (!Array.isArray(data)) return [];
+  return data
+    .map((row) => mapCommercialStoreMapItem(row))
+    .filter((row): row is CommercialStoreMapItem => row != null);
+}
+
 /** Perfil público da loja (quando disponível no backend). */
 export async function getCommercialStorePublicProfile(
   commercialAccountId: string,

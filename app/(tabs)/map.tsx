@@ -13,6 +13,10 @@ import {
   EXPLORE_COMMUNITIES_CHIP_ID,
   listForumCommunities,
 } from '@/services/forumCommunityApi';
+import {
+  EXPLORE_PARTNER_STORES_CHIP_ID,
+  loadPartnerStoresForMap,
+} from '@/utils/commercialStoreMap';
 import { placeToPonto } from '@/services/mapPlaceToPonto';
 import { searchNearbyPlaces } from '@/services/placesService';
 import { Localizacao, PontoInteresse } from '@/types';
@@ -82,6 +86,7 @@ const CHIP_LABELS: Record<string, string> = {
   shopping_center: 'Shopping Center',
   bank: 'Bancos',
   communities: 'Comunidades',
+  partner_stores: 'Lojas parceiras',
 };
 
 function routeParamToChipId(raw: string): string | undefined {
@@ -92,6 +97,7 @@ function routeParamToChipId(raw: string): string | undefined {
   };
   const chip = alias[raw] ?? raw;
   if (chip === EXPLORE_COMMUNITIES_CHIP_ID) return chip;
+  if (chip === EXPLORE_PARTNER_STORES_CHIP_ID) return chip;
   return FILTER_CHIP_TO_PLACE_TYPE[chip] ? chip : undefined;
 }
 
@@ -203,6 +209,29 @@ export default function MapScreen() {
         return;
       }
 
+      if (chipId === EXPLORE_PARTNER_STORES_CHIP_ID) {
+        setFilterLoading(true);
+        try {
+          const mapped = await loadPartnerStoresForMap();
+          setPontos(mapped);
+          setCategoriaSelecionada(chipId);
+          setSelectedPontoDetail(null);
+          setToastType(mapped.length > 0 ? 'success' : 'info');
+          setToastMessage(
+            mapped.length > 0
+              ? `${mapped.length} loja${mapped.length === 1 ? '' : 's'} parceira${mapped.length === 1 ? '' : 's'} no mapa.`
+              : 'Nenhuma loja parceira com endereço localizável no momento.',
+          );
+          setToastKey((k) => k + 1);
+          setShowToast(true);
+        } catch {
+          Alert.alert('Erro', 'Não foi possível carregar as lojas parceiras.');
+        } finally {
+          setFilterLoading(false);
+        }
+        return;
+      }
+
       const placeType = FILTER_CHIP_TO_PLACE_TYPE[chipId];
       if (!placeType) return;
 
@@ -273,6 +302,9 @@ export default function MapScreen() {
   const getMarkerColor = (tipo: PontoInteresse['tipo']): string => {
     if (categoriaSelecionada === EXPLORE_COMMUNITIES_CHIP_ID) {
       return '#0891b2';
+    }
+    if (categoriaSelecionada === EXPLORE_PARTNER_STORES_CHIP_ID) {
+      return '#b45309';
     }
     return AppColors.categoria[tipo] || AppColors.primary;
   };

@@ -57,6 +57,7 @@ const DEFAULT_ITEMS: QuickAccessItem[] = [
   { id: 'shopping_center', label: 'Shopping Center', icon: 'bag-outline', iconColor: '#ea580c' },
   { id: 'bank', label: 'Bancos', icon: 'business-outline', iconColor: '#2563eb' },
   { id: 'communities', label: 'Comunidades', icon: 'people-outline', iconColor: '#0891b2' },
+  { id: 'partner_stores', label: 'Lojas parceiras', icon: 'storefront-outline', iconColor: '#b45309' },
 ];
 
 export function ExploreFloatingCard({

@@ -1,5 +1,9 @@
 import { AppColors } from '@/constants/theme';
 import { explorePontoCommunityId } from '@/services/forumCommunityApi';
+import {
+  explorePontoCommercialStoreId,
+  openCommercialStoreFromMapPonto,
+} from '@/utils/commercialStoreMap';
 import { distanceMeters } from '@/services/placesService';
 import { PontoInteresse } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,6 +49,7 @@ export default function PlaceDetailsSheet({
   if (!ponto) return null;
 
   const communityId = explorePontoCommunityId(ponto);
+  const commercialStoreId = explorePontoCommercialStoreId(ponto);
 
   const openDirections = () => {
     onClose();
@@ -158,6 +163,20 @@ export default function PlaceDetailsSheet({
               >
                 <Ionicons name="people-outline" size={20} color="#fff" />
                 <Text style={styles.btnPrimaryText}>Ver canal da comunidade</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            {commercialStoreId ? (
+              <TouchableOpacity
+                style={styles.btnPartnerStore}
+                onPress={() => {
+                  onClose();
+                  openCommercialStoreFromMapPonto(ponto, router);
+                }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="storefront-outline" size={20} color="#fff" />
+                <Text style={styles.btnPrimaryText}>Ver perfil da loja</Text>
               </TouchableOpacity>
             ) : null}
 
@@ -299,6 +318,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     backgroundColor: '#0891b2',
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  btnPartnerStore: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#b45309',
     paddingVertical: 14,
     borderRadius: 14,
     marginTop: 4,

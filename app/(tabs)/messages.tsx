@@ -1,6 +1,7 @@
-import { VisitanteLoginOverlay } from '@/components/VisitanteLoginOverlay';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsVisitante } from '@/hooks/useIsVisitante';
+import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import { Conversation, useConversations } from '@/contexts/ConversationsContext';
 import { mockSystemConversations } from '@/data/mockConversations';
 import { getAuthToken, getWhitelabelHostId } from '@/services/authApi';
@@ -91,6 +92,7 @@ function shouldShowStreamChannelForCommercialInbox(
 export default function MensagensScreen({ variant = 'citizen' }: MensagensScreenProps) {
   const isCommercialInbox = variant === 'commercial';
   const { user } = useAuth();
+  const isVisitante = useIsVisitante();
   const { fixedConversations } = useConversations();
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const [conversations, setConversations] = useState<StreamConversation[]>([]);
@@ -250,6 +252,10 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
   };
 
   const handleOpenChat = (conversation: ConversationCardItem) => {
+    if (isVisitante) {
+      promptVisitanteLogin('usar mensagens e o atendimento');
+      return;
+    }
     router.push({
       pathname: '/ChatTab',
       params: {
@@ -399,11 +405,15 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
           )}
       </ScrollView>
 
-      <TouchableOpacity activeOpacity={0.85} style={styles.fab} onPress={() => void loadStreamConversations()}>
-        <MaterialCommunityIcons name="whatsapp" size={28} color={AppColors.text.white} />
-      </TouchableOpacity>
-
-      <VisitanteLoginOverlay message="As mensagens e o atendimento ficam disponíveis após o login com uma conta cadastrada." />
+      {!isVisitante ? (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          style={styles.fab}
+          onPress={() => void loadStreamConversations()}
+        >
+          <MaterialCommunityIcons name="whatsapp" size={28} color={AppColors.text.white} />
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -411,7 +421,6 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    position: 'relative',
     backgroundColor: AppColors.background.default,
   },
   scrollContent: {

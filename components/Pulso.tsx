@@ -20,7 +20,8 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { VisitanteRestrictedZone } from '@/components/VisitanteRestrictedZone';
+import { useIsVisitante } from '@/hooks/useIsVisitante';
+import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import { CategoryRatingCard } from './pulso/CategoryRatingCard';
 import { NeighborhoodPickerCard } from './pulso/NeighborhoodPickerCard';
 import { ProblemsCard } from './pulso/ProblemsCard';
@@ -135,6 +136,7 @@ type VoteFeedback = { kind: 'success' } | { kind: 'error'; message: string };
 export function Pulso() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const isVisitante = useIsVisitante();
 
   const [areas, setAreas] = useState<HostAreaDto[]>([]);
   const [neighborhoodId, setNeighborhoodId] = useState('');
@@ -255,7 +257,22 @@ export function Pulso() {
     };
   }, [neighborhoodId]);
 
+  const handleRatingSelect = useCallback(
+    (key: PulseCategoryKey, value: 1 | 2 | 3 | 4 | 5) => {
+      if (isVisitante) {
+        promptVisitanteLogin('avaliar o Pulso do Bairro e enviar notas');
+        return;
+      }
+      setRatings((prev) => ({ ...prev, [key]: value }));
+    },
+    [isVisitante],
+  );
+
   const onSubmit = useCallback(async () => {
+    if (isVisitante) {
+      promptVisitanteLogin('avaliar o Pulso do Bairro e enviar notas');
+      return;
+    }
     if (!neighborhoodId || !canSubmit) return;
     setSubmitting(true);
     setError(null);
@@ -293,7 +310,7 @@ export function Pulso() {
     } finally {
       setSubmitting(false);
     }
-  }, [canSubmit, neighborhoodId, ratings]);
+  }, [canSubmit, isVisitante, neighborhoodId, ratings]);
 
   return (
     <View style={styles.container}>
@@ -371,50 +388,48 @@ export function Pulso() {
               </View>
             ) : null}
 
-            <VisitanteRestrictedZone message="Para avaliar o Pulso do Bairro e enviar notas, faça login com uma conta cadastrada.">
-              <SectionTitle title="AVALIE AS CATEGORIAS" />
-              <View>
-                {categories.map((c) => (
-                  <CategoryRatingCard
-                    key={c.key}
-                    category={c}
-                    selected={ratings[c.key]}
-                    onSelect={(value) => setRatings((prev) => ({ ...prev, [c.key]: value }))}
-                  />
-                ))}
+            <SectionTitle title="AVALIE AS CATEGORIAS" />
+            <View>
+              {categories.map((c) => (
+                <CategoryRatingCard
+                  key={c.key}
+                  category={c}
+                  selected={ratings[c.key]}
+                  onSelect={(value) => handleRatingSelect(c.key, value)}
+                />
+              ))}
+            </View>
+
+            <Pressable
+              onPress={() => void onSubmit()}
+              disabled={!isVisitante && (!canSubmit || submitting || !neighborhoodId)}
+              style={({ pressed }) => [
+                styles.submitBtn,
+                !isVisitante && (!canSubmit || submitting || !neighborhoodId) && styles.submitBtnDisabled,
+                pressed && styles.submitBtnPressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Enviar avaliação"
+            >
+              {submitting ? (
+                <ActivityIndicator color={AppColors.text.white} />
+              ) : (
+                <Text style={styles.submitBtnText}>Enviar avaliação</Text>
+              )}
+            </Pressable>
+
+            {!isVisitante && voteStatus && !voteStatus.canVoteNow && voteStatus.nextVoteAllowedAt ? (
+              <View style={styles.cooldownHint}>
+                <Text style={styles.cooldownHintText}>
+                  Intervalo mínimo de 7 dias entre avaliações nesta região. Próximo envio:{' '}
+                  {new Date(voteStatus.nextVoteAllowedAt).toLocaleString('pt-BR', {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  })}
+                  .
+                </Text>
               </View>
-
-              <Pressable
-                onPress={onSubmit}
-                disabled={!canSubmit || submitting || !neighborhoodId}
-                style={({ pressed }) => [
-                  styles.submitBtn,
-                  (!canSubmit || submitting || !neighborhoodId) && styles.submitBtnDisabled,
-                  pressed && styles.submitBtnPressed,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Enviar avaliação"
-              >
-                {submitting ? (
-                  <ActivityIndicator color={AppColors.text.white} />
-                ) : (
-                  <Text style={styles.submitBtnText}>Enviar avaliação</Text>
-                )}
-              </Pressable>
-
-              {voteStatus && !voteStatus.canVoteNow && voteStatus.nextVoteAllowedAt ? (
-                <View style={styles.cooldownHint}>
-                  <Text style={styles.cooldownHintText}>
-                    Intervalo mínimo de 7 dias entre avaliações nesta região. Próximo envio:{' '}
-                    {new Date(voteStatus.nextVoteAllowedAt).toLocaleString('pt-BR', {
-                      dateStyle: 'short',
-                      timeStyle: 'short',
-                    })}
-                    .
-                  </Text>
-                </View>
-              ) : null}
-            </VisitanteRestrictedZone>
+            ) : null}
 
             <TrendsCard trends={trends} />
             <View style={{ height: 14 }} />

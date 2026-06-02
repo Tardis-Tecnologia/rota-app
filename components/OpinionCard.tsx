@@ -1,8 +1,9 @@
 import CpfRequiredModal from '@/components/CpfRequiredModal';
-import { VisitanteRestrictedZone } from '@/components/VisitanteRestrictedZone';
 import { AppColors, hexToRgba, resolvePollAccentColor } from '@/constants/theme';
 import { useAppTheme } from '@/contexts/AppThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsVisitante } from '@/hooks/useIsVisitante';
+import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import type { PollDto } from '@/services/pollsApi';
 import {
     buildVoteRewardToastMessage,
@@ -74,6 +75,7 @@ interface OpinionCardProps {
 export default function OpinionCard({ hostId, onVoteSuccess }: OpinionCardProps) {
   const router = useRouter();
   const { user } = useAuth();
+  const isVisitante = useIsVisitante();
   const isFocused = useIsFocused();
   const { backgroundColor: themeBgForAccent } = useAppTheme();
   const accentColor = useMemo(
@@ -162,6 +164,10 @@ export default function OpinionCard({ hostId, onVoteSuccess }: OpinionCardProps)
 
   const handleOptionPress = async (index: number): Promise<void> => {
     if (!poll || submitting || !user) return;
+    if (isVisitante) {
+      promptVisitanteLogin('votar nas enquetes e acumular pontos');
+      return;
+    }
     if (!canVote || !voteLookupDone) return;
     const shouldRedeem = !alreadyVoted;
     setSelectedIndex(index);
@@ -221,7 +227,6 @@ export default function OpinionCard({ hostId, onVoteSuccess }: OpinionCardProps)
 
   return (
     <View style={styles.section}>
-      <VisitanteRestrictedZone message="Para votar nas enquetes e acumular pontos, faça login com uma conta cadastrada.">
         <View style={styles.pollCard}>
           <View
             style={styles.cardInner}
@@ -248,7 +253,7 @@ export default function OpinionCard({ hostId, onVoteSuccess }: OpinionCardProps)
               </View>
             ) : null}
 
-            {!canVote ? (
+            {!canVote && !isVisitante ? (
               <View style={styles.cpfGateBox}>
                 <Ionicons name="alert-circle" size={22} color={AppColors.status.warning} />
                 <View style={styles.cpfGateContent}>
@@ -287,7 +292,8 @@ export default function OpinionCard({ hostId, onVoteSuccess }: OpinionCardProps)
             <View style={styles.optionsList}>
               {options.map((label, index) => {
                 const isSelected = selectedIndex === index;
-                const disabled = submitting || !canVote || !voteLookupDone;
+                const disabled =
+                  submitting || (isVisitante ? false : !canVote || !voteLookupDone);
                 return (
                   <TouchableOpacity
                     key={`${index}-${label}`}
@@ -329,7 +335,6 @@ export default function OpinionCard({ hostId, onVoteSuccess }: OpinionCardProps)
             {voteError ? <Text style={styles.voteErrorText}>{voteError}</Text> : null}
           </View>
         </View>
-      </VisitanteRestrictedZone>
       <CpfRequiredModal
         visible={showCpfModal}
         onClose={() => setShowCpfModal(false)}
@@ -344,7 +349,6 @@ export default function OpinionCard({ hostId, onVoteSuccess }: OpinionCardProps)
   );
 }
 
-// pollShell: overlay fora do cartão com position relative no shell (evita clip no Android).
 const styles = StyleSheet.create({
   section: {
     paddingHorizontal: 24,

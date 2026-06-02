@@ -4,8 +4,8 @@ import {
   isComercioUser,
   ROUTE_APP_HOME,
 } from '@/utils/comercioAuth';
-import { type Href, router, useSegments } from 'expo-router';
-import { useLayoutEffect, useRef } from 'react';
+import { type Href, router, useRootNavigationState, useSegments } from 'expo-router';
+import { useEffect, useRef } from 'react';
 
 /**
  * Único ponto de redirecionamento por sessão — evita vários Redirect/router.replace
@@ -14,10 +14,15 @@ import { useLayoutEffect, useRef } from 'react';
 export function AuthNavigationSync() {
   const { user, isLoading } = useAuth();
   const segments = useSegments();
+  const rootNavigationState = useRootNavigationState();
   const segmentKey = segments.join('/');
   const lastTargetRef = useRef<string | null>(null);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
+    if (!rootNavigationState?.key) {
+      return;
+    }
+
     if (isLoading) {
       return;
     }
@@ -27,6 +32,7 @@ export function AuthNavigationSync() {
     const onLogin = inAuthGroup && segments[1] === 'login';
     const inComercianteGroup = group === 'comerciante';
     const onCommercialChat = group === 'ChatTab';
+    const onForumStoreProfile = group === 'forum' && segments[1] === 'store';
 
     if (!user) {
       if (inAuthGroup) {
@@ -46,7 +52,7 @@ export function AuthNavigationSync() {
     const homeRoute = String(getPostLoginRoute(user.email, user.profile));
 
     if (isCommercial) {
-      if (inComercianteGroup || onCommercialChat) {
+      if (inComercianteGroup || onCommercialChat || onForumStoreProfile) {
         lastTargetRef.current = homeRoute;
         return;
       }
@@ -68,7 +74,7 @@ export function AuthNavigationSync() {
     if (!inAuthGroup) {
       lastTargetRef.current = null;
     }
-  }, [isLoading, user, segmentKey]);
+  }, [isLoading, rootNavigationState?.key, user, segmentKey]);
 
   return null;
 }

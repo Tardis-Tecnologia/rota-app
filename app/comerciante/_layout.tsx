@@ -99,13 +99,16 @@ function ComercianteTabs() {
         options={{
           title: 'Conferir',
           tabBarIcon: () => null,
-          tabBarButton: () => <ComercianteScanTabButton onPress={openConferirCupom} />,
+          tabBarButton: (props) => (
+            <ComercianteScanTabButton {...props} onPress={openConferirCupom} />
+          ),
           tabBarItemStyle: {
             flex: 0,
-            width: 68,
-            minWidth: 68,
-            maxWidth: 68,
+            width: 58,
+            minWidth: 58,
+            maxWidth: 58,
             paddingHorizontal: 0,
+            backgroundColor: 'transparent',
           },
         }}
         listeners={{

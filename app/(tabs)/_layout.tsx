@@ -5,6 +5,7 @@ import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
+import TabBarCenterButton from '@/components/TabBarCenterButton';
 import TabBarItem from '@/components/TabBarItem';
 import { AppColors } from '@/constants/theme';
 
@@ -25,6 +26,7 @@ export default function TabLayout() {
       height: baseHeight + effectiveInset,
       paddingBottom: 8 + bottomInset,
       paddingTop: 6,
+      overflow: 'visible' as const,
       marginBottom: androidNavOffset,
       borderTopWidth: 1,
       borderTopColor: '#e2e8f0',
@@ -52,6 +54,12 @@ export default function TabLayout() {
         tabBarShowLabel: false,
         sceneStyle: { backgroundColor: AppColors.background.default },
         tabBarStyle,
+        tabBarIconStyle: {
+          flex: 1,
+          width: '100%',
+          marginTop: 0,
+          marginBottom: 0,
+        },
         tabBarItemStyle: {
           flex: 1,
           width: 0,
@@ -133,10 +141,25 @@ export default function TabLayout() {
       <Tabs.Screen
         name="map"
         options={{
-          title: 'Mapa',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarItem label="Mapa" icon="map-outline" color={color} focused={focused} />
+          title: 'Explorar',
+          tabBarIcon: () => null,
+          tabBarButton: (props) => (
+            <TabBarCenterButton
+              {...props}
+              icon="compass-outline"
+              accessibilityLabel="Explorar"
+              tabLabel="Explorar"
+              elevate={-40}
+            />
           ),
+          tabBarItemStyle: {
+            flex: 0,
+            width: 76,
+            minWidth: 76,
+            maxWidth: 76,
+            paddingHorizontal: 0,
+            backgroundColor: 'transparent',
+          },
         }}
       />
       {/* Tela "Explorar" desativada por enquanto (mantemos o arquivo, mas ocultamos a aba). */}

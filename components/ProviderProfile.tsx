@@ -1,3 +1,4 @@
+import ProviderRatingSection from '@/components/guia/ProviderRatingSection';
 import {
   CATEGORIES_WITH_ALL,
   CATEGORIAS_EMPRESAS,
@@ -6,6 +7,8 @@ import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { prepareServiceProviderChat } from '@/services/serviceProviderChat';
 import type { Profile } from '@/types';
+import type { ServiceProviderUserRating } from '@/types/serviceProvider';
+import { formatProviderRatingLabel } from '@/utils/providerRatingDisplay';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -22,7 +25,25 @@ import {
   View,
 } from 'react-native';
 
-export default function ProviderProfile({ data }: { data: Profile }) {
+type ProviderProfileProps = {
+  data: Profile;
+  canRate?: boolean;
+  providerId?: string;
+  userRating?: ServiceProviderUserRating | null;
+  onRatingUpdated?: (payload: {
+    ratingAverage: number;
+    ratingCount: number;
+    userRating: ServiceProviderUserRating;
+  }) => void;
+};
+
+export default function ProviderProfile({
+  data,
+  canRate = false,
+  providerId,
+  userRating,
+  onRatingUpdated,
+}: ProviderProfileProps) {
   const { user } = useAuth();
   const [imageError, setImageError] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
@@ -149,9 +170,21 @@ export default function ProviderProfile({ data }: { data: Profile }) {
             ) : null}
             <View style={styles.ratingBadge}>
               <Ionicons name="star" size={16} color="#EAB308" />
-              <Text style={styles.ratingText}>{data.rating.toFixed(1)}</Text>
+              <Text style={styles.ratingText}>
+                {formatProviderRatingLabel(data.rating, data.review)}
+              </Text>
             </View>
           </View>
+
+          {canRate && providerId && onRatingUpdated ? (
+            <ProviderRatingSection
+              providerId={providerId}
+              ratingAverage={data.rating}
+              ratingCount={data.review}
+              userRating={userRating}
+              onRatingUpdated={onRatingUpdated}
+            />
+          ) : null}
         </View>
 
         <View style={styles.tabContent}>

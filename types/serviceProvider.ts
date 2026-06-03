@@ -52,6 +52,22 @@ export type UpdateServiceProviderBody =
   | ServiceProviderOwnerUpdateBody
   | ServiceProviderSuperAdminUpdateBody;
 
+export interface ServiceProviderUserRating {
+  stars: string;
+  updatedAt: string;
+}
+
+export interface ServiceProviderRatingUpsertResult {
+  stars: string;
+  ratingAverage: string;
+  ratingCount: number;
+  updatedAt: string;
+}
+
+export interface ServiceProviderMyRatingResponse {
+  rating: ServiceProviderUserRating | null;
+}
+
 export interface ServiceProviderListItem {
   id: string;
   hostId: string;
@@ -95,6 +111,7 @@ export interface ServiceProviderResponse {
   businessHours?: Record<string, unknown> | string | null;
   ratingAverage: string;
   ratingCount: number;
+  userRating?: ServiceProviderUserRating | null;
   createdAt: string;
   updatedAt: string;
   isOwner: boolean;

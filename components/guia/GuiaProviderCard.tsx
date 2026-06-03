@@ -2,6 +2,7 @@ import { STATUS_UI } from '@/constants/serviceProviderStatus';
 import { AppColors } from '@/constants/theme';
 import { isNonApprovedProviderStatus, type GuiaListItem } from '@/services/guiaCatalog';
 import { formatDistanceMeters } from '@/utils/guiaGeo';
+import { formatProviderRatingLabel } from '@/utils/providerRatingDisplay';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -9,6 +10,14 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 interface GuiaProviderCardProps {
   item: GuiaListItem;
   onPress: () => void;
+}
+
+function shouldShowListRating(item: GuiaListItem): boolean {
+  if (item.type === 'COMPANY') {
+    return item.review > 0 || item.rating > 0;
+  }
+  if (item.approvalStatus === 'APPROVED' || !item.approvalStatus) return true;
+  return item.review > 0 || item.rating > 0;
 }
 
 export default function GuiaProviderCard({ item, onPress }: GuiaProviderCardProps) {
@@ -19,6 +28,8 @@ export default function GuiaProviderCard({ item, onPress }: GuiaProviderCardProp
   const isRejected = item.approvalStatus === 'REJECTED';
   const statusLabel =
     item.approvalStatus && isPending ? STATUS_UI[item.approvalStatus].label : null;
+  const showRating = shouldShowListRating(item);
+  const ratingLabel = formatProviderRatingLabel(item.rating, item.review);
 
   return (
     <TouchableOpacity
@@ -61,13 +72,7 @@ export default function GuiaProviderCard({ item, onPress }: GuiaProviderCardProp
               {isRejected ? 'Desativado' : statusLabel}
             </Text>
           </View>
-        ) : (
-          <View style={styles.ratingRow}>
-            <Ionicons name="star" size={14} color="#EAB308" />
-            <Text style={styles.rating}>{item.rating.toFixed(1)}</Text>
-            <Text style={styles.reviewCount}>({item.review})</Text>
-          </View>
-        )}
+        ) : null}
         <Text
           style={[styles.category, isPending && !isRejected && styles.textPendingMuted]}
           numberOfLines={1}
@@ -84,6 +89,12 @@ export default function GuiaProviderCard({ item, onPress }: GuiaProviderCardProp
         ) : null}
       </View>
       <View style={styles.action}>
+        {showRating ? (
+          <View style={styles.ratingBadge}>
+            <Ionicons name="star" size={13} color="#EAB308" />
+            <Text style={styles.ratingText}>{ratingLabel}</Text>
+          </View>
+        ) : null}
         <Text
           style={[
             styles.detailsLabel,
@@ -173,14 +184,6 @@ const styles = StyleSheet.create({
   rejectedBadgeText: {
     color: '#b91c1c',
   },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
-  },
-  rating: { fontSize: 14, fontWeight: '700', color: '#1F2937' },
-  reviewCount: { fontSize: 12, color: AppColors.gray[500] },
   category: { fontSize: 13, color: AppColors.gray[500], marginTop: 2 },
   distanceRow: {
     flexDirection: 'row',
@@ -189,7 +192,17 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   distance: { fontSize: 12, fontWeight: '600', color: AppColors.gray[600] },
-  action: { alignItems: 'flex-end', gap: 2, marginLeft: 8 },
+  action: { alignItems: 'flex-end', gap: 4, marginLeft: 8, minWidth: 72 },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  ratingText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
   detailsLabel: { fontSize: 11, fontWeight: '700', color: '#7C3AED' },
   detailsLabelPending: { color: AppColors.gray[500] },
   detailsLabelRejected: { color: '#b91c1c' },

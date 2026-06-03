@@ -1,6 +1,8 @@
 import type {
   CreateServiceProviderBody,
   ServiceProviderListItem,
+  ServiceProviderMyRatingResponse,
+  ServiceProviderRatingUpsertResult,
   ServiceProviderResponse,
   UpdateServiceProviderBody,
 } from '@/types/serviceProvider';
@@ -117,6 +119,33 @@ export async function getServiceProviderById(
   const res = await fetch(url, { headers: authHeaders(false, false) });
   if (!res.ok) throw new Error(await readErrorMessage(res));
   return (await res.json()) as ServiceProviderResponse;
+}
+
+export async function getMyServiceProviderRating(
+  id: string,
+  options?: { hostId?: string },
+): Promise<ServiceProviderMyRatingResponse> {
+  const hostId = resolveServiceProviderHostId(options?.hostId);
+  const url = `${getApiBaseUrl()}${BASE_PATH}/service-providers/${encodeURIComponent(id)}/rating/me?${hostQuery(hostId)}`;
+  const res = await fetch(url, { headers: authHeaders(false) });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+  return (await res.json()) as ServiceProviderMyRatingResponse;
+}
+
+export async function upsertServiceProviderRating(
+  id: string,
+  stars: number,
+  options?: { hostId?: string },
+): Promise<ServiceProviderRatingUpsertResult> {
+  const hostId = resolveServiceProviderHostId(options?.hostId);
+  const url = `${getApiBaseUrl()}${BASE_PATH}/service-providers/${encodeURIComponent(id)}/rating?${hostQuery(hostId)}`;
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ stars }),
+  });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+  return (await res.json()) as ServiceProviderRatingUpsertResult;
 }
 
 export async function createServiceProvider(

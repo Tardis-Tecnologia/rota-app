@@ -9,7 +9,7 @@ import { serviceProviderResponseToProfile } from '@/utils/serviceProviderMappers
 import type { ServiceProviderResponse } from '@/types/serviceProvider';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -65,6 +65,13 @@ export default function GuiaDetailScreen() {
     }, [load]),
   );
 
+  const profileData = useMemo(() => {
+    if (!provider) return null;
+    const mapped = serviceProviderResponseToProfile(provider);
+    if (providerOwnerPhotoUrl) mapped.image = providerOwnerPhotoUrl;
+    return mapped;
+  }, [provider, providerOwnerPhotoUrl]);
+
   if (!id) {
     return (
       <View style={styles.center}>
@@ -91,12 +98,32 @@ export default function GuiaDetailScreen() {
       return <GuiaMyProviderStatus providerId={provider.id} initial={provider} />;
     }
 
-    if (provider.status === 'APPROVED' || isOwner) {
-      const profileData = serviceProviderResponseToProfile(provider);
-      if (providerOwnerPhotoUrl) profileData.image = providerOwnerPhotoUrl;
+    if ((provider.status === 'APPROVED' || isOwner) && profileData) {
+      const canRate =
+        !isOwner &&
+        provider.status === 'APPROVED' &&
+        !!user &&
+        user.profile !== 'VISITANTE';
+
       return (
         <SafeAreaView style={styles.safe} edges={['top']}>
-          <ProviderProfile data={profileData} />
+          <ProviderProfile
+            data={profileData!}
+            canRate={canRate}
+            providerId={provider.id}
+            userRating={provider.userRating}
+            onRatingUpdated={(payload) => {
+              setProvider((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  ratingAverage: String(payload.ratingAverage),
+                  ratingCount: payload.ratingCount,
+                  userRating: payload.userRating,
+                };
+              });
+            }}
+          />
         </SafeAreaView>
       );
     }

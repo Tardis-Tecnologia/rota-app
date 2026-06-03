@@ -6,6 +6,10 @@ import type {
 } from '@/types/serviceProvider';
 import type { Profile } from '@/types';
 import { GUIA_DEFAULT_CENTER } from '@/utils/guiaGeo';
+import {
+  parseProviderRatingAverage,
+  parseProviderRatingCount,
+} from '@/utils/providerRatingDisplay';
 import { businessHoursFromApi } from '@/utils/serviceProviderForm';
 
 export type GuiaProviderApprovalStatus = ServiceProviderStatus;
@@ -32,8 +36,12 @@ export function serviceProviderListItemToGuia(
     type: 'PROVIDER',
     name: item.name,
     categoryId: item.category,
-    rating: Number.parseFloat(item.ratingAverage) || 0,
-    review: item.ratingCount ?? 0,
+    rating: parseProviderRatingAverage(
+      item.ratingAverage ?? (item as { rating_average?: unknown }).rating_average,
+    ),
+    review: parseProviderRatingCount(
+      item.ratingCount ?? (item as { rating_count?: unknown }).rating_count,
+    ),
     image: item.imagePublicUrl?.trim() ?? '',
     about: '',
     latitude,
@@ -88,8 +96,8 @@ export function serviceProviderResponseToProfile(
     ownerUserId: provider.userId,
     name: provider.name,
     categoryId: provider.category,
-    rating: Number.parseFloat(provider.ratingAverage) || 0,
-    review: provider.ratingCount ?? 0,
+    rating: parseProviderRatingAverage(provider.ratingAverage),
+    review: parseProviderRatingCount(provider.ratingCount),
     image: provider.imagePublicUrl?.trim() ?? '',
     about: provider.description?.trim() ?? '',
     latitude: item?.latitude ?? GUIA_DEFAULT_CENTER.latitude,

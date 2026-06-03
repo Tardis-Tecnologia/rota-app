@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { getNews, NEWS_FEED_TAG, newsItemToPost } from '@/services/newsApi';
+import { buildNewsFeedQuery, getNews, newsItemToPost } from '@/services/newsApi';
 
 interface NewsPostsProps {
   filter?: FeedFilter;
@@ -32,21 +32,25 @@ export default function NewsPosts({ filter = 'todos', maxItems, listHeader }: Ne
   const postsLengthRef = useRef(0);
   postsLengthRef.current = posts.length;
 
-  const feedTag = useMemo(() => {
-    if (filter === 'todos') return undefined;
-    return NEWS_FEED_TAG[filter];
-  }, [filter]);
+  const feedQuery = useMemo(() => buildNewsFeedQuery(filter), [filter]);
 
   const fetchPage = useCallback(
     async (offset: number) => {
-      return getNews({
+      const rows = await getNews({
         status: 'published',
-        tag: feedTag,
+        ...feedQuery,
         init: offset,
         end: offset + pageSize,
       });
+      if (filter === 'enquetes') {
+        return rows.filter((row) => (row.postType ?? '').toLowerCase() === 'poll');
+      }
+      if (filter !== 'todos') {
+        return rows.filter((row) => (row.postType ?? 'article').toLowerCase() !== 'poll');
+      }
+      return rows;
     },
-    [feedTag, pageSize],
+    [feedQuery, filter, pageSize],
   );
 
   const loadPosts = useCallback(async () => {

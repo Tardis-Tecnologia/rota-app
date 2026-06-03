@@ -63,6 +63,7 @@ export default function RootLayout() {
           <Stack.Screen name="forum" options={{ headerShown: false }} />
           <Stack.Screen name="evento" options={{ headerShown: false }} />
           <Stack.Screen name="novidade" options={{ headerShown: false }} />
+          <Stack.Screen name="enquetes" options={{ headerShown: false }} />
           <Stack.Screen name="marketplace" options={{ headerShown: false }} />
           <Stack.Screen name="works" options={{ headerShown: false }} />
           <Stack.Screen name="demands" options={{ headerShown: false }} />

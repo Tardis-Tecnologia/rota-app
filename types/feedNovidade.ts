@@ -4,10 +4,23 @@ export type FeedNovidadeCategoria = Exclude<FeedFilter, 'todos'>;
 
 export type FeedNovidadeTipo = 'comunicado' | 'alerta' | 'atualizacao' | 'evento' | 'aviso';
 
+export type FeedPostType = 'article' | 'poll';
+
+export interface FeedPollData {
+  id: string;
+  options: string[];
+  optionCounts: number[];
+  userVoted: boolean;
+  selectedOptionIndex: number | null;
+}
+
 export interface FeedNovidade {
   id: string;
-  /** host do comunicado — necessário para listar comentários quando o JWT não traz hostId */
+  postType: FeedPostType;
+  /** host do comunicado — necessário para comentários/voto quando aplicável */
   hostId?: string | null;
+  pollId?: string | null;
+  poll?: FeedPollData | null;
   titulo: string;
   resumo: string;
   conteudo: string;
@@ -23,7 +36,13 @@ export interface FeedNovidade {
   autorNome: string;
   autorAvatar: string;
   autorHandle: string;
+  /** Perfil do publicador (ex.: SUPERADMIN), quando a API enviar */
+  autorPerfil?: string | null;
   curtidas: number;
   liked: boolean;
   comentarios: number;
+}
+
+export function isFeedPollItem(item: FeedNovidade): boolean {
+  return item.postType === 'poll';
 }

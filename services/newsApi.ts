@@ -2,7 +2,11 @@ import type {
   FeedNovidade,
   FeedNovidadeCategoria,
   FeedNovidadeTipo,
+  FeedPollData,
+  FeedPostType,
 } from '@/types/feedNovidade';
+import { parsePollOptions } from '@/utils/pollOptions';
+import type { FeedFilter } from '@/types';
 import { getApiBaseUrl, getAuthToken, getWhitelabelHostId } from './authApi';
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
 
@@ -26,6 +30,7 @@ export interface NewsItem {
   createdBy?: string | null;
   creatorName?: string | null;
   creatorPhotoUrl?: string | null;
+  creatorProfile?: string | null;
   updatedBy?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -34,6 +39,17 @@ export interface NewsItem {
   likesCount?: number;
   liked?: boolean;
   commentsCount?: number;
+  postType?: string;
+  pollId?: string | null;
+  poll?: NewsPollEmbeddedDto | null;
+}
+
+export interface NewsPollEmbeddedDto {
+  id: string;
+  options: unknown;
+  optionCounts?: unknown;
+  userVoted?: boolean;
+  selectedOptionIndex?: number | null;
 }
 
 export interface NewsCommentAuthor {
@@ -176,16 +192,77 @@ function normalizeNewsComment(
   };
 }
 
+function readIndexOrNull(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const n = readNumber(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizeNewsPollEmbedded(
+  raw: unknown,
+  pollIdFallback?: string | null,
+): NewsPollEmbeddedDto | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const row = raw as Record<string, unknown>;
+  const options = parsePollOptions(row.options);
+  if (options.length === 0) return null;
+  const countsRaw = row.optionCounts ?? row.option_counts;
+  let optionCounts: number[] = [];
+  if (Array.isArray(countsRaw)) {
+    optionCounts = countsRaw.map((v) => readNumber(v));
+  }
+  while (optionCounts.length < options.length) optionCounts.push(0);
+  if (optionCounts.length > options.length) optionCounts = optionCounts.slice(0, options.length);
+
+  const id = String(row.id ?? pollIdFallback ?? '').trim();
+  if (!id) return null;
+
+  return {
+    id,
+    options,
+    optionCounts,
+    userVoted: readBoolean(row.userVoted ?? row.user_voted),
+    selectedOptionIndex: readIndexOrNull(row.selectedOptionIndex ?? row.selected_option_index),
+  };
+}
+
+function readCreatorProfile(raw: NewsItem & Record<string, unknown>): string | null {
+  const value =
+    raw.creatorProfile ??
+    raw.creator_profile ??
+    raw.createdByProfile ??
+    raw.created_by_profile ??
+    raw.publisherProfile ??
+    raw.publisher_profile;
+  if (value == null) return null;
+  const s = String(value).trim();
+  return s.length > 0 ? s : null;
+}
+
+function readPostType(raw: NewsItem & Record<string, unknown>): FeedPostType {
+  const pt = String(raw.postType ?? raw.post_type ?? 'article').toLowerCase();
+  return pt === 'poll' ? 'poll' : 'article';
+}
+
 function normalizeNewsItem(raw: NewsItem & Record<string, unknown>): NewsItem {
   const hostIdRaw = raw.hostId ?? raw.host_id;
   const hostId =
     hostIdRaw != null && String(hostIdRaw).trim() ? String(hostIdRaw).trim() : null;
+  const postType = readPostType(raw);
+  const pollIdRaw = raw.pollId ?? raw.poll_id;
+  const pollId = pollIdRaw != null && String(pollIdRaw).trim() ? String(pollIdRaw).trim() : null;
+  const poll = normalizeNewsPollEmbedded(raw.poll, pollId);
+
   return {
     ...raw,
     hostId,
-    likesCount: readNumber(raw.likesCount ?? raw.likes_count),
-    liked: readBoolean(raw.liked),
-    commentsCount: readNumber(raw.commentsCount ?? raw.comments_count),
+    creatorProfile: readCreatorProfile(raw) ?? raw.creatorProfile ?? null,
+    postType,
+    pollId: pollId ?? poll?.id ?? null,
+    poll,
+    likesCount: postType === 'poll' ? 0 : readNumber(raw.likesCount ?? raw.likes_count),
+    liked: postType === 'poll' ? false : readBoolean(raw.liked),
+    commentsCount: postType === 'poll' ? 0 : readNumber(raw.commentsCount ?? raw.comments_count),
   };
 }
 
@@ -296,6 +373,7 @@ export async function getNews(options?: {
   status?: string;
   category?: string;
   tag?: string;
+  postType?: string;
   init?: number;
   end?: number;
 }): Promise<NewsItem[]> {
@@ -303,6 +381,7 @@ export async function getNews(options?: {
   if (options?.status) params.set('status', options.status);
   if (options?.category) params.set('category', options.category);
   if (options?.tag) params.set('tag', options.tag);
+  if (options?.postType) params.set('postType', options.postType);
   if (typeof options?.init === 'number') params.set('init', String(options.init));
   if (typeof options?.end === 'number') params.set('end', String(options.end));
   const hostId = resolveNewsHostId();
@@ -484,6 +563,7 @@ const CATEGORIA_LABEL: Record<FeedNovidadeCategoria, string> = {
   noticias: 'Notícia',
   obras: 'Obras',
   lazer: 'Lazer',
+  enquetes: 'Enquete',
 };
 
 function inferTipoNovidade(item: NewsItem, categoria: FeedNovidadeCategoria): FeedNovidadeTipo {
@@ -504,6 +584,64 @@ const TIPO_LABEL: Record<FeedNovidadeTipo, string> = {
   aviso: 'Aviso',
 };
 
+function pollDtoToFeedPoll(poll: NewsPollEmbeddedDto): FeedPollData {
+  return {
+    id: poll.id,
+    options: poll.options,
+    optionCounts: poll.optionCounts,
+    userVoted: poll.userVoted ?? false,
+    selectedOptionIndex:
+      poll.selectedOptionIndex != null && poll.selectedOptionIndex >= 0
+        ? poll.selectedOptionIndex
+        : null,
+  };
+}
+
+function newsItemToPollFeed(item: NewsItem): FeedNovidade {
+  const post = newsItemToPost(item);
+  const dataPublicacao = item.publishedAt || item.createdAt;
+  const { relativa, formatada } = formatNewsPublicationDate(dataPublicacao);
+  const titulo = item.title?.trim() || 'Enquete';
+  const conteudo = item.content?.trim() || '';
+  const pollRaw = item.poll;
+  const poll = pollRaw ? pollDtoToFeedPoll(pollRaw) : null;
+
+  return {
+    id: item.id,
+    postType: 'poll',
+    hostId: item.hostId ?? null,
+    pollId: item.pollId ?? poll?.id ?? null,
+    poll,
+    titulo,
+    resumo: conteudo ? truncateText(conteudo, 280) : titulo,
+    conteudo: conteudo || titulo,
+    imagem: null,
+    dataPublicacao,
+    dataRelativa: relativa,
+    dataFormatada: formatada,
+    categoria: 'enquetes',
+    categoriaLabel: CATEGORIA_LABEL.enquetes,
+    tipoNovidade: 'comunicado',
+    tipoLabel: 'Enquete',
+    autorNome:
+      item.creatorName?.trim() ||
+      (item.creatorProfile?.toUpperCase() === 'SUPERADMIN' ? 'Superadmin' : 'Administrador'),
+    autorAvatar: post.avatar,
+    autorHandle: post.username ?? '@superadmin',
+    autorPerfil: item.creatorProfile ?? null,
+    curtidas: 0,
+    liked: false,
+    comentarios: 0,
+  };
+}
+
+export function newsItemToFeedItem(item: NewsItem): FeedNovidade {
+  if ((item.postType ?? 'article') === 'poll') {
+    return newsItemToPollFeed(item);
+  }
+  return newsItemToNovidade(item);
+}
+
 export function newsItemToNovidade(item: NewsItem): FeedNovidade {
   const post = newsItemToPost(item);
   const categoria = mapNewsItemFeedCategory(item);
@@ -516,7 +654,10 @@ export function newsItemToNovidade(item: NewsItem): FeedNovidade {
 
   return {
     id: item.id,
+    postType: 'article',
     hostId: item.hostId ?? null,
+    pollId: null,
+    poll: null,
     titulo,
     resumo: conteudo ? truncateText(conteudo, 280) : titulo,
     conteudo: conteudo || titulo,
@@ -531,6 +672,7 @@ export function newsItemToNovidade(item: NewsItem): FeedNovidade {
     autorNome: creatorName || post.autor || 'Prefeitura',
     autorAvatar: post.avatar,
     autorHandle: post.username ?? '@prefeitura',
+    autorPerfil: item.creatorProfile ?? null,
     curtidas: item.likesCount ?? post.curtidas,
     liked: item.liked ?? post.curtido,
     comentarios: item.commentsCount ?? 0,
@@ -549,6 +691,20 @@ export const NEWS_FEED_TAG = {
   lazer: 'leisure',
 } as const;
 
+export type NewsFeedTagFilter = keyof typeof NEWS_FEED_TAG;
+
+export function buildNewsFeedQuery(filter: FeedFilter): {
+  tag?: string;
+  postType?: string;
+  category?: string;
+} {
+  if (filter === 'todos') return {};
+  if (filter === 'enquetes') {
+    return { postType: 'poll', category: 'enquete' };
+  }
+  return { tag: NEWS_FEED_TAG[filter] };
+}
+
 function mapCategoryFromTags(tags: string[] | undefined | null): 'noticias' | 'obras' | 'lazer' | null {
   const set = new Set((tags ?? []).map((t) => t.toLowerCase()));
   if (set.has('works')) return 'obras';
@@ -562,6 +718,7 @@ function mapCategoryFromField(category: string | null): 'noticias' | 'obras' | '
   const c = category.toLowerCase();
   if (c === 'obras' || c === 'obra') return 'obras';
   if (c === 'lazer') return 'lazer';
+  if (c === 'enquete' || c === 'poll') return 'noticias';
   return 'noticias';
 }
 

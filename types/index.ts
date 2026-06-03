@@ -1,4 +1,4 @@
-export type FeedFilter = 'todos' | 'noticias' | 'obras' | 'lazer';
+export type FeedFilter = 'todos' | 'noticias' | 'obras' | 'lazer' | 'enquetes';
 
 export interface Noticia {
   id: string;

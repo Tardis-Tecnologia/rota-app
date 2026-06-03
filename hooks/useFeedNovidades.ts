@@ -1,12 +1,32 @@
 import {
+  buildNewsFeedQuery,
   getNews,
-  NEWS_FEED_TAG,
-  newsItemToNovidade,
+  newsItemToFeedItem,
   sortNovidadesByDate,
 } from '@/services/newsApi';
 import { FeedFilter } from '@/types';
 import type { FeedNovidade } from '@/types/feedNovidade';
+import { isFeedPollItem } from '@/types/feedNovidade';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+function applyClientFeedFilter(items: FeedNovidade[], filter: FeedFilter): FeedNovidade[] {
+  if (filter === 'enquetes') return items.filter(isFeedPollItem);
+  if (filter === 'todos') return items;
+  return items.filter((item) => !isFeedPollItem(item));
+}
+
+function dedupeFeedItemsById(items: FeedNovidade[]): FeedNovidade[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
+function mergeFeedPages(prev: FeedNovidade[], page: FeedNovidade[]): FeedNovidade[] {
+  return dedupeFeedItemsById(sortNovidadesByDate([...prev, ...page]));
+}
 
 const PAGE_SIZE = 10;
 
@@ -19,36 +39,37 @@ export function useFeedNovidades() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [imageEpoch, setImageEpoch] = useState(() => Date.now());
-  const itemsLengthRef = useRef(0);
-  itemsLengthRef.current = items.length;
+  const rawOffsetRef = useRef(0);
 
-  const feedTag = useMemo(() => {
-    if (activeFilter === 'todos') return undefined;
-    return NEWS_FEED_TAG[activeFilter];
-  }, [activeFilter]);
+  const feedQuery = useMemo(() => buildNewsFeedQuery(activeFilter), [activeFilter]);
 
   const fetchPage = useCallback(
     async (offset: number) => {
       const list = await getNews({
         status: 'published',
-        tag: feedTag,
+        ...feedQuery,
         init: offset,
         end: offset + PAGE_SIZE,
       });
-      const page = sortNovidadesByDate(list.map(newsItemToNovidade));
-      return { items: page };
+      const page = applyClientFeedFilter(
+        sortNovidadesByDate(list.map(newsItemToFeedItem)),
+        activeFilter,
+      );
+      return { items: page, rawCount: list.length };
     },
-    [feedTag],
+    [activeFilter, feedQuery],
   );
 
   const loadInitial = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const { items: page } = await fetchPage(0);
-      setItems(page);
+      rawOffsetRef.current = 0;
+      const { items: page, rawCount } = await fetchPage(0);
+      setItems(dedupeFeedItemsById(page));
+      rawOffsetRef.current = rawCount;
       setImageEpoch(Date.now());
-      setHasMore(page.length === PAGE_SIZE);
+      setHasMore(rawCount === PAGE_SIZE);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Não foi possível carregar as novidades.');
       setItems([]);
@@ -62,10 +83,11 @@ export function useFeedNovidades() {
     if (loadingMore || !hasMore || loading) return;
     setLoadingMore(true);
     try {
-      const offset = itemsLengthRef.current;
-      const { items: page } = await fetchPage(offset);
-      setItems((prev) => sortNovidadesByDate([...prev, ...page]));
-      setHasMore(page.length === PAGE_SIZE);
+      const offset = rawOffsetRef.current;
+      const { items: page, rawCount } = await fetchPage(offset);
+      rawOffsetRef.current = offset + rawCount;
+      setItems((prev) => mergeFeedPages(prev, page));
+      setHasMore(rawCount === PAGE_SIZE);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Não foi possível carregar mais novidades.');
     } finally {

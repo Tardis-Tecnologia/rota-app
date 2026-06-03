@@ -1,4 +1,5 @@
 import FeedNovidadeCard from '@/components/feed/FeedNovidadeCard';
+import FeedPollCard from '@/components/feed/FeedPollCard';
 import FilterTabs, { type FilterOption } from '@/components/FilterTabs';
 import FeedMuralHeader from '@/components/feed/FeedMuralHeader';
 import { AppColors } from '@/constants/theme';
@@ -8,13 +9,17 @@ import type { useFeedNovidades } from '@/hooks/useFeedNovidades';
 import {
   buildOptimisticNewsComment,
   createNewsComment,
+  getNewsById,
   likeNews,
   listNewsComments,
   mergeNewsCommentsWithPending,
+  newsItemToFeedItem,
   type NewsCommentListItemDto,
 } from '@/services/newsApi';
+import { createPollVote } from '@/services/pollsApi';
 import { FeedFilter } from '@/types';
 import type { FeedNovidade } from '@/types/feedNovidade';
+import { isFeedPollItem } from '@/types/feedNovidade';
 import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -31,6 +36,7 @@ import {
 const FILTERS: FilterOption[] = [
   { key: 'todos', label: 'Todas' },
   { key: 'noticias', label: 'Notícias' },
+  { key: 'enquetes', label: 'Enquetes' },
   { key: 'obras', label: 'Obras' },
   { key: 'lazer', label: 'Lazer' },
 ];
@@ -75,6 +81,8 @@ export default function FeedNovidadesContent({
   const [commentsExpandedByPost, setCommentsExpandedByPost] = useState<Record<string, boolean>>({});
   const [commentsLoadingPostId, setCommentsLoadingPostId] = useState<string | null>(null);
   const [commentSendingPostId, setCommentSendingPostId] = useState<string | null>(null);
+  const [pollVoteSendingId, setPollVoteSendingId] = useState<string | null>(null);
+  const [pollVoteErrorById, setPollVoteErrorById] = useState<Record<string, string>>({});
 
   const openDetail = (item: FeedNovidade) => {
     router.push({
@@ -88,6 +96,62 @@ export default function FeedNovidadesContent({
     promptVisitanteLogin('curtir e comentar comunicados');
     return false;
   }, [canInteract]);
+
+  const ensureCanVote = useCallback((): boolean => {
+    if (canInteract) return true;
+    promptVisitanteLogin('votar nas enquetes');
+    return false;
+  }, [canInteract]);
+
+  const onVotePoll = useCallback(
+    async (item: FeedNovidade, optionIndex: number) => {
+      if (!ensureCanVote()) return;
+      const pollId = item.pollId ?? item.poll?.id;
+      if (!pollId || !item.poll) return;
+
+      setPollVoteSendingId(item.id);
+      setPollVoteErrorById((prev) => {
+        const next = { ...prev };
+        delete next[item.id];
+        return next;
+      });
+
+      const poll = item.poll;
+      const counts = [...poll.optionCounts];
+      while (counts.length < poll.options.length) counts.push(0);
+      const prevIndex = poll.selectedOptionIndex;
+      if (prevIndex != null && prevIndex >= 0 && prevIndex < counts.length && prevIndex !== optionIndex) {
+        counts[prevIndex] = Math.max(0, counts[prevIndex] - 1);
+      }
+      if (!poll.userVoted || prevIndex !== optionIndex) {
+        counts[optionIndex] = (counts[optionIndex] ?? 0) + 1;
+      }
+      updateItem(item.id, {
+        poll: {
+          ...poll,
+          userVoted: true,
+          selectedOptionIndex: optionIndex,
+          optionCounts: counts,
+        },
+      });
+
+      try {
+        await createPollVote(pollId, optionIndex, item.hostId ?? undefined);
+        const raw = await getNewsById(item.id);
+        if (raw) {
+          updateItem(item.id, newsItemToFeedItem(raw));
+        }
+      } catch (e) {
+        void loadInitial();
+        const msg = e instanceof Error ? e.message : 'Não foi possível registrar o voto.';
+        setPollVoteErrorById((prev) => ({ ...prev, [item.id]: msg }));
+        Alert.alert('Erro', msg);
+      } finally {
+        setPollVoteSendingId(null);
+      }
+    },
+    [ensureCanVote, loadInitial, updateItem],
+  );
 
   const loadCommentsForPost = useCallback(
     async (postId: string, options?: { showLoading?: boolean; retryIfEmpty?: boolean }) => {
@@ -116,6 +180,8 @@ export default function FeedNovidadesContent({
 
   const onToggleComments = useCallback(
     (postId: string) => {
+      const post = items.find((i) => i.id === postId);
+      if (post && isFeedPollItem(post)) return;
       const willExpand = !commentsExpandedByPost[postId];
       setCommentsExpandedByPost((prev) => ({ ...prev, [postId]: willExpand }));
       if (willExpand && commentsByPost[postId] === undefined) {
@@ -127,6 +193,8 @@ export default function FeedNovidadesContent({
 
   const onSendComment = useCallback(
     async (postId: string) => {
+      const post = items.find((i) => i.id === postId);
+      if (post && isFeedPollItem(post)) return;
       if (!ensureCanInteract() || !user?.id) return;
       const text = (commentDraftByPost[postId] ?? '').trim();
       if (!text) return;
@@ -169,8 +237,9 @@ export default function FeedNovidadesContent({
   const onLike = useCallback(
     async (postId: string) => {
       if (!ensureCanInteract()) return;
-      setLikeError(null);
       const current = items.find((i) => i.id === postId);
+      if (current && isFeedPollItem(current)) return;
+      setLikeError(null);
       if (current) {
         const wasLiked = !!current.liked;
         updateItem(postId, {
@@ -257,35 +326,60 @@ export default function FeedNovidadesContent({
 
       {items.length === 0 ? (
         <View style={[styles.centerBlock, isHome && styles.centerBlockHome]}>
-          <Ionicons name="newspaper-outline" size={44} color={AppColors.text.quaternary} />
-          <Text style={styles.emptyTitle}>Nenhuma publicação ainda</Text>
+          <Ionicons
+            name={activeFilter === 'enquetes' ? 'stats-chart-outline' : 'newspaper-outline'}
+            size={44}
+            color={AppColors.text.quaternary}
+          />
+          <Text style={styles.emptyTitle}>
+            {activeFilter === 'enquetes'
+              ? 'Nenhuma enquete publicada'
+              : 'Nenhuma publicação ainda'}
+          </Text>
           <Text style={styles.emptyHint}>
-            Os comunicados oficiais da Prefeitura aparecerão aqui.
+            {activeFilter === 'enquetes'
+              ? 'Quando houver enquetes ativas, elas aparecerão aqui para você votar.'
+              : 'Os comunicados oficiais da Prefeitura aparecerão aqui.'}
           </Text>
         </View>
       ) : (
         <>
-          {items.map((item, index) => (
-            <FeedNovidadeCard
-              key={`${activeFilter}-${item.id}`}
-              item={item}
-              imageCacheEpoch={imageEpoch}
-              comments={commentsByPost[item.id] ?? []}
-              commentDraft={commentDraftByPost[item.id] ?? ''}
-              commentsExpanded={!!commentsExpandedByPost[item.id]}
-              commentsLoading={commentsLoadingPostId === item.id}
-              commentSending={commentSendingPostId === item.id}
-              canInteract={canInteract}
-              onOpenDetail={() => openDetail(item)}
-              onLike={() => void onLike(item.id)}
-              onToggleComments={() => onToggleComments(item.id)}
-              onCommentDraftChange={(text) =>
-                setCommentDraftByPost((prev) => ({ ...prev, [item.id]: text }))
-              }
-              onSendComment={() => void onSendComment(item.id)}
-              showDivider={index < items.length - 1 || hasMore}
-            />
-          ))}
+          {items.map((item, index) => {
+            if (isFeedPollItem(item)) {
+              return (
+                <FeedPollCard
+                  key={`${activeFilter}-poll-${item.id}`}
+                  item={item}
+                  canInteract={canInteract}
+                  voteSubmitting={pollVoteSendingId === item.id}
+                  voteError={pollVoteErrorById[item.id] ?? null}
+                  onVote={(optionIndex) => void onVotePoll(item, optionIndex)}
+                  showDivider={index < items.length - 1 || hasMore}
+                />
+              );
+            }
+            return (
+              <FeedNovidadeCard
+                key={`${activeFilter}-post-${item.id}`}
+                item={item}
+                imageCacheEpoch={imageEpoch}
+                comments={commentsByPost[item.id] ?? []}
+                commentDraft={commentDraftByPost[item.id] ?? ''}
+                commentsExpanded={!!commentsExpandedByPost[item.id]}
+                commentsLoading={commentsLoadingPostId === item.id}
+                commentSending={commentSendingPostId === item.id}
+                canInteract={canInteract}
+                onOpenDetail={() => openDetail(item)}
+                onLike={() => void onLike(item.id)}
+                onToggleComments={() => onToggleComments(item.id)}
+                onCommentDraftChange={(text) =>
+                  setCommentDraftByPost((prev) => ({ ...prev, [item.id]: text }))
+                }
+                onSendComment={() => void onSendComment(item.id)}
+                showDivider={index < items.length - 1 || hasMore}
+              />
+            );
+          })}
           {showLoadMore && hasMore ? (
             <TouchableOpacity
               style={[styles.loadMoreBtn, isHome && styles.loadMoreBtnHome]}

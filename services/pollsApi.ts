@@ -145,6 +145,7 @@ export async function getLatestPollForHost(hostId?: string): Promise<PollDto | n
 
 export async function createPollVote(
   pollId: string,
+  optionIndex: number,
   hostId?: string,
 ): Promise<PollVoteResponseDto> {
   const token = getAuthToken();
@@ -161,7 +162,7 @@ export async function createPollVote(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ pollId }),
+    body: JSON.stringify({ pollId, optionIndex }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');

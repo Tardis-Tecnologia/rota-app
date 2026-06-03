@@ -64,6 +64,8 @@ export default function RootLayout() {
           <Stack.Screen name="evento" options={{ headerShown: false }} />
           <Stack.Screen name="novidade" options={{ headerShown: false }} />
           <Stack.Screen name="marketplace" options={{ headerShown: false }} />
+          <Stack.Screen name="works" options={{ headerShown: false }} />
+          <Stack.Screen name="demands" options={{ headerShown: false }} />
         </Stack>
             <StatusBar style="dark" />
           </ThemeProvider>

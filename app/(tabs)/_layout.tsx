@@ -183,8 +183,14 @@ export default function TabLayout() {
           headerTitleAlign: 'center',
           headerTitleStyle: {
             fontSize: 18,
-            fontWeight: '600',
-            color: AppColors.text.secondary,
+            fontWeight: '700',
+            color: '#000',
+          },
+          headerStyle: {
+            backgroundColor: '#F8FAFC',
+            shadowOpacity: 0,
+            elevation: 0,
+            borderBottomWidth: 0,
           },
           headerLeft: () => (
             <TouchableOpacity
@@ -195,7 +201,7 @@ export default function TabLayout() {
               <Ionicons
                 name="arrow-back-outline"
                 size={24}
-                color={AppColors.text.secondary}
+                color="#000"
               />
             </TouchableOpacity>
           ),

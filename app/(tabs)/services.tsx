@@ -1,13 +1,11 @@
 import { ModalAnimals } from '@/components/ModalAnimals';
 import { ModalReportPrefeitura } from '@/components/ModalReportPrefeitura';
-import { ModalResolvedProblems } from '@/components/ModalResolvedProblems';
 import { ModalSecurity } from '@/components/ModalSecurity';
-import { DemandsView } from '@/components/DemandsView';
-import { WorksInProgressView } from '@/components/WorksInProgressView';
+import QuickAccessSection from '@/components/QuickAccessSection';
+import ServicesHeroBanner from '@/components/ServicesHeroBanner';
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -22,150 +20,107 @@ import {
 type ServiceCard = {
   id: string;
   title: string;
-  colors: [string, string];
-  icon: string;
-  gradientClass: string;
+  titleLines?: string[];
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  iconBg: string;
 };
 
 const servicesCards: ServiceCard[] = [
-  // {
-  //   id: 'transport',
-  //   title: 'Transporte',
-  //   colors: AppColors.gradients.services.transport,
-  //   icon: 'bus-outline',
-  //   gradientClass: 'service-card--transport',
-  // },
-  // {
-  //   id: 'health',
-  //   title: 'Saúde',
-  //   colors: AppColors.gradients.services.health,
-  //   icon: 'heart-circle-outline',
-  //   gradientClass: 'service-card--health',
-  // },
-  // {
-  //   id: 'education',
-  //   title: 'Educação',
-  //   colors: AppColors.gradients.services.education,
-  //   icon: 'school-outline',
-  //   gradientClass: 'service-card--education',
-  // },
-  // {
-  //   id: 'jobs',
-  //   title: 'Carreiras & Concursos',
-  //   colors: AppColors.gradients.services.jobs,
-  //   icon: 'briefcase-outline',
-  //   gradientClass: 'service-card--jobs',
-  // },
-  // {
-  //   id: 'security',
-  //   title: 'Segurança',
-  //   colors: AppColors.gradients.services.security,
-  //   icon: 'shield-outline',
-  //   gradientClass: 'service-card--security',
-  // },
-  {
-    id: 'workInProgess',
-    title: 'Obras em andamento',
-    colors: AppColors.gradients.services.workInProgess,
-    icon: 'business-outline',
-    gradientClass: 'service-card--workInProgess',
-  },
-  {
-    id: 'resolvedProblems',
-    title: 'Demandas Resolvidas',
-    colors: AppColors.gradients.services.resolvedProblems,
-    icon: 'checkmark-circle-outline',
-    gradientClass: 'service-card--resolvedProblems',
-  },
   {
     id: 'municipalContact',
     title: 'Contato com Prefeitura',
-    colors: AppColors.gradients.services.municipalContact,
+    titleLines: ['Contato com', 'Prefeitura'],
     icon: 'call-outline',
-    gradientClass: 'service-card--municipalContact',
+    iconColor: '#2563EB',
+    iconBg: '#DBEAFE',
   },
   {
     id: 'animals',
-    title: 'Animais - Meio Ambiente / ONG',
-    colors: AppColors.gradients.services.animals,
+    title: 'Animais, Meio Ambiente / ONG',
+    titleLines: ['Animais, Meio', 'Ambiente / ONG'],
     icon: 'paw-outline',
-    gradientClass: 'service-card--animals',
+    iconColor: '#16A34A',
+    iconBg: '#DCFCE7',
   },
   {
     id: 'servicesPro',
     title: 'Serviços & Profissionais',
-    colors: AppColors.gradients.services.servicesPro,
+    titleLines: ['Serviços &', 'Profissionais'],
     icon: 'construct-outline',
-    gradientClass: 'service-card--servicesPro',
+    iconColor: '#7C3AED',
+    iconBg: '#EDE9FE',
   },
   {
     id: 'marketplace',
     title: 'Marketplace',
-    colors: AppColors.gradients.services.marketplace,
     icon: 'bag-outline',
-    gradientClass: 'service-card--marketplace',
+    iconColor: '#EA580C',
+    iconBg: '#FFEDD5',
   },
-  // {
-  //   id: 'culture',
-  //   title: 'Cultura e Lazer',
-  //   colors: AppColors.gradients.services.culture,
-  //   icon: 'color-palette-outline',
-  //   gradientClass: 'service-card--culture',
-  // },
-  // {
-  //   id: 'tourism',
-  //   title: 'Turismo',
-  //   colors: AppColors.gradients.services.tourism,
-  //   icon: 'camera-outline',
-  //   gradientClass: 'service-card--tourism',
-  // },
+  {
+    id: 'workInProgess',
+    title: 'Obras',
+    icon: 'business-outline',
+    iconColor: '#1D4ED8',
+    iconBg: '#DBEAFE',
+  },
+  {
+    id: 'demands',
+    title: 'Demandas',
+    icon: 'clipboard-outline',
+    iconColor: '#CA8A04',
+    iconBg: '#FEF9C3',
+  },
 ];
+
+function ServicesListHeader() {
+  return (
+    <>
+      <ServicesHeroBanner />
+      <QuickAccessSection />
+    </>
+  );
+}
 
 export default function ServicosScreen() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'catalogo' | 'obras' | 'demandas'>('catalogo');
 
   const handleCardPress = (serviceId: string, title: string) => {
-    const routes = {
-      health: '/HealthService',
-      transport: '/PublicTransportation',
-      education: '/EducationTab',
-      jobs: '/JobsTab',
-      servicesPro: '/guia',
-      marketplace: '/marketplace',
-    } as const;
-
-    if (serviceId in routes) {
-      const pathname = routes[serviceId as keyof typeof routes] as string;
-      router.push({ pathname } as any);
+    if (serviceId === 'servicesPro') {
+      router.push('/guia');
       return;
     }
-  
+
+    if (serviceId === 'marketplace') {
+      router.push('/marketplace');
+      return;
+    }
+
     if (serviceId === 'workInProgess') {
-      setActiveTab('obras');
+      router.push('/works');
       return;
     }
 
-    const modals = ['security', 'resolvedProblems', 'animals', 'municipalContact'];
-  
+    if (serviceId === 'demands') {
+      router.push('/demands' as Href);
+      return;
+    }
+
+    const modals = ['security', 'animals', 'municipalContact'];
+
     if (modals.includes(serviceId)) {
       setActiveModal(serviceId);
       return;
     }
-  
+
     Alert.alert(title, 'Serviço disponível em breve.');
   };
-
-  const isWeb = Platform.OS === 'web';
 
   return (
     <View style={styles.container}>
       <ModalSecurity
         visible={activeModal === 'security'}
-        onClose={() => setActiveModal(null)}
-      />
-      <ModalResolvedProblems
-        visible={activeModal === 'resolvedProblems'}
         onClose={() => setActiveModal(null)}
       />
       <ModalAnimals
@@ -176,89 +131,55 @@ export default function ServicosScreen() {
         visible={activeModal === 'municipalContact'}
         onClose={() => setActiveModal(null)}
       />
-      <View style={styles.segment}>
-        {(
-          [
-            { id: 'catalogo', label: 'CATÁLOGO' },
-            { id: 'obras', label: 'OBRAS' },
-            { id: 'demandas', label: 'DEMANDAS' },
-          ] as const
-        ).map((t) => {
-          const active = activeTab === t.id;
-          return (
-            <TouchableOpacity
-              key={t.id}
-              activeOpacity={0.85}
-              onPress={() => setActiveTab(t.id)}
-              style={[styles.segmentItem, active ? styles.segmentItemActive : styles.segmentItemInactive]}
-            >
-              <Text style={[styles.segmentText, active ? styles.segmentTextActive : styles.segmentTextInactive]}>
-                {t.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
 
-      {activeTab === 'catalogo' ? (
-        <FlatList
-          data={servicesCards.filter((c) => c.id !== 'workInProgess' && c.id !== 'resolvedProblems')}
-          numColumns={2}
-          keyExtractor={(item) => item.id}
-          columnWrapperStyle={styles.columnWrapper}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => {
-            const webCardProps = isWeb ? ({ className: `service-card ${item.gradientClass}` } as any) : {};
-            const webIconProps = isWeb ? ({ className: 'service-card__icon' } as any) : {};
-
-            const cardContent = (
-              <>
-                <View style={styles.iconContainer} {...webIconProps}>
-                  <Ionicons name={item.icon as any} size={26} color={AppColors.text.white} />
-                </View>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-              </>
-            );
-
-            if (isWeb) {
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  activeOpacity={0.85}
-                  style={[styles.cardWrapper, styles.webCardWrapper]}
-                  onPress={() => handleCardPress(item.id, item.title)}
-                  {...webCardProps}
+      <FlatList
+        data={servicesCards}
+        numColumns={2}
+        keyExtractor={(item) => item.id}
+        columnWrapperStyle={styles.columnWrapper}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={ServicesListHeader}
+        showsVerticalScrollIndicator={false}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.card}
+            onPress={() => handleCardPress(item.id, item.title)}
+            accessibilityRole="button"
+            accessibilityLabel={item.title}
+          >
+            <View style={[styles.iconBox, { backgroundColor: item.iconBg }]}>
+              <Ionicons name={item.icon} size={20} color={item.iconColor} />
+            </View>
+            <View style={styles.titleWrap}>
+              {item.titleLines ? (
+                item.titleLines.map((line) => (
+                  <Text
+                    key={line}
+                    style={styles.cardTitle}
+                    lineBreakStrategyIOS="push-out"
+                    {...(Platform.OS === 'android' ? { textBreakStrategy: 'simple' as const } : {})}
+                  >
+                    {line}
+                  </Text>
+                ))
+              ) : (
+                <Text
+                  style={styles.cardTitle}
+                  numberOfLines={2}
+                  lineBreakStrategyIOS="push-out"
+                  {...(Platform.OS === 'android' ? { textBreakStrategy: 'simple' as const } : {})}
                 >
-                  {cardContent}
-                </TouchableOpacity>
-              );
-            }
-
-            const gradientColors: [string, string] =
-              item.colors && item.colors[0] && item.colors[1]
-                ? [String(item.colors[0]).trim(), String(item.colors[1]).trim()]
-                : [AppColors.gradients.services.transport[0], AppColors.gradients.services.transport[1]];
-
-            return (
-              <TouchableOpacity
-                key={item.id}
-                activeOpacity={0.85}
-                style={styles.cardWrapper}
-                onPress={() => handleCardPress(item.id, item.title)}
-              >
-                <LinearGradient colors={gradientColors} style={styles.gradient}>
-                  {cardContent}
-                </LinearGradient>
-              </TouchableOpacity>
-            );
-          }}
-          showsVerticalScrollIndicator={false}
-        />
-      ) : activeTab === 'obras' ? (
-        <WorksInProgressView />
-      ) : (
-        <DemandsView />
-      )}
+                  {item.title}
+                </Text>
+              )}
+            </View>
+            <View style={styles.chevronWrap}>
+              <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+            </View>
+          </TouchableOpacity>
+        )}
+      />
     </View>
   );
 }
@@ -267,81 +188,66 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 12,
-    backgroundColor: AppColors.background.default,
-  },
-  segment: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 999,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 10,
-  },
-  segmentItem: {
-    flex: 1,
-    borderRadius: 999,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  segmentItemActive: {
-    backgroundColor: '#0F172A',
-  },
-  segmentItemInactive: {
-    backgroundColor: 'transparent',
-  },
-  segmentText: {
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-  segmentTextActive: {
-    color: '#fff',
-  },
-  segmentTextInactive: {
-    color: '#334155',
+    backgroundColor: '#F8FAFC',
   },
   listContent: {
+    paddingTop: 4,
     paddingBottom: 32,
   },
   columnWrapper: {
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 12,
+    gap: 12,
   },
-  cardWrapper: {
+  card: {
     flex: 1,
-    height: 140,
-    marginHorizontal: 4,
-    borderRadius: 16,
-    overflow: 'hidden',
-    elevation: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingLeft: 10,
+    paddingRight: 28,
+    minHeight: 88,
+    gap: 8,
+    position: 'relative',
+    overflow: 'visible',
+    shadowColor: AppColors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(226, 232, 240, 0.9)',
   },
-  webCardWrapper: {
-    height: 140,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderRadius: 16,
+  iconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
-  gradient: {
+  titleWrap: {
     flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-    alignItems: 'flex-start',
-    justifyContent: 'space-around',
-  },
-  iconContainer: {
-    borderRadius: 999,
-    padding: 8,
-    marginBottom: 8,
+    minWidth: 0,
+    flexShrink: 1,
+    justifyContent: 'center',
+    paddingRight: 4,
   },
   cardTitle: {
-    fontSize: 18,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '700',
-    color: AppColors.text.white,
-    flexShrink: 0,
+    color: '#1E293B',
+  },
+  chevronWrap: {
+    position: 'absolute',
+    right: 10,
+    top: 0,
+    bottom: 0,
+    width: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

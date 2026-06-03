@@ -8,6 +8,7 @@ import { StyleSheet, Text, View } from 'react-native';
 const FILTERS: FilterOption[] = [
   { key: 'todos', label: 'Todas' },
   { key: 'noticias', label: 'Notícias' },
+  { key: 'enquetes', label: 'Enquetes' },
   { key: 'obras', label: 'Obras' },
   { key: 'lazer', label: 'Lazer' },
 ];

@@ -175,7 +175,7 @@ export default function OpinionCard({ hostId, onVoteSuccess }: OpinionCardProps)
     setSubmitting(true);
     let voteRecorded = false;
     try {
-      await createPollVote(poll.id, hostId);
+      await createPollVote(poll.id, index, hostId);
       voteRecorded = true;
       setAlreadyVoted(true);
       const toastMessage = await buildVoteRewardToastMessage(poll.id, hostId, {

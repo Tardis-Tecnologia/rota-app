@@ -10,6 +10,7 @@ export const FEED_CATEGORIA_THEME: Record<
   noticias: { label: 'Notícia', color: '#1d4ed8', bg: '#dbeafe', icon: 'newspaper-outline' },
   obras: { label: 'Obras', color: '#b45309', bg: '#ffedd5', icon: 'construct-outline' },
   lazer: { label: 'Lazer', color: '#047857', bg: '#d1fae5', icon: 'leaf-outline' },
+  enquetes: { label: 'Enquete', color: '#1d4ed8', bg: '#e8f2fc', icon: 'stats-chart-outline' },
 };
 
 export const FEED_TIPO_THEME: Record<

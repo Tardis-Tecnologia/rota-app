@@ -1,3 +1,4 @@
+import FeedPollCard from '@/components/feed/FeedPollCard';
 import { formatOpinioesLabel, formatTimeAgo } from '@/components/forum/forumUtils';
 import { FEED_CATEGORIA_THEME, FEED_TIPO_THEME } from '@/constants/feedNovidadeTheme';
 import { AppColors } from '@/constants/theme';
@@ -14,10 +15,16 @@ import {
   likeNewsComment,
   listNewsComments,
   mergeNewsCommentsWithPending,
-  newsItemToNovidade,
+  newsItemToFeedItem,
   type NewsCommentListItemDto,
 } from '@/services/newsApi';
+import { createPollVote } from '@/services/pollsApi';
 import type { FeedNovidade } from '@/types/feedNovidade';
+import { isFeedPollItem } from '@/types/feedNovidade';
+import {
+  feedPublisherDisplayName,
+  isSuperadminPublisherProfile,
+} from '@/utils/feedPublisher';
 import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -70,9 +77,12 @@ export default function NovidadeDetailScreen() {
   const [newsHostId, setNewsHostId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pollVoteSending, setPollVoteSending] = useState(false);
+  const [pollVoteError, setPollVoteError] = useState<string | null>(null);
 
   const displayName = useMemo(() => {
     if (!item) return 'Prefeitura';
+    if (isFeedPollItem(item)) return feedPublisherDisplayName(item);
     if (item.autorNome && item.autorNome !== 'Prefeito') return item.autorNome;
     const themed = themeName?.trim();
     if (themed && themed !== 'Default') {
@@ -80,6 +90,11 @@ export default function NovidadeDetailScreen() {
     }
     return 'Prefeitura';
   }, [item, themeName]);
+
+  const pollIsSuperadmin = useMemo(
+    () => (item ? isSuperadminPublisherProfile(item.autorPerfil, item.autorHandle) : false),
+    [item],
+  );
 
   const fetchComments = useCallback(
     async (options?: { showLoading?: boolean; expectedCount?: number }) => {
@@ -91,7 +106,6 @@ export default function NovidadeDetailScreen() {
         const rows = await listNewsComments(newsId, {
           init: 0,
           end: 50,
-          hostId: newsHostId ?? item?.hostId,
           retryIfEmpty: true,
         });
         setComments((prev) => mergeNewsCommentsWithPending(rows, prev));
@@ -105,7 +119,7 @@ export default function NovidadeDetailScreen() {
         if (showLoading) setCommentsLoading(false);
       }
     },
-    [newsId, newsHostId, item?.hostId],
+    [newsId],
   );
 
   const load = useCallback(async () => {
@@ -126,14 +140,19 @@ export default function NovidadeDetailScreen() {
         setComments([]);
         setNewsHostId(null);
       } else {
-        const novidade = newsItemToNovidade(raw);
-        const hid = raw.hostId ?? novidade.hostId ?? null;
+        const feedItem = newsItemToFeedItem(raw);
+        const hid = raw.hostId ?? feedItem.hostId ?? null;
         setNewsHostId(hid);
-        setItem(novidade);
-        await fetchComments({
-          showLoading: true,
-          expectedCount: novidade.comentarios,
-        });
+        setItem(feedItem);
+        if (isFeedPollItem(feedItem)) {
+          setComments([]);
+          setCommentsLoading(false);
+        } else {
+          await fetchComments({
+            showLoading: true,
+            expectedCount: feedItem.comentarios,
+          });
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Não foi possível carregar o comunicado.');
@@ -155,8 +174,52 @@ export default function NovidadeDetailScreen() {
     });
   };
 
+  const onVotePoll = async (optionIndex: number) => {
+    if (!item?.poll) return;
+    if (!canInteract) {
+      promptVisitanteLogin('votar nas enquetes');
+      return;
+    }
+    const pollId = item.pollId ?? item.poll.id;
+    setPollVoteSending(true);
+    setPollVoteError(null);
+
+    const poll = item.poll;
+    const counts = [...poll.optionCounts];
+    while (counts.length < poll.options.length) counts.push(0);
+    const prevIndex = poll.selectedOptionIndex;
+    if (prevIndex != null && prevIndex >= 0 && prevIndex < counts.length && prevIndex !== optionIndex) {
+      counts[prevIndex] = Math.max(0, counts[prevIndex] - 1);
+    }
+    if (!poll.userVoted || prevIndex !== optionIndex) {
+      counts[optionIndex] = (counts[optionIndex] ?? 0) + 1;
+    }
+    setItem({
+      ...item,
+      poll: {
+        ...poll,
+        userVoted: true,
+        selectedOptionIndex: optionIndex,
+        optionCounts: counts,
+      },
+    });
+
+    try {
+      await createPollVote(pollId, optionIndex, item.hostId ?? newsHostId ?? undefined);
+      const raw = await getNewsById(newsId);
+      if (raw) setItem(newsItemToFeedItem(raw));
+    } catch (e) {
+      void load();
+      const msg = e instanceof Error ? e.message : 'Não foi possível registrar o voto.';
+      setPollVoteError(msg);
+      Alert.alert('Erro', msg);
+    } finally {
+      setPollVoteSending(false);
+    }
+  };
+
   const onLike = async () => {
-    if (!item) return;
+    if (!item || isFeedPollItem(item)) return;
     if (!canInteract) {
       promptVisitanteLogin('curtir e comentar comunicados');
       return;
@@ -286,9 +349,86 @@ export default function NovidadeDetailScreen() {
     );
   }
 
+  const isPoll = isFeedPollItem(item);
   const catTheme = FEED_CATEGORIA_THEME[item.categoria];
   const tipoTheme = FEED_TIPO_THEME[item.tipoNovidade];
   const commentCount = Math.max(item.comentarios, comments.length);
+
+  if (isPoll) {
+    return (
+      <View style={styles.screen}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.heroWrap}>
+            <LinearGradient
+              colors={['#5b21b6', '#7c3aed', '#a78bfa']}
+              style={styles.heroImage}
+            >
+              <Ionicons name="stats-chart" size={56} color="rgba(255,255,255,0.9)" />
+            </LinearGradient>
+            <LinearGradient
+              colors={['rgba(0,0,0,0.45)', 'transparent']}
+              style={styles.heroGradientTop}
+            />
+            <View style={[styles.heroTopBar, { paddingTop: insets.top + 8 }]}>
+              <Pressable
+                style={styles.heroIconBtn}
+                onPress={() => router.back()}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Voltar"
+              >
+                <Ionicons name="arrow-back" size={22} color="#fff" />
+              </Pressable>
+            </View>
+            <View style={styles.heroBadges}>
+              <View style={[styles.heroBadge, { backgroundColor: '#ede9fe' }]}>
+                <Text style={[styles.heroBadgeText, { color: '#7c3aed' }]}>ENQUETE</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.contentPanel}>
+            <Text style={styles.title}>{item.titulo}</Text>
+            <View style={styles.authorRow}>
+              <Image source={{ uri: item.autorAvatar }} style={styles.authorAvatar} />
+              <View style={styles.authorText}>
+                <View style={styles.pollAuthorNameRow}>
+                  <Text style={styles.authorName}>{displayName}</Text>
+                  {pollIsSuperadmin ? (
+                    <View style={styles.pollRoleBadge}>
+                      <Ionicons name="shield-checkmark" size={12} color="#1d4ed8" />
+                      <Text style={styles.pollRoleBadgeText}>Superadmin</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <View style={styles.dateRow}>
+                  <Ionicons name="calendar-outline" size={14} color="#64748b" />
+                  <Text style={styles.dateText}>
+                    {item.dataFormatada}
+                    {item.dataRelativa ? ` · ${item.dataRelativa}` : ''}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            {item.conteudo ? <Text style={styles.body}>{item.conteudo}</Text> : null}
+            <FeedPollCard
+              item={item}
+              canInteract={canInteract}
+              voteSubmitting={pollVoteSending}
+              voteError={pollVoteError}
+              embedded
+              showMuralLink={false}
+              onVote={(index) => void onVotePoll(index)}
+            />
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -650,6 +790,26 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0f172a',
   },
+  pollAuthorNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  pollRoleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#dbeafe',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  pollRoleBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#1d4ed8',
+  },
   dateRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -818,4 +978,5 @@ const styles = StyleSheet.create({
   composerSendPressed: {
     opacity: 0.85,
   },
+
 });

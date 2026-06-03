@@ -3,15 +3,25 @@ import GuiaPlaceDetail from '@/components/guia/GuiaPlaceDetail';
 import ProviderProfile from '@/components/ProviderProfile';
 import { getUserById } from '@/services/authApi';
 import { getGuiaPlaceById } from '@/services/guiaPlacesCatalog';
+import {
+  getCachedServiceProvider,
+  patchCachedServiceProvider,
+  setCachedServiceProvider,
+} from '@/services/guiaProviderDetailCache';
 import { getServiceProviderById } from '@/services/serviceProvidersApi';
 import { useAuth } from '@/contexts/AuthContext';
+import { GUIA_PROVIDER_DETAIL_STALE_MS } from '@/utils/guiaReloadPolicy';
 import { serviceProviderResponseToProfile } from '@/utils/serviceProviderMappers';
 import type { ServiceProviderResponse } from '@/types/serviceProvider';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+function needsOwnerPhoto(provider: ServiceProviderResponse): boolean {
+  return !provider.imagePublicUrl?.trim();
+}
 
 export default function GuiaDetailScreen() {
   const { user } = useAuth();
@@ -22,47 +32,94 @@ export default function GuiaDetailScreen() {
   const [providerOwnerPhotoUrl, setProviderOwnerPhotoUrl] = useState<string | null>(null);
   const [mapPlace, setMapPlace] = useState<ReturnType<typeof getGuiaPlaceById>>(null);
   const [notFound, setNotFound] = useState(false);
+  const lastFetchedAtRef = useRef(0);
 
-  const load = useCallback(async () => {
-    if (!id) {
-      setLoading(false);
-      setNotFound(true);
+  const loadOwnerPhoto = useCallback(async (data: ServiceProviderResponse) => {
+    if (!needsOwnerPhoto(data)) {
+      setProviderOwnerPhotoUrl(null);
       return;
     }
+    try {
+      const owner = await getUserById(data.userId);
+      setProviderOwnerPhotoUrl(owner.photoUrl ?? null);
+    } catch {
+      setProviderOwnerPhotoUrl(null);
+    }
+  }, []);
 
-    setLoading(true);
-    setNotFound(false);
+  const applyProvider = useCallback(
+    (data: ServiceProviderResponse) => {
+      setCachedServiceProvider(id, data);
+      setProvider(data);
+      lastFetchedAtRef.current = Date.now();
+      void loadOwnerPhoto(data);
+    },
+    [id, loadOwnerPhoto],
+  );
+
+  const fetchProvider = useCallback(
+    async (options?: { silent?: boolean }) => {
+      const silent = options?.silent ?? false;
+      if (!id) {
+        setLoading(false);
+        setNotFound(true);
+        return;
+      }
+
+      const cachedPlace = getGuiaPlaceById(id);
+      if (cachedPlace) {
+        setMapPlace(cachedPlace);
+        setProvider(null);
+        setNotFound(false);
+        setLoading(false);
+        return;
+      }
+
+      setMapPlace(null);
+      if (!silent) {
+        const cached = getCachedServiceProvider(id);
+        if (cached) {
+          setProvider(cached);
+          setNotFound(false);
+          setLoading(false);
+          void loadOwnerPhoto(cached);
+        } else {
+          setLoading(true);
+          setNotFound(false);
+        }
+      }
+
+      try {
+        const data = await getServiceProviderById(id);
+        applyProvider(data);
+        setNotFound(false);
+      } catch {
+        if (!silent && !getCachedServiceProvider(id)) {
+          setNotFound(true);
+          setProvider(null);
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [applyProvider, id, loadOwnerPhoto],
+  );
+
+  useEffect(() => {
     setProvider(null);
     setProviderOwnerPhotoUrl(null);
     setMapPlace(null);
-
-    const cachedPlace = getGuiaPlaceById(id);
-    if (cachedPlace) {
-      setMapPlace(cachedPlace);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const data = await getServiceProviderById(id);
-      setProvider(data);
-      try {
-        const owner = await getUserById(data.userId);
-        setProviderOwnerPhotoUrl(owner.photoUrl ?? null);
-      } catch {
-        setProviderOwnerPhotoUrl(null);
-      }
-    } catch {
-      setNotFound(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
+    setNotFound(false);
+    void fetchProvider();
+  }, [id, fetchProvider]);
 
   useFocusEffect(
     useCallback(() => {
-      void load();
-    }, [load]),
+      if (!id || getGuiaPlaceById(id)) return;
+      const stale = Date.now() - lastFetchedAtRef.current >= GUIA_PROVIDER_DETAIL_STALE_MS;
+      if (provider && !stale) return;
+      void fetchProvider({ silent: !!provider });
+    }, [fetchProvider, id, provider]),
   );
 
   const profileData = useMemo(() => {
@@ -80,7 +137,7 @@ export default function GuiaDetailScreen() {
     );
   }
 
-  if (loading) {
+  if (loading && !provider && !mapPlace) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#2563eb" />
@@ -121,6 +178,11 @@ export default function GuiaDetailScreen() {
                   ratingCount: payload.ratingCount,
                   userRating: payload.userRating,
                 };
+              });
+              patchCachedServiceProvider(provider.id, {
+                ratingAverage: String(payload.ratingAverage),
+                ratingCount: payload.ratingCount,
+                userRating: payload.userRating,
               });
             }}
           />

@@ -51,7 +51,7 @@ export default function GuiaIndexScreen() {
     items: providerItems,
     loading: providersLoading,
     error: providersError,
-    reload: reloadProviders,
+    reloadIfStale: reloadProvidersIfStale,
   } = useGuiaProviders(providersEnabled, user?.id);
 
   const {
@@ -62,7 +62,7 @@ export default function GuiaIndexScreen() {
     error: companiesError,
     hasMore: companiesHasMore,
     loadMore: loadMoreCompanies,
-    reload: reloadCompanies,
+    reloadIfStale: reloadCompaniesIfStale,
   } = useGuiaCompanies(companiesEnabled, mapRegion, searchQuery);
 
   const catalogItems = activeTab === 'prestadores' ? providerItems : companyItems;
@@ -72,9 +72,9 @@ export default function GuiaIndexScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (activeTab === 'prestadores') void reloadProviders();
-      else void reloadCompanies();
-    }, [activeTab, reloadProviders, reloadCompanies]),
+      if (activeTab === 'prestadores') void reloadProvidersIfStale();
+      else void reloadCompaniesIfStale();
+    }, [activeTab, reloadProvidersIfStale, reloadCompaniesIfStale]),
   );
 
   const results = useMemo(

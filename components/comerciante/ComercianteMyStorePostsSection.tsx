@@ -186,9 +186,10 @@ export default function ComercianteMyStorePostsSection({
         ) : null}
 
         {!loading && !error
-          ? posts.map((post) => (
+          ? posts.map((post, index) => (
               <ForumPostCard
                 key={post.id}
+                showDivider={index < posts.length - 1}
                 post={post}
                 comments={commentsByPost[post.id] ?? []}
                 imageCacheEpoch={imageEpoch}
@@ -196,7 +197,6 @@ export default function ComercianteMyStorePostsSection({
                 commentsExpanded={!!commentsExpandedByPost[post.id]}
                 commentSending={false}
                 canInteract={false}
-                hideContactButton
                 onLike={() => {}}
                 onToggleComments={() =>
                   setCommentsExpandedByPost((prev) => ({

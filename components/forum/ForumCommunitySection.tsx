@@ -4,7 +4,8 @@ import ForumCommunityChannelsCarousel from '@/components/forum/ForumCommunityCha
 import ForumCommunityExploreFeed from '@/components/forum/ForumCommunityExploreFeed';
 import ForumCommunityListRow from '@/components/forum/ForumCommunityListRow';
 import { AppColors } from '@/constants/theme';
-import { useIsVisitante } from '@/hooks/useIsVisitante';
+import { useCanInteractAsCitizen, useIsVisitante } from '@/hooks/useIsVisitante';
+import { confirmAndSubmitForumReport } from '@/utils/forumReportFlow';
 import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import {
   followForumCommunity,
@@ -79,6 +80,7 @@ export default function ForumCommunitySection({
   onRefreshComplete,
 }: ForumCommunitySectionProps) {
   const isVisitante = useIsVisitante();
+  const canInteract = useCanInteractAsCitizen();
   const [activeTab, setActiveTab] = useState('explore');
   const [loading, setLoading] = useState(true);
   const [carouselLoading, setCarouselLoading] = useState(true);
@@ -236,6 +238,7 @@ export default function ForumCommunitySection({
         channel={menuChannel}
         isSelected={menuChannel?.id === selectedChannel?.id}
         canFollow={menuChannel ? canShowFollowBadge(menuChannel) : false}
+        canReport={menuChannel ? menuChannel.myRole !== 'OWNER' : false}
         onClose={() => setMenuChannel(null)}
         onViewDetails={() => {
           if (!menuChannel) return;
@@ -249,6 +252,15 @@ export default function ForumCommunitySection({
                 const id = menuChannel.id;
                 setMenuChannel(null);
                 void handleFollowChannel(id);
+              }
+            : undefined
+        }
+        onReport={
+          menuChannel && menuChannel.myRole !== 'OWNER'
+            ? () => {
+                const id = menuChannel.id;
+                setMenuChannel(null);
+                confirmAndSubmitForumReport('FORUM_COMMUNITY', id, { canInteract });
               }
             : undefined
         }
@@ -332,7 +344,7 @@ export default function ForumCommunitySection({
 const styles = StyleSheet.create({
   wrap: { flex: 1, minHeight: 0 },
   stickyHeader: {
-    backgroundColor: '#ECEFF3',
+    backgroundColor: '#ffffff',
     paddingBottom: 8,
     zIndex: 2,
   },

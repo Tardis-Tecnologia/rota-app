@@ -212,9 +212,10 @@ export default function ForumCommunityExploreFeed({
       ) : null}
 
       {!loading && !error
-        ? posts.map((post) => (
+        ? posts.map((post, index) => (
             <ForumPostCard
               key={post.id}
+              showDivider={index < posts.length - 1}
               post={post}
               channelName={resolveChannelLabel(post)}
               comments={commentsByPost[post.id] ?? []}

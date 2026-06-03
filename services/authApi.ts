@@ -1,5 +1,7 @@
+import { FORUM_ACCOUNT_BANNED_ERROR } from './forumBanNoticeStore';
 import { loginCommercial } from './commercialAuthApi';
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
+import { isForumInactiveUserMessage } from '@/utils/forumPostingSuspensionParse';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
@@ -238,13 +240,9 @@ export async function login(
     body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
   });
 
-  if (res.status === 401) {
-    throw new Error('EMAIL_OU_SENHA_INCORRETOS');
-  }
-
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(parseApiErrorBody(text) || `Erro no login: ${res.status}`);
+    const text = await res.text().catch(() => '');
+    throwAuthLoginFailure(res.status, text);
   }
 
   const data = (await res.json()) as LoginResponseBody;
@@ -313,7 +311,7 @@ export async function loginWithGoogle(idToken: string): Promise<GoogleLoginSucce
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(parseApiErrorBody(text) || `Erro no login com Google: ${res.status}`);
+    throwAuthLoginFailure(res.status, text);
   }
 
   const raw = (await res.json()) as Record<string, unknown>;
@@ -357,6 +355,20 @@ export async function loginWithGoogle(idToken: string): Promise<GoogleLoginSucce
       photoUrl: pickPhotoUrl(userRaw) ?? null,
     },
   };
+}
+
+function throwAuthLoginFailure(status: number, text: string): never {
+  const message = parseApiErrorBody(text);
+  if (
+    (status === 401 || status === 403) &&
+    isForumInactiveUserMessage(message)
+  ) {
+    throw new Error(FORUM_ACCOUNT_BANNED_ERROR);
+  }
+  if (status === 401) {
+    throw new Error('EMAIL_OU_SENHA_INCORRETOS');
+  }
+  throw new Error(message || `Erro no login: ${status}`);
 }
 
 function parseApiErrorBody(text: string): string {

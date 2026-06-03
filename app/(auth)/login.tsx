@@ -5,7 +5,11 @@ import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import {
+  consumeForumBanNotice,
+  resolveCitizenLoginUiFeedback,
+} from '@/services/forumBanNoticeStore';
+import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     KeyboardAvoidingView,
@@ -29,9 +33,23 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [banNotice, setBanNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      const notice = await consumeForumBanNotice();
+      if (notice) setBanNotice(notice);
+    })();
+  }, []);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [parceiroModalVisible, setParceiroModalVisible] = useState(false);
+
+  const applyLoginFailure = (e: unknown) => {
+    const { banNotice: notice, error: err } = resolveCitizenLoginUiFeedback(e);
+    setBanNotice(notice);
+    setError(err);
+  };
 
   const { loginWithGoogle, isGoogleAuthAvailable } = useGoogleAuth(
     async ({ user: u, token }) => {
@@ -39,20 +57,20 @@ export default function LoginScreen() {
       try {
         await loginWithSession({ token, user: u ?? {} });
       } catch (e) {
-        const message = e instanceof Error ? e.message : 'Não foi possível entrar com o Google.';
-        setError(message);
+        applyLoginFailure(e);
       } finally {
         setGoogleLoading(false);
       }
     },
     (message) => {
       setGoogleLoading(false);
-      setError(message);
+      applyLoginFailure(new Error(message));
     },
   );
 
   const handleLogin = async () => {
     setError('');
+    setBanNotice(null);
     if (!email.trim()) {
       setError('Digite seu e-mail.');
       return;
@@ -69,13 +87,7 @@ export default function LoginScreen() {
     try {
       await login(email.trim(), password);
     } catch (e) {
-      const message =
-        e instanceof Error
-          ? e.message === 'EMAIL_OU_SENHA_INCORRETOS'
-            ? 'E-mail ou senha incorretos.'
-            : e.message
-          : 'Não foi possível entrar. Tente novamente.';
-      setError(message);
+      applyLoginFailure(e);
     } finally {
       setLoading(false);
     }
@@ -131,6 +143,7 @@ export default function LoginScreen() {
                 onChangeText={(t) => {
                   setEmail(t);
                   setError('');
+                  setBanNotice(null);
                 }}
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -160,6 +173,13 @@ export default function LoginScreen() {
               >
                 <Text style={styles.link}>Esqueci minha senha</Text>
               </TouchableOpacity>
+
+              {banNotice ? (
+                <View style={styles.banNoticeWrap}>
+                  <Ionicons name="ban-outline" size={20} color={AppColors.status.error} />
+                  <Text style={styles.banNoticeText}>{banNotice}</Text>
+                </View>
+              ) : null}
 
               {error ? (
                 <View style={styles.errorWrap}>
@@ -356,6 +376,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: AppColors.primary,
     fontWeight: '500',
+  },
+  banNoticeWrap: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginTop: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(127, 29, 29, 0.08)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(220, 38, 38, 0.35)',
+  },
+  banNoticeText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#991b1b',
+    fontWeight: '600',
   },
   errorWrap: {
     flexDirection: 'row',

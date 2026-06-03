@@ -2,6 +2,7 @@ import { AuthNavigationSync } from '@/components/AuthNavigationSync';
 import { ThemeSyncOnNavigation } from '@/components/ThemeSyncOnNavigation';
 import { AppThemeProvider } from '@/contexts/AppThemeContext';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { ForumModerationProvider } from '@/contexts/ForumModerationContext';
 import { VisitanteLoginDialogProvider } from '@/contexts/VisitanteLoginDialogContext';
 import { ConversationsProvider } from '@/contexts/ConversationsContext';
 import { configureGoogleSignIn } from '@/services/googleAuth';
@@ -24,6 +25,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
+        <ForumModerationProvider>
         <VisitanteLoginDialogProvider>
         <AppThemeProvider>
         <AuthNavigationSync />
@@ -73,6 +75,7 @@ export default function RootLayout() {
         </ConversationsProvider>
         </AppThemeProvider>
         </VisitanteLoginDialogProvider>
+        </ForumModerationProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

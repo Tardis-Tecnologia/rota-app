@@ -1,7 +1,9 @@
 import FilterTabs, { type FilterOption } from '@/components/FilterTabs';
 import ForumAllPostsSection from '@/components/forum/ForumAllPostsSection';
 import ForumCommunitySection from '@/components/forum/ForumCommunitySection';
+import ForumPublishFab from '@/components/forum/ForumPublishFab';
 import { AppColors } from '@/constants/theme';
+import { useForumModeration } from '@/contexts/ForumModerationContext';
 import { useCanInteractAsCitizen } from '@/hooks/useIsVisitante';
 import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import {
@@ -12,7 +14,6 @@ import {
 } from '@/services/forumApi';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -22,7 +23,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -34,6 +34,7 @@ const FILTERS: FilterOption[] = [
 
 export default function ForumScreen() {
   const canInteract = useCanInteractAsCitizen();
+  const { handleForumApiError } = useForumModeration();
   const [activeFilter, setActiveFilter] = useState<string>('todos');
   const isCommunityHub = activeFilter === 'community';
   const isAllPosts = activeFilter === 'todos';
@@ -78,11 +79,12 @@ export default function ForumScreen() {
       setImageUri(null);
       setAllFeedReloadToken((t) => t + 1);
     } catch (e) {
+      if (await handleForumApiError(e)) return;
       setError(e instanceof Error ? e.message : 'Não foi possível publicar.');
     } finally {
       setPublishing(false);
     }
-  }, [canInteract, content, imageUri, title]);
+  }, [canInteract, content, handleForumApiError, imageUri, title]);
 
   const pickImage = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -133,21 +135,7 @@ export default function ForumScreen() {
       ) : null}
 
       {isAllPosts && canInteract ? (
-        <TouchableOpacity
-          style={styles.publishBtn}
-          activeOpacity={0.9}
-          onPress={() => setPublishOpen(true)}
-        >
-          <LinearGradient
-            colors={['#0891b2', '#14b8a6']}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={styles.publishBtnGradient}
-          >
-            <Ionicons name="chatbubble-outline" size={20} color={AppColors.text.white} />
-            <Text style={styles.publishBtnText}>Publicar</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+        <ForumPublishFab onOpenPublish={() => setPublishOpen(true)} />
       ) : null}
 
       {error ? (
@@ -212,7 +200,7 @@ export default function ForumScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#ECEFF3' },
+  container: { flex: 1, backgroundColor: '#ffffff' },
   topSection: { paddingTop: 6, paddingBottom: 0 },
   errorToast: {
     position: 'absolute',
@@ -224,26 +212,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239,68,68,0.95)',
   },
   errorToastText: { color: '#fff', fontWeight: '700', fontSize: 13, textAlign: 'center' },
-  publishBtn: {
-    position: 'absolute',
-    right: 16,
-    bottom: 18,
-    borderRadius: 16,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.24,
-    shadowRadius: 14,
-    elevation: 8,
-  },
-  publishBtnGradient: {
-    height: 48,
-    paddingHorizontal: 20,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  publishBtnText: { color: AppColors.text.white, fontWeight: '900', fontSize: 18 },
   modalOverlay: {
     flex: 1,
     backgroundColor: AppColors.background.overlayStrong,

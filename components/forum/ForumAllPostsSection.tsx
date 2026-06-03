@@ -1,16 +1,15 @@
 import ForumFeedContextChip from '@/components/forum/ForumFeedContextChip';
 import ForumPostCard from '@/components/forum/ForumPostCard';
 import {
-    buildStoreContactDraftMessage,
     forumListItemToFeedPost,
     isExcludedFromGeneralForumFeed,
     openForumCommercialStoreProfile,
 } from '@/components/forum/forumUtils';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useForumModeration } from '@/contexts/ForumModerationContext';
 import { useCanInteractAsCitizen } from '@/hooks/useIsVisitante';
 import {
-    contactForumStorePost,
     createForumComment,
     getForumPost,
     likeForumPost,
@@ -21,16 +20,16 @@ import {
     type ForumPostResponseDto,
 } from '@/services/forumApi';
 import { FORUM_PARTNER_STORE_POST_TYPE } from '@/types/forumCommercial';
-import { isComercioUser } from '@/utils/comercioAuth';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator, Alert, RefreshControl,
+    ActivityIndicator,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
-    View
+    View,
 } from 'react-native';
 
 interface ForumAllPostsSectionProps {
@@ -47,6 +46,7 @@ export default function ForumAllPostsSection({
   reloadToken,
 }: ForumAllPostsSectionProps) {
   const canInteract = useCanInteractAsCitizen();
+  const { handleForumApiError } = useForumModeration();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,11 +60,6 @@ export default function ForumAllPostsSection({
     {},
   );
   const [commentSendingPostId, setCommentSendingPostId] = useState<string | null>(null);
-  const [contactLoadingPostId, setContactLoadingPostId] = useState<string | null>(null);
-
-  const isCommercialViewer =
-    !!user && isComercioUser(user.email ?? '', user.profile ?? '');
-
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -145,12 +140,13 @@ export default function ForumAllPostsSection({
         const comments = await listForumComments(postId, { init: 0, end: 50 });
         setCommentsByPost((prev) => ({ ...prev, [postId]: comments }));
       } catch (e) {
+        if (await handleForumApiError(e)) return;
         setError(e instanceof Error ? e.message : 'Não foi possível comentar.');
       } finally {
         setCommentSendingPostId(null);
       }
     },
-    [commentDraftByPost, user],
+    [commentDraftByPost, handleForumApiError, user],
   );
 
   const onLike = useCallback(
@@ -173,44 +169,6 @@ export default function ForumAllPostsSection({
       }
     },
     [load],
-  );
-
-  const onContactStore = useCallback(
-    async (post: ForumPostResponseDto) => {
-      if (!user?.id || user.profile === 'VISITANTE') {
-        Alert.alert('Login necessário', 'Faça login para falar com a loja.');
-        return;
-      }
-      setContactLoadingPostId(post.id);
-      try {
-        const storeName = post.authorCommercial?.storeName ?? 'a loja';
-        const draftMessage = buildStoreContactDraftMessage(storeName, post.title);
-        const channel = await contactForumStorePost(post.id, draftMessage);
-        router.push({
-          pathname: '/ChatTab',
-          params: {
-            provider: JSON.stringify({
-              id: post.authorCommercial?.id ?? post.id,
-              name: storeName,
-              image: post.authorCommercial?.photoUrl ?? undefined,
-              channelType: channel.channelType,
-              channelId: channel.channelId,
-              cid: channel.cid,
-              draftMessage,
-              autoSentDraftMessageId: channel.messageId?.trim() || undefined,
-            }),
-          },
-        });
-      } catch (e) {
-        Alert.alert(
-          'Erro',
-          e instanceof Error ? e.message : 'Não foi possível iniciar a conversa.',
-        );
-      } finally {
-        setContactLoadingPostId(null);
-      }
-    },
-    [user],
   );
 
   return (
@@ -251,9 +209,10 @@ export default function ForumAllPostsSection({
         ) : null}
 
         {!loading && !error
-          ? posts.map((post) => (
+          ? posts.map((post, index) => (
               <ForumPostCard
                 key={post.id}
+                showDivider={index < posts.length - 1}
                 post={post}
                 comments={commentsByPost[post.id] ?? []}
                 imageCacheEpoch={imageEpoch}
@@ -273,9 +232,6 @@ export default function ForumAllPostsSection({
                 }
                 onSendComment={() => void onSendComment(post.id)}
                 onOpenStore={() => openForumCommercialStoreProfile(post, router)}
-                onContactStore={() => void onContactStore(post)}
-                contactLoading={contactLoadingPostId === post.id}
-                hideContactButton={isCommercialViewer}
               />
             ))
           : null}
@@ -285,9 +241,9 @@ export default function ForumAllPostsSection({
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, minHeight: 0 },
+  wrap: { flex: 1, minHeight: 0, backgroundColor: '#ffffff' },
   stickyHeader: {
-    backgroundColor: '#ECEFF3',
+    backgroundColor: '#ffffff',
     paddingTop: 4,
     paddingBottom: 0,
     zIndex: 2,

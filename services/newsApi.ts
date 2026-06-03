@@ -3,7 +3,7 @@ import type {
   FeedNovidadeCategoria,
   FeedNovidadeTipo,
 } from '@/types/feedNovidade';
-import { getApiBaseUrl, getAuthToken } from './authApi';
+import { getApiBaseUrl, getAuthToken, getWhitelabelHostId } from './authApi';
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
 
 const BASE_PATH = '/api/v1';
@@ -31,6 +31,238 @@ export interface NewsItem {
   updatedAt: string;
   tags: string[];
   image?: NewsImage | null;
+  likesCount?: number;
+  liked?: boolean;
+  commentsCount?: number;
+}
+
+export interface NewsCommentAuthor {
+  id: string;
+  name: string;
+  photoUrl?: string | null;
+}
+
+export interface NewsCommentListItemDto {
+  id: string;
+  userId: string;
+  content: string;
+  likesCount: number;
+  liked: boolean;
+  createdAt: string;
+  author?: NewsCommentAuthor;
+}
+
+function readNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return 0;
+}
+
+function readBoolean(value: unknown): boolean {
+  if (typeof value === 'boolean') return value;
+  if (value === 'true' || value === 1) return true;
+  return false;
+}
+
+function normalizeApiArray<T>(parsed: unknown): T[] {
+  if (Array.isArray(parsed)) return parsed as T[];
+  if (parsed && typeof parsed === 'object') {
+    const record = parsed as Record<string, unknown>;
+    for (const key of [
+      'data',
+      'items',
+      'comments',
+      'results',
+      'content',
+      'rows',
+      'list',
+      'records',
+    ]) {
+      const value = record[key];
+      if (Array.isArray(value)) return value as T[];
+      if (value && typeof value === 'object') {
+        const nested = normalizeApiArray<T>(value);
+        if (nested.length > 0) return nested;
+      }
+    }
+  }
+  return [];
+}
+
+function extractNewsCommentsPayload(data: unknown): (NewsCommentListItemDto & Record<string, unknown>)[] {
+  const top = normalizeApiArray<NewsCommentListItemDto & Record<string, unknown>>(data);
+  if (top.length > 0) return top;
+  if (data && typeof data === 'object') {
+    for (const value of Object.values(data as Record<string, unknown>)) {
+      if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object') {
+        return value as (NewsCommentListItemDto & Record<string, unknown>)[];
+      }
+    }
+  }
+  return [];
+}
+
+function mapNewsCommentRows(data: unknown): NewsCommentListItemDto[] {
+  const rows = extractNewsCommentsPayload(data);
+  return rows.map((row, index) => {
+    const comment = normalizeNewsComment(row);
+    if (!comment.id.trim()) {
+      return {
+        ...comment,
+        id: `comment-${index}-${comment.createdAt || Date.now()}`,
+      };
+    }
+    return comment;
+  });
+}
+
+export function mergeNewsCommentsWithPending(
+  server: NewsCommentListItemDto[],
+  previous: NewsCommentListItemDto[],
+): NewsCommentListItemDto[] {
+  if (server.length > 0) return server;
+  if (previous.length > 0) return previous;
+  return server;
+}
+
+/** hostId do comunicado ou whitelabel/JWT — mesmo critério do POST de comentário. */
+export function resolveNewsCommentsHostId(newsHostId?: string | null): string {
+  const fromNews = newsHostId?.trim();
+  if (fromNews) return fromNews;
+  const fromJwtOrEnv = resolveNewsHostId();
+  if (fromJwtOrEnv) return fromJwtOrEnv;
+  return getWhitelabelHostId();
+}
+
+function normalizeNewsComment(
+  raw: NewsCommentListItemDto & Record<string, unknown>,
+): NewsCommentListItemDto {
+  const authorRaw = (raw.author ?? raw.Author) as Record<string, unknown> | undefined;
+  let author: NewsCommentAuthor | undefined;
+  if (authorRaw && typeof authorRaw === 'object') {
+    const id = String(authorRaw.id ?? '').trim();
+    if (id) {
+      author = {
+        id,
+        name: String(authorRaw.name ?? 'Morador(a)').trim() || 'Morador(a)',
+        photoUrl:
+          typeof authorRaw.photoUrl === 'string'
+            ? authorRaw.photoUrl
+            : typeof authorRaw.photo_url === 'string'
+              ? authorRaw.photo_url
+              : null,
+      };
+    }
+  }
+  const createdAt = String(raw.createdAt ?? raw.created_at ?? '');
+  const userId = String(raw.userId ?? raw.user_id ?? '');
+  const id =
+    String(raw.id ?? raw.commentId ?? '').trim() ||
+    (createdAt && userId ? `comment-${userId}-${createdAt}` : '');
+
+  return {
+    id,
+    userId,
+    content: String(
+      raw.content ?? raw.text ?? raw.body ?? raw.message ?? raw.comment ?? '',
+    ),
+    likesCount: readNumber(raw.likesCount ?? raw.likes_count),
+    liked: readBoolean(raw.liked),
+    createdAt,
+    ...(author ? { author } : {}),
+  };
+}
+
+function normalizeNewsItem(raw: NewsItem & Record<string, unknown>): NewsItem {
+  const hostIdRaw = raw.hostId ?? raw.host_id;
+  const hostId =
+    hostIdRaw != null && String(hostIdRaw).trim() ? String(hostIdRaw).trim() : null;
+  return {
+    ...raw,
+    hostId,
+    likesCount: readNumber(raw.likesCount ?? raw.likes_count),
+    liked: readBoolean(raw.liked),
+    commentsCount: readNumber(raw.commentsCount ?? raw.comments_count),
+  };
+}
+
+function requireNewsHostId(explicitHostId?: string | null): string {
+  try {
+    return resolveNewsCommentsHostId(explicitHostId);
+  } catch {
+    throw new Error(
+      'Não foi possível identificar o município (hostId). Faça login novamente.',
+    );
+  }
+}
+
+async function parseNewsLikeErrorMessage(res: Response): Promise<string> {
+  if (res.status === 400) {
+    return 'Não foi possível curtir: hostId ausente ou inválido.';
+  }
+  if (res.status === 403) {
+    return 'Você não tem permissão para curtir este comunicado.';
+  }
+  if (res.status === 404) {
+    return 'Comunicado não encontrado ou indisponível neste município.';
+  }
+  return readErrorMessage(res);
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
+async function readErrorMessage(res: Response): Promise<string> {
+  try {
+    const raw = await res.text();
+    if (!raw) return res.statusText || `HTTP ${res.status}`;
+    try {
+      const j = JSON.parse(raw) as { message?: string | string[] };
+      if (typeof j?.message === 'string' && j.message.trim()) return j.message.trim();
+      if (Array.isArray(j?.message)) {
+        return j.message.filter((x) => typeof x === 'string').join(', ');
+      }
+    } catch {
+      return raw.slice(0, 220);
+    }
+  } catch {
+    // ignore
+  }
+  return res.statusText || `HTTP ${res.status}`;
+}
+
+function newsHostQuery(): string {
+  const hostId = resolveNewsHostId();
+  return hostId ? `?hostId=${encodeURIComponent(hostId)}` : '';
+}
+
+function newsHostQueryParams(extra?: URLSearchParams): string {
+  const params = extra ?? new URLSearchParams();
+  const hostId = resolveNewsHostId();
+  if (hostId) params.set('hostId', hostId);
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
+
+function currentUserIdFromToken(): string | null {
+  const token = getAuthToken();
+  if (!token) return null;
+  try {
+    const c = parseJwtAccessTokenPayload(token);
+    return (c.userId ?? c.sub ?? '').trim() || null;
+  } catch {
+    return null;
+  }
 }
 
 function resolveNewsHostId(): string | null {
@@ -78,18 +310,133 @@ export async function getNews(options?: {
   const qs = params.toString();
   const endpoint = qs ? `/news?${qs}` : '/news';
   const data = await fetchApi<NewsItem[]>(endpoint);
-  return Array.isArray(data) ? data : [];
+  if (!Array.isArray(data)) return [];
+  return data.map((row) => normalizeNewsItem(row as NewsItem & Record<string, unknown>));
 }
-
 
 export async function getNewsById(id: string): Promise<NewsItem | null> {
   try {
-    const hostId = resolveNewsHostId();
-    const q = hostId ? `?hostId=${encodeURIComponent(hostId)}` : '';
-    return await fetchApi<NewsItem>(`/news/${id}${q}`);
+    const raw = await fetchApi<NewsItem>(`/news/${id}${newsHostQuery()}`);
+    return normalizeNewsItem(raw as NewsItem & Record<string, unknown>);
   } catch {
     return null;
   }
+}
+
+/** Toggle de curtida: POST sem body; 200 vazio; 1ª chamada curte, 2ª descurte. */
+export async function likeNews(newsId: string, hostId?: string | null): Promise<void> {
+  const hid = requireNewsHostId(hostId);
+  const url = `${getApiBaseUrl()}${BASE_PATH}/news/${encodeURIComponent(newsId)}/like?hostId=${encodeURIComponent(hid)}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    throw new Error(await parseNewsLikeErrorMessage(res));
+  }
+}
+
+async function fetchNewsCommentsOnce(
+  newsId: string,
+  options?: { init?: number; end?: number; hostId?: string | null },
+): Promise<NewsCommentListItemDto[]> {
+  const params = new URLSearchParams();
+  if (typeof options?.init === 'number') params.set('init', String(options.init));
+  if (typeof options?.end === 'number') params.set('end', String(options.end));
+  const hostId = options?.hostId?.trim() || resolveNewsHostId();
+  if (hostId) params.set('hostId', hostId);
+  const qs = params.toString();
+  const url = `${getApiBaseUrl()}${BASE_PATH}/news/${encodeURIComponent(newsId)}/comments${
+    qs ? `?${qs}` : ''
+  }`;
+  const res = await fetch(url, { method: 'GET', headers: authHeaders() });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+  const rawText = await res.text();
+  if (!rawText.trim()) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawText) as unknown;
+  } catch {
+    return [];
+  }
+  return mapNewsCommentRows(parsed);
+}
+
+export async function listNewsComments(
+  newsId: string,
+  options?: { init?: number; end?: number; hostId?: string | null; retryIfEmpty?: boolean },
+): Promise<NewsCommentListItemDto[]> {
+  const rows = await fetchNewsCommentsOnce(newsId, options);
+  if (rows.length > 0 || !options?.retryIfEmpty) return rows;
+  await new Promise((resolve) => setTimeout(resolve, 450));
+  return fetchNewsCommentsOnce(newsId, options);
+}
+
+export async function createNewsComment(
+  newsId: string,
+  content: string,
+  hostId?: string | null,
+): Promise<void> {
+  const hid = requireNewsHostId(hostId);
+  const url = `${getApiBaseUrl()}${BASE_PATH}/news/${encodeURIComponent(newsId)}/comments?hostId=${encodeURIComponent(hid)}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ content: content.trim() }),
+  });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+}
+
+export async function likeNewsComment(commentId: string): Promise<void> {
+  const url = `${getApiBaseUrl()}${BASE_PATH}/news/comments/${encodeURIComponent(commentId)}/like`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+}
+
+export async function updateNewsComment(commentId: string, content: string): Promise<void> {
+  const url = `${getApiBaseUrl()}${BASE_PATH}/news/comments/${encodeURIComponent(commentId)}`;
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify({ content: content.trim() }),
+  });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+}
+
+export async function deleteNewsComment(commentId: string): Promise<void> {
+  const url = `${getApiBaseUrl()}${BASE_PATH}/news/comments/${encodeURIComponent(commentId)}`;
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+}
+
+export function isNewsCommentAuthor(comment: NewsCommentListItemDto): boolean {
+  const userId = currentUserIdFromToken();
+  return !!userId && comment.userId === userId;
+}
+
+export function buildOptimisticNewsComment(
+  content: string,
+  author: { id: string; name: string; photoUrl?: string | null },
+): NewsCommentListItemDto {
+  return {
+    id: `pending-${Date.now()}`,
+    userId: author.id,
+    content: content.trim(),
+    likesCount: 0,
+    liked: false,
+    createdAt: new Date().toISOString(),
+    author: {
+      id: author.id,
+      name: author.name.trim() || 'Morador(a)',
+      photoUrl: author.photoUrl ?? null,
+    },
+  };
 }
 
 const AVATAR_PLACEHOLDER =
@@ -158,17 +505,20 @@ const TIPO_LABEL: Record<FeedNovidadeTipo, string> = {
 };
 
 export function newsItemToNovidade(item: NewsItem): FeedNovidade {
+  const post = newsItemToPost(item);
   const categoria = mapNewsItemFeedCategory(item);
   const dataPublicacao = item.publishedAt || item.createdAt;
   const { relativa, formatada } = formatNewsPublicationDate(dataPublicacao);
   const titulo = item.title?.trim() || 'Comunicado oficial';
   const conteudo = item.content?.trim() || '';
   const tipoNovidade = inferTipoNovidade(item, categoria);
+  const creatorName = item.creatorName?.trim();
 
   return {
     id: item.id,
+    hostId: item.hostId ?? null,
     titulo,
-    resumo: conteudo ? truncateText(conteudo, 180) : titulo,
+    resumo: conteudo ? truncateText(conteudo, 280) : titulo,
     conteudo: conteudo || titulo,
     imagem: newsItemImageUri(item),
     dataPublicacao,
@@ -178,6 +528,12 @@ export function newsItemToNovidade(item: NewsItem): FeedNovidade {
     categoriaLabel: CATEGORIA_LABEL[categoria],
     tipoNovidade,
     tipoLabel: TIPO_LABEL[tipoNovidade],
+    autorNome: creatorName || post.autor || 'Prefeitura',
+    autorAvatar: post.avatar,
+    autorHandle: post.username ?? '@prefeitura',
+    curtidas: item.likesCount ?? post.curtidas,
+    liked: item.liked ?? post.curtido,
+    comentarios: item.commentsCount ?? 0,
   };
 }
 
@@ -274,10 +630,10 @@ export function newsItemToPost(item: NewsItem): {
     data: formatTimeAgo(dateStr),
     conteudo,
     imagem: newsItemImageUri(item),
-    curtidas: 0,
-    comentarios: 0,
+    curtidas: item.likesCount ?? 0,
+    comentarios: item.commentsCount ?? 0,
     compartilhamentos: 0,
-    curtido: false,
+    curtido: item.liked ?? false,
     ...(username ? { username } : {}),
     ...(createdByUserId ? { createdByUserId } : {}),
     tipo: 'post',

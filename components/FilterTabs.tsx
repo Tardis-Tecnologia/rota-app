@@ -16,6 +16,8 @@ interface FilterTabsProps {
   compact?: boolean;
   /** Barra de filtros de ponta a ponta, sem margem lateral no container. */
   edgeToEdge?: boolean;
+  /** Estilo timeline (Início): fundo branco, chips estilo feed. */
+  variant?: 'default' | 'feedTimeline';
 }
 
 export default function FilterTabs({
@@ -25,14 +27,25 @@ export default function FilterTabs({
   containerStyle,
   compact,
   edgeToEdge,
+  variant = 'default',
 }: FilterTabsProps) {
+  const isTimeline = variant === 'feedTimeline';
+
   return (
-    <View style={[styles.filtersWrapper, compact && styles.filtersWrapperCompact, containerStyle]}>
+    <View
+      style={[
+        styles.filtersWrapper,
+        compact && styles.filtersWrapperCompact,
+        isTimeline && styles.filtersWrapperTimeline,
+        containerStyle,
+      ]}
+    >
       <View
         style={[
           styles.filtersContainerBg,
           compact && styles.filtersContainerBgCompact,
           edgeToEdge && styles.filtersContainerBgEdgeToEdge,
+          isTimeline && styles.filtersContainerBgTimeline,
         ]}
       >
         <ScrollView
@@ -48,11 +61,23 @@ export default function FilterTabs({
             return (
               <TouchableOpacity
                 key={key}
-                style={[styles.filterButton, isActive && styles.filterButtonActive]}
+                style={[
+                  styles.filterButton,
+                  isTimeline && styles.filterButtonTimeline,
+                  isActive && styles.filterButtonActive,
+                  isActive && isTimeline && styles.filterButtonActiveTimeline,
+                ]}
                 onPress={() => onSelect(key)}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.filterLabel, isActive && styles.filterLabelActive]}>
+                <Text
+                  style={[
+                    styles.filterLabel,
+                    isTimeline && styles.filterLabelTimeline,
+                    isActive && styles.filterLabelActive,
+                    isActive && isTimeline && styles.filterLabelActiveTimeline,
+                  ]}
+                >
                   {label}
                 </Text>
               </TouchableOpacity>
@@ -72,6 +97,9 @@ const styles = StyleSheet.create({
   },
   filtersWrapperCompact: {
     paddingBottom: 4,
+  },
+  filtersWrapperTimeline: {
+    paddingBottom: 0,
   },
   filtersContainerBg: {
     width: '100%',
@@ -97,6 +125,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     elevation: 0,
   },
+  filtersContainerBgTimeline: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
   filtersContent: {
     paddingHorizontal: 4,
     gap: 8,
@@ -113,17 +148,34 @@ const styles = StyleSheet.create({
     borderColor: AppColors.border.muted,
     backgroundColor: AppColors.feed.filterButton,
   },
+  filterButtonTimeline: {
+    backgroundColor: '#ffffff',
+    borderColor: '#cfd9de',
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+  },
   filterButtonActive: {
     backgroundColor: AppColors.feed.filterActive,
     borderColor: AppColors.feed.filterActive,
+  },
+  filterButtonActiveTimeline: {
+    backgroundColor: '#1d9bf0',
+    borderColor: '#1d9bf0',
   },
   filterLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: AppColors.feed.filterText,
   },
+  filterLabelTimeline: {
+    color: '#0f1419',
+    fontWeight: '700',
+  },
   filterLabelActive: {
     color: AppColors.text.white,
+  },
+  filterLabelActiveTimeline: {
+    color: '#ffffff',
   },
 });
 

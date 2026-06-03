@@ -282,33 +282,9 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="feed"
-        options={({ navigation }) => ({
-          headerShown: true,
-          headerTitleAlign: 'center',
-          headerTitleStyle: {
-            fontSize: 18,
-            fontWeight: '600',
-            color: AppColors.text.secondary,
-          },
-          headerLeft: () => (
-            <TouchableOpacity
-              style={styles.headerButton}
-              activeOpacity={0.7}
-              onPress={() => navigation.goBack()}
-            >
-              <Ionicons
-                name="arrow-back-outline"
-                size={24}
-                color={AppColors.text.secondary}
-              />
-            </TouchableOpacity>
-          ),
-          headerRight: () => <View style={styles.headerSpacer} />,
-          title: 'Novidades',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarItem label="Feed" icon="newspaper-outline" color={color} focused={focused} />
-          ),
-        })}
+        options={{
+          href: null,
+        }}
       />
     </Tabs>
   );

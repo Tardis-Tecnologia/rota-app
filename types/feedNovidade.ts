@@ -6,6 +6,8 @@ export type FeedNovidadeTipo = 'comunicado' | 'alerta' | 'atualizacao' | 'evento
 
 export interface FeedNovidade {
   id: string;
+  /** host do comunicado — necessário para listar comentários quando o JWT não traz hostId */
+  hostId?: string | null;
   titulo: string;
   resumo: string;
   conteudo: string;
@@ -18,4 +20,10 @@ export interface FeedNovidade {
   categoriaLabel: string;
   tipoNovidade: FeedNovidadeTipo;
   tipoLabel: string;
+  autorNome: string;
+  autorAvatar: string;
+  autorHandle: string;
+  curtidas: number;
+  liked: boolean;
+  comentarios: number;
 }

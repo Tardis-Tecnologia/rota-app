@@ -1,5 +1,3 @@
-import { AppColors } from '@/constants/theme';
-import { useAppTheme } from '@/contexts/AppThemeContext';
 import {
   type EmergencyAlertItem,
   getEmergencyAlerts,
@@ -13,23 +11,57 @@ import {
   View,
 } from 'react-native';
 
-/** Valores exatos de `level` no banco: critico | atencao | informativo */
-function iconForAlertLevel(level: string): React.ComponentProps<typeof Ionicons>['name'] {
+type AlertVisual = {
+  backgroundColor: string;
+  borderColor: string;
+  titleColor: string;
+  subtitleColor: string;
+  leftIcon: React.ComponentProps<typeof Ionicons>['name'];
+  leftIconColor: string;
+  rightIcon: React.ComponentProps<typeof Ionicons>['name'];
+  rightIconColor: string;
+};
+
+function visualForAlertLevel(level: string): AlertVisual {
   const key = level.trim().toLowerCase();
   switch (key) {
     case 'critico':
-      return 'warning-outline';
+      return {
+        backgroundColor: '#fef2f2',
+        borderColor: '#fecaca',
+        titleColor: '#b91c1c',
+        subtitleColor: '#dc2626',
+        leftIcon: 'warning',
+        leftIconColor: '#dc2626',
+        rightIcon: 'rainy',
+        rightIconColor: '#dc2626',
+      };
     case 'atencao':
-      return 'alert-circle-outline';
-    case 'informativo':
-      return 'information-circle-outline';
+      return {
+        backgroundColor: '#fffbeb',
+        borderColor: '#fde68a',
+        titleColor: '#b45309',
+        subtitleColor: '#d97706',
+        leftIcon: 'alert-circle',
+        leftIconColor: '#d97706',
+        rightIcon: 'alert-circle-outline',
+        rightIconColor: '#d97706',
+      };
     default:
-      return 'information-circle-outline';
+      return {
+        backgroundColor: '#eff6ff',
+        borderColor: '#bfdbfe',
+        titleColor: '#1d4ed8',
+        subtitleColor: '#2563eb',
+        leftIcon: 'information-circle',
+        leftIconColor: '#2563eb',
+        rightIcon: 'information-circle-outline',
+        rightIconColor: '#2563eb',
+      };
   }
 }
 
 export default function CityAlerts() {
-  const { backgroundColor: brandColor } = useAppTheme();
   const [alerta, setAlerta] = useState<EmergencyAlertItem | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -51,13 +83,8 @@ export default function CityAlerts() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Alertas da Cidade</Text>
-        </View>
-        <View style={styles.loadingRow}>
-          <ActivityIndicator size="small" color={AppColors.primary} />
-        </View>
+      <View style={styles.loadingWrap}>
+        <ActivityIndicator size="small" color="#dc2626" />
       </View>
     );
   }
@@ -66,90 +93,64 @@ export default function CityAlerts() {
     return null;
   }
 
+  const visual = visualForAlertLevel(alerta.level);
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Alertas da Cidade</Text>
-      </View>
-
-      <View style={[styles.alertCard, { backgroundColor: brandColor }]}>
-        <View style={styles.iconContainer}>
-          <Ionicons
-            name={iconForAlertLevel(alerta.level)}
-            size={32}
-            color={AppColors.text.white}
-          />
-        </View>
-
-        <View style={styles.content}>
-          <Text
-            style={[styles.alertTitulo, !alerta.description && styles.alertTituloOnly]}
-          >
-            {alerta.title}
+    <View
+      style={[
+        styles.banner,
+        {
+          backgroundColor: visual.backgroundColor,
+          borderColor: visual.borderColor,
+        },
+      ]}
+    >
+      <Ionicons name={visual.leftIcon} size={22} color={visual.leftIconColor} />
+      <View style={styles.textCol}>
+        <Text style={[styles.title, { color: visual.titleColor }]} numberOfLines={2}>
+          {alerta.title}
+        </Text>
+        {alerta.description ? (
+          <Text style={[styles.subtitle, { color: visual.subtitleColor }]} numberOfLines={2}>
+            {alerta.description}
           </Text>
-          {alerta.description ? (
-            <Text style={styles.alertDescricao}>{alerta.description}</Text>
-          ) : null}
-        </View>
+        ) : null}
       </View>
+      <Ionicons name={visual.rightIcon} size={22} color={visual.rightIconColor} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
+  loadingWrap: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'flex-start',
   },
-  header: {
-    paddingHorizontal: 24,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: AppColors.text.secondary,
-  },
-  loadingRow: {
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  alertCard: {
-    borderRadius: 16,
-    padding: 16,
+  banner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    marginHorizontal: 24,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    overflow: 'hidden',
-  },
-  content: {
-    flex: 1,
-  },
-  alertTitulo: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: AppColors.text.white,
+    gap: 12,
+    marginHorizontal: 16,
+    marginTop: 8,
     marginBottom: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  alertTituloOnly: {
-    marginBottom: 0,
+  textCol: {
+    flex: 1,
+    gap: 2,
   },
-  alertDescricao: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.88)',
+  title: {
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+  subtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 18,
   },
 });

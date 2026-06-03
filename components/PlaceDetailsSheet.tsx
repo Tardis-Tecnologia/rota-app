@@ -1,25 +1,25 @@
 import { AppColors } from '@/constants/theme';
 import { explorePontoCommunityId } from '@/services/forumCommunityApi';
-import {
-  explorePontoCommercialStoreId,
-  openCommercialStoreFromMapPonto,
-} from '@/utils/commercialStoreMap';
 import { distanceMeters } from '@/services/placesService';
 import { PontoInteresse } from '@/types';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import * as Linking from 'expo-linking';
+import {
+    explorePontoCommercialStoreId,
+    openCommercialStoreFromMapPonto,
+} from '@/utils/commercialStoreMap';
 import { navigateToDirections } from '@/utils/navigateDirections';
+import { Ionicons } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
+import { router } from 'expo-router';
 import React from 'react';
 import {
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Image,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 interface PlaceDetailsSheetProps {

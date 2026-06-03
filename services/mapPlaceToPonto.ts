@@ -24,13 +24,20 @@ const PLACE_TYPE_TO_TIPO: Record<string, PontoInteresse['tipo']> = {
 };
 
 export function placeToPonto(place: NearbyPlace, filterType: string): PontoInteresse {
+  const categoryLabel = place.category ? `Tipo: ${place.category}` : '';
   return {
     id: place.id,
     titulo: place.name,
-    descricao: place.category ? `Tipo: ${place.category}` : '',
+    descricao: place.formattedAddress?.trim() || categoryLabel,
     latitude: place.latitude,
     longitude: place.longitude,
     tipo: PLACE_TYPE_TO_TIPO[filterType] || 'turismo',
     placeType: filterType,
+    photoUrl: place.photoUrl?.trim() || undefined,
+    formattedAddress: place.formattedAddress?.trim() || undefined,
+    rating: place.rating,
+    userRatingsTotal: place.userRatingsTotal,
+    openNow: place.openNow,
+    telefone: place.telefone?.trim() || undefined,
   };
 }

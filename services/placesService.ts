@@ -30,7 +30,67 @@ export type NearbyPlace = {
   latitude: number;
   longitude: number;
   category: string;
+  photoUrl?: string;
+  formattedAddress?: string;
+  rating?: number;
+  userRatingsTotal?: number;
+  openNow?: boolean;
+  telefone?: string;
 };
+
+function pickString(raw: Record<string, unknown>, ...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const v = raw[key];
+    if (typeof v === 'string' && v.trim()) return v.trim();
+  }
+  return undefined;
+}
+
+function pickNumber(raw: Record<string, unknown>, ...keys: string[]): number | undefined {
+  for (const key of keys) {
+    const v = raw[key];
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+  }
+  return undefined;
+}
+
+function pickBoolean(raw: Record<string, unknown>, ...keys: string[]): boolean | undefined {
+  for (const key of keys) {
+    const v = raw[key];
+    if (typeof v === 'boolean') return v;
+  }
+  return undefined;
+}
+
+function normalizeNearbyPlace(raw: Record<string, unknown>): NearbyPlace | null {
+  const id = raw.id != null ? String(raw.id).trim() : '';
+  const name = typeof raw.name === 'string' ? raw.name.trim() : '';
+  const latitude = Number(raw.latitude);
+  const longitude = Number(raw.longitude);
+  const category = typeof raw.category === 'string' ? raw.category : '';
+
+  if (!id || !name || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
+  }
+
+  const photoUrl =
+    pickString(raw, 'photoUrl', 'photo_url', 'image', 'imageUrl', 'image_url', 'thumbnail', 'picture') ??
+    undefined;
+
+  return {
+    id,
+    name,
+    latitude,
+    longitude,
+    category,
+    photoUrl,
+    formattedAddress: pickString(raw, 'formattedAddress', 'formatted_address', 'address'),
+    rating: pickNumber(raw, 'rating'),
+    userRatingsTotal: pickNumber(raw, 'userRatingsTotal', 'user_ratings_total'),
+    openNow: pickBoolean(raw, 'openNow', 'open_now'),
+    telefone: pickString(raw, 'telefone', 'phone', 'phoneNumber', 'phone_number'),
+  };
+}
 
 export const NEARBY_PLACES_RADIUS_METERS = 7000;
 
@@ -82,7 +142,12 @@ async function requestNearbyPlaces(
     throw new Error(text || `places/nearby failed (${res.status})`);
   }
   const raw = await res.json();
-  return Array.isArray(raw) ? (raw as NearbyPlace[]) : [];
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) =>
+      item && typeof item === 'object' ? normalizeNearbyPlace(item as Record<string, unknown>) : null,
+    )
+    .filter((p): p is NearbyPlace => p != null);
 }
 
 export async function getNearbyPlaces(params: NearbyPlacesParams): Promise<NearbyPlace[]> {

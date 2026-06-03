@@ -1,5 +1,5 @@
+import MapPointMarkerCard from '@/components/MapPointMarkerCard';
 import { getMapLibreStyleUrl } from '@/constants/mapLibreStyle';
-import { AppColors } from '@/constants/theme';
 import type { Localizacao, PontoInteresse, Region } from '@/types';
 import MapLibreGL, {
   Camera,
@@ -19,6 +19,8 @@ import React, {
   useState,
 } from 'react';
 import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
+
+const markerChildCollapsable = Platform.OS === 'android' ? false : undefined;
 
 function zoomFromLatitudeDelta(latitudeDelta: number): number {
   const span = Math.max(latitudeDelta, 1e-6);
@@ -44,7 +46,8 @@ export interface MapLibreMapaViewRef {
 interface MapLibreMapaViewProps {
   localizacao: Localizacao;
   pontos: PontoInteresse[];
-  getMarkerColor: (tipo: PontoInteresse['tipo']) => string;
+  /** Mantido por compatibilidade com telas legadas; marcadores usam MapPointMarkerCard. */
+  getMarkerColor?: (tipo: PontoInteresse['tipo']) => string;
   onRegionChangeComplete?: (region: Region) => void;
   onUserDragMap?: () => void;
   onMarkerPress?: (ponto: PontoInteresse) => void;
@@ -52,7 +55,7 @@ interface MapLibreMapaViewProps {
 
 const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
   function MapLibreMapaView(
-    { localizacao, pontos, getMarkerColor, onRegionChangeComplete, onUserDragMap, onMarkerPress },
+    { localizacao, pontos, onRegionChangeComplete, onUserDragMap, onMarkerPress },
     ref,
   ) {
     const mapRef = useRef<MapViewRef>(null);
@@ -252,9 +255,12 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
             id={ponto.id}
             coordinate={[ponto.longitude, ponto.latitude]}
             title={ponto.titulo}
+            anchor={{ x: 0.5, y: 1 }}
             onSelected={() => onMarkerPress?.(ponto)}
           >
-            <View style={[styles.markerDot, { backgroundColor: getMarkerColor(ponto.tipo) }]} />
+            <View collapsable={markerChildCollapsable}>
+              <MapPointMarkerCard ponto={ponto} />
+            </View>
           </MapLibreGL.PointAnnotation>
         ))}
       </MapView>
@@ -265,18 +271,6 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
 const styles = StyleSheet.create({
   map: {
     flex: 1,
-  },
-  markerDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2.5,
-    borderColor: AppColors.text.white,
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 3,
-    elevation: 4,
   },
 });
 

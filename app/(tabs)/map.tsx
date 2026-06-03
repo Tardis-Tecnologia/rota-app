@@ -17,6 +17,7 @@ import {
   EXPLORE_PARTNER_STORES_CHIP_ID,
   loadPartnerStoresForMap,
 } from '@/utils/commercialStoreMap';
+import { enrichPontosWithPhotos, mergePontoPhotoUpdate } from '@/services/placePhotoService';
 import { placeToPonto } from '@/services/mapPlaceToPonto';
 import { searchNearbyPlaces } from '@/services/placesService';
 import { Localizacao, PontoInteresse } from '@/types';
@@ -239,7 +240,12 @@ export default function MapScreen() {
       try {
         const pos: [number, number] = [localizacao.longitude, localizacao.latitude];
         const places = await searchNearbyPlaces(placeType, pos, undefined, 20);
-        setPontos(places.map((p) => placeToPonto(p, placeType)));
+        const basePontos = places.map((p) => placeToPonto(p, placeType));
+        setPontos(basePontos);
+        void enrichPontosWithPhotos(basePontos).then((enriched) => {
+          setPontos(enriched);
+          setSelectedPontoDetail((current) => mergePontoPhotoUpdate(current, enriched));
+        });
         setCategoriaSelecionada(chipId);
         setSelectedPontoDetail(null);
         const label = CHIP_LABELS[chipId] ?? chipId;
@@ -436,6 +442,7 @@ export default function MapScreen() {
   }
 
   const mapControlsBottom = tabBarHeight + 12;
+  const reportButtonBottom = 20;
 
   return (
     <View style={[styles.container, { backgroundColor: AppColors.background.default }]}>
@@ -478,7 +485,7 @@ export default function MapScreen() {
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
       />
-      <ReportButton onReport={handleReport} bottomOffset={mapControlsBottom} />
+      <ReportButton onReport={handleReport} bottomOffset={reportButtonBottom} />
       <ModalReportPrefeitura
         visible={prefeituraModalVisible}
         initialAssunto={prefeituraAssuntoInicial}

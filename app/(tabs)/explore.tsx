@@ -7,6 +7,7 @@ import ReportButton, { REPORT_SUBJECT_BY_TYPE, type ReportType } from '@/compone
 import Toast from '@/components/Toast';
 import { AppColors } from '@/constants/theme';
 import { useNotificationUnreadCount } from '@/hooks/useNotificationUnreadCount';
+import { enrichPontosWithPhotos, mergePontoPhotoUpdate } from '@/services/placePhotoService';
 import { placeToPonto } from '@/services/mapPlaceToPonto';
 import { searchNearbyPlaces } from '@/services/placesService';
 import type { Localizacao, PontoInteresse, Region } from '@/types';
@@ -208,7 +209,12 @@ export default function ExplorarScreen() {
       try {
         const pos: [number, number] = [localizacao.longitude, localizacao.latitude];
         const places = await searchNearbyPlaces(placeType, pos);
-        setPontos(places.map((p) => placeToPonto(p, placeType)));
+        const basePontos = places.map((p) => placeToPonto(p, placeType));
+        setPontos(basePontos);
+        void enrichPontosWithPhotos(basePontos).then((enriched) => {
+          setPontos(enriched);
+          setSelectedPontoDetail((current) => mergePontoPhotoUpdate(current, enriched));
+        });
         setCategoriaSelecionada(chipId);
         setSelectedPontoDetail(null);
         const label = CHIP_LABELS[chipId] ?? chipId;
@@ -348,6 +354,7 @@ export default function ExplorarScreen() {
   }
 
   const mapControlsBottom = tabBarHeight + 12;
+  const reportButtonBottom = 20;
 
   return (
     <View style={[styles.container, { backgroundColor: AppColors.background.default }]}>
@@ -378,7 +385,7 @@ export default function ExplorarScreen() {
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
       />
-      <ReportButton onReport={handleReport} bottomOffset={mapControlsBottom} />
+      <ReportButton onReport={handleReport} bottomOffset={reportButtonBottom} />
       <ModalReportPrefeitura
         visible={prefeituraModalVisible}
         initialAssunto={prefeituraAssuntoInicial}

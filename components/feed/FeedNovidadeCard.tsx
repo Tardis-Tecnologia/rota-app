@@ -210,8 +210,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   rowDivider: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#eff3f4',
+    borderBottomWidth: 8,
+    borderBottomColor: '#eef2f6',
   },
   avatar: {
     width: 40,

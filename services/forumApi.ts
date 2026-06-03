@@ -4,6 +4,7 @@ import type {
 } from '@/types/forumCommercial';
 import { mapForumAuthorCommercial } from '@/utils/commercialStoreProfile';
 import { getApiBaseUrl, getAuthToken } from './authApi';
+import { assertForumResponseOk } from './forumApiError';
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
 
 const BASE_PATH = '/api/v1';
@@ -64,7 +65,7 @@ export interface CreateForumPostBody {
   locationDescription?: string;
 }
 
-function resolveHostId(explicit?: string): string {
+export function resolveForumHostId(explicit?: string): string {
   const fromArg = explicit?.trim();
   if (fromArg) return fromArg;
 
@@ -125,7 +126,7 @@ export async function listForumPosts(
   },
 ): Promise<ForumPostListItemDto[]> {
   const base = getApiBaseUrl();
-  const hid = resolveHostId(hostId);
+  const hid = resolveForumHostId(hostId);
   const params = new URLSearchParams();
   if (options?.postType?.trim()) params.set('postType', options.postType.trim());
   if (options?.communityId?.trim()) params.set('communityId', options.communityId.trim());
@@ -187,7 +188,7 @@ export async function createForumComment(postId: string, content: string): Promi
     headers: authHeaders(),
     body: JSON.stringify({ content: content.trim() }),
   });
-  if (!res.ok) throw new Error(await readErrorMessage(res));
+  await assertForumResponseOk(res);
 }
 
 export async function createForumPost(
@@ -195,14 +196,14 @@ export async function createForumPost(
   body: CreateForumPostBody,
 ): Promise<void> {
   const base = getApiBaseUrl();
-  const hid = resolveHostId(hostId);
+  const hid = resolveForumHostId(hostId);
   const url = `${base}${BASE_PATH}/forum/hosts/${encodeURIComponent(hid)}/posts`;
   const res = await fetch(url, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(await readErrorMessage(res));
+  await assertForumResponseOk(res);
 }
 
 export async function updateForumPost(

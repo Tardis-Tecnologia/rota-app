@@ -8,9 +8,11 @@ interface ForumChannelActionMenuProps {
   channel: ForumCommunityListItem | null;
   isSelected: boolean;
   canFollow: boolean;
+  canReport?: boolean;
   onClose: () => void;
   onViewDetails: () => void;
   onFollow?: () => void;
+  onReport?: () => void;
   onSelect: () => void;
   onDeselect: () => void;
 }
@@ -45,9 +47,11 @@ export default function ForumChannelActionMenu({
   channel,
   isSelected,
   canFollow,
+  canReport = false,
   onClose,
   onViewDetails,
   onFollow,
+  onReport,
   onSelect,
   onDeselect,
 }: ForumChannelActionMenuProps) {
@@ -70,6 +74,14 @@ export default function ForumChannelActionMenu({
               label="Seguir canal"
               onPress={onFollow}
               accent
+            />
+          ) : null}
+
+          {canReport && onReport ? (
+            <MenuRow
+              icon="flag-outline"
+              label="Denunciar canal"
+              onPress={onReport}
             />
           ) : null}
 

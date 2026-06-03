@@ -4,6 +4,7 @@ import {
   CommunityFeedSectionHeader,
 } from '@/components/forum/CommunityChannelDetailSections';
 import ForumPostCard from '@/components/forum/ForumPostCard';
+import ForumPublishFab from '@/components/forum/ForumPublishFab';
 import { parseCommunityCoords } from '@/services/forumCommunityApi';
 import {
   createForumComment,
@@ -29,13 +30,14 @@ import {
 import { AppColors } from '@/constants/theme';
 import { VisitanteRestrictedZone } from '@/components/VisitanteRestrictedZone';
 import { useAuth } from '@/contexts/AuthContext';
+import { useForumModeration } from '@/contexts/ForumModerationContext';
 import { useCanInteractAsCitizen, useIsVisitante } from '@/hooks/useIsVisitante';
+import { confirmAndSubmitForumReport } from '@/utils/forumReportFlow';
 import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -50,8 +52,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function CommunityChannelScreen() {
+  const insets = useSafeAreaInsets();
+  const { handleForumApiError } = useForumModeration();
   const { user } = useAuth();
   const isVisitante = useIsVisitante();
   const canInteract = useCanInteractAsCitizen();
@@ -81,6 +86,7 @@ export default function CommunityChannelScreen() {
   const [postImageUri, setPostImageUri] = useState<string | null>(null);
 
   const canPost = !!(user && community?.canPost && !isVisitante);
+  const canReportCommunity = !!(community && community.myRole !== 'OWNER' && !isVisitante);
   const coords = community ? parseCommunityCoords(community) : null;
 
   const load = useCallback(
@@ -215,11 +221,12 @@ export default function CommunityChannelScreen() {
       setPostImageUri(null);
       await load(true);
     } catch (e) {
+      if (await handleForumApiError(e)) return;
       setError(e instanceof Error ? e.message : 'Não foi possível publicar.');
     } finally {
       setPublishing(false);
     }
-  }, [canPost, communityId, load, postContent, postImageUri, postTitle]);
+  }, [canPost, communityId, handleForumApiError, load, postContent, postImageUri, postTitle]);
 
   const pickImage = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -250,12 +257,13 @@ export default function CommunityChannelScreen() {
         const comments = await listForumComments(postId, { init: 0, end: 50 });
         setCommentsByPost((prev) => ({ ...prev, [postId]: comments }));
       } catch (e) {
+        if (await handleForumApiError(e)) return;
         setError(e instanceof Error ? e.message : 'Não foi possível comentar.');
       } finally {
         setCommentSendingPostId(null);
       }
     },
-    [commentDraftByPost, user],
+    [commentDraftByPost, handleForumApiError, user],
   );
 
   const onLike = useCallback(async (postId: string) => {
@@ -394,6 +402,23 @@ export default function CommunityChannelScreen() {
           onOpenMap={coords ? openMap : undefined}
         />
 
+        {canReportCommunity ? (
+          <Pressable
+            style={({ pressed }) => [
+              styles.reportChannelBtn,
+              pressed && styles.reportChannelBtnPressed,
+            ]}
+            onPress={() =>
+              confirmAndSubmitForumReport('FORUM_COMMUNITY', community.id, { canInteract })
+            }
+            accessibilityRole="button"
+            accessibilityLabel="Denunciar canal"
+          >
+            <Ionicons name="flag-outline" size={18} color={AppColors.status.error} />
+            <Text style={styles.reportChannelText}>Denunciar canal</Text>
+          </Pressable>
+        ) : null}
+
         {error ? (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{error}</Text>
@@ -411,9 +436,9 @@ export default function CommunityChannelScreen() {
         ) : (
           <View style={styles.postsList}>
             {posts.map((post, index) => (
-              <View key={post.id}>
-                {index > 0 ? <View style={styles.postSeparator} /> : null}
                 <ForumPostCard
+                  key={post.id}
+                  showDivider={index < posts.length - 1}
                   post={post}
                   comments={commentsByPost[post.id] ?? []}
                   imageCacheEpoch={imageEpoch}
@@ -433,22 +458,16 @@ export default function CommunityChannelScreen() {
                   }
                   onSendComment={() => void onSendComment(post.id)}
                 />
-              </View>
             ))}
           </View>
         )}
       </ScrollView>
 
       {canPost ? (
-        <Pressable style={styles.publishFab} onPress={() => setPublishOpen(true)}>
-          <LinearGradient
-            colors={['#0891b2', '#14b8a6']}
-            style={styles.publishFabGradient}
-          >
-            <Ionicons name="create-outline" size={22} color="#fff" />
-            <Text style={styles.publishFabText}>Publicar</Text>
-          </LinearGradient>
-        </Pressable>
+        <ForumPublishFab
+          onOpenPublish={() => setPublishOpen(true)}
+          bottomOffset={Math.max(insets.bottom, 12)}
+        />
       ) : null}
 
       <Modal visible={publishOpen} transparent animationType="fade">
@@ -510,15 +529,15 @@ export default function CommunityChannelScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: '#ECEFF3' },
-  scroll: { paddingTop: 8, paddingBottom: 100, gap: 4 },
+  flex: { flex: 1, backgroundColor: '#ffffff' },
+  scroll: { paddingTop: 8, paddingBottom: 100 },
   centerFull: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
     gap: 12,
-    backgroundColor: '#ECEFF3',
+    backgroundColor: '#ffffff',
   },
   centerText: { color: AppColors.text.tertiary, fontWeight: '600', textAlign: 'center' },
   errorTitle: { fontSize: 18, fontWeight: '800', color: AppColors.text.secondary },
@@ -531,11 +550,27 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239,68,68,0.1)',
   },
   errorText: { color: AppColors.status.error, fontWeight: '700' },
-  postsList: { gap: 0 },
-  postSeparator: {
-    height: 8,
-    backgroundColor: 'transparent',
+  reportChannelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.25)',
+    backgroundColor: 'rgba(239,68,68,0.06)',
   },
+  reportChannelBtnPressed: { opacity: 0.85 },
+  reportChannelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: AppColors.status.error,
+  },
+  postsList: {},
   actionBtnPrimary: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -571,26 +606,6 @@ const styles = StyleSheet.create({
   },
   actionBtnDangerText: { fontWeight: '800', fontSize: 15, color: AppColors.status.error },
   actionDisabled: { opacity: 0.5 },
-  publishFab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 20,
-    borderRadius: 16,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  publishFabGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 16,
-  },
-  publishFabText: { color: '#fff', fontWeight: '900', fontSize: 15 },
   modalOverlay: {
     flex: 1,
     backgroundColor: AppColors.background.overlayStrong,

@@ -18,12 +18,20 @@ export interface WorkResponseDto {
   inspection: string | null;
   trafficImpact: string | null;
   createdAt: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface WorksStatsResponseDto {
   total: number;
   faseFinal: number;
   last7Days: number;
+}
+
+function parseCoord(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 function toNumber(value: unknown): number {
@@ -51,6 +59,8 @@ function normalizeWork(raw: unknown): WorkResponseDto {
     inspection: r.inspection == null ? null : String(r.inspection),
     trafficImpact: r.trafficImpact == null ? null : String(r.trafficImpact),
     createdAt: String(r.createdAt ?? ''),
+    latitude: parseCoord(r.latitude ?? r.lat),
+    longitude: parseCoord(r.longitude ?? r.lng ?? r.lon),
   };
 }
 

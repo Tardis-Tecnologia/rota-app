@@ -34,6 +34,7 @@ export default function WorksLayout() {
     >
       <Stack.Screen name="index" options={{ title: 'Obras' }} />
       <Stack.Screen name="[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="location" options={{ headerShown: false }} />
     </Stack>
   );
 }

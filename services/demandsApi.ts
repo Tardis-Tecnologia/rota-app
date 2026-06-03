@@ -14,12 +14,21 @@ export interface DemandResponseDto {
   impact: string | null;
   highlight: boolean;
   createdAt?: string;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface DemandsStatsResponseDto {
   highlights: number;
   lastMonth: number;
   publishedPercent: number;
+}
+
+function parseCoord(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 function requireToken(): string {
@@ -44,6 +53,9 @@ function normalizeDemand(raw: unknown): DemandResponseDto {
     impact: r.impact == null ? null : String(r.impact),
     highlight: Boolean(highlightRaw),
     createdAt: r.createdAt == null ? undefined : String(r.createdAt),
+    address: r.address == null ? null : String(r.address).trim() || null,
+    latitude: parseCoord(r.latitude ?? r.lat),
+    longitude: parseCoord(r.longitude ?? r.lng ?? r.lon),
   };
 }
 

@@ -60,14 +60,14 @@ const servicesCards: ServiceCard[] = [
   },
   {
     id: 'workInProgess',
-    title: 'Obras',
+    title: 'Obras em Andamento',
     icon: 'business-outline',
     iconColor: '#1D4ED8',
     iconBg: '#DBEAFE',
   },
   {
     id: 'demands',
-    title: 'Demandas',
+    title: 'Demandas Finalizadas',
     icon: 'clipboard-outline',
     iconColor: '#CA8A04',
     iconBg: '#FEF9C3',

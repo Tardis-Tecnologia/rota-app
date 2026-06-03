@@ -2,6 +2,7 @@ import { AppColors } from '@/constants/theme';
 import { parseJwtAccessTokenPayload } from '@/services/jwtAccessTokenClaims';
 import { getAuthToken, getWhitelabelHostId } from '@/services/authApi';
 import { getWorks, getWorksStats, type WorkResponseDto, type WorksStatsResponseDto } from '@/services/worksApi';
+import { openWorkOnMap } from '@/utils/workMap';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -86,8 +87,18 @@ export function WorksInProgressView(props: { showBack?: boolean; title?: string 
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mapLoadingId, setMapLoadingId] = useState<string | null>(null);
 
   const neighborhoodParam = selectedNeighborhood.trim() ? selectedNeighborhood.trim() : undefined;
+
+  const handleOpenWorkMap = useCallback(async (work: WorkResponseDto) => {
+    setMapLoadingId(work.id);
+    try {
+      await openWorkOnMap(work);
+    } finally {
+      setMapLoadingId(null);
+    }
+  }, []);
 
   const loadNeighborhoodOptions = useCallback(async () => {
     const worksForOptions = await getWorks({ hostId, init: 0, end: NEIGHBORHOODS_FETCH_SIZE });
@@ -274,11 +285,7 @@ export function WorksInProgressView(props: { showBack?: boolean; title?: string 
           )
         }
         renderItem={({ item }) => (
-          <TouchableOpacity
-            activeOpacity={0.9}
-            style={styles.card}
-            onPress={() => router.push({ pathname: '/works/[id]', params: { id: item.id } })}
-          >
+          <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>{item.title}</Text>
               <WorkStatusPill status={item.status} />
@@ -320,10 +327,28 @@ export function WorksInProgressView(props: { showBack?: boolean; title?: string 
               <Text style={styles.detailVal}>{item.trafficImpact || '-'}</Text>
             </Text>
 
-            <View style={styles.primaryBtn}>
-              <Text style={styles.primaryBtnText}>Ver localização exata</Text>
+            <View style={styles.cardActions}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={styles.secondaryBtn}
+                onPress={() => router.push({ pathname: '/works/[id]', params: { id: item.id } })}
+              >
+                <Text style={styles.secondaryBtnText}>Ver detalhes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[styles.primaryBtn, mapLoadingId === item.id && styles.primaryBtnDisabled]}
+                onPress={() => void handleOpenWorkMap(item)}
+                disabled={mapLoadingId === item.id}
+              >
+                {mapLoadingId === item.id ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.primaryBtnText}>Ver localização exata</Text>
+                )}
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
+          </View>
         )}
       />
     </View>
@@ -520,17 +545,42 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#334155',
   },
-  primaryBtn: {
+  cardActions: {
+    flexDirection: 'row',
+    gap: 8,
     marginTop: 10,
+  },
+  secondaryBtn: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  secondaryBtnText: {
+    color: '#0F172A',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  primaryBtn: {
+    flex: 1,
     backgroundColor: '#0F172A',
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  primaryBtnDisabled: {
+    opacity: 0.7,
   },
   primaryBtnText: {
     color: '#fff',
     fontWeight: '800',
-    fontSize: 14,
+    fontSize: 13,
+    textAlign: 'center',
   },
   empty: {
     paddingVertical: 22,

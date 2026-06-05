@@ -16,7 +16,8 @@ import { streamAndUiDisplayName } from '@/utils/userDisplayName';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import { shouldAppRefetch } from '@/utils/appRefreshPolicy';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -98,6 +99,9 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
   const [conversations, setConversations] = useState<StreamConversation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const lastLoadedAtRef = useRef(0);
+  const conversationsRef = useRef<StreamConversation[]>([]);
+  conversationsRef.current = conversations;
 
   const formatMessageDate = (dateInput?: string | Date | null) => {
     if (!dateInput) return '';
@@ -153,7 +157,7 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
     [user?.id],
   );
 
-  const loadStreamConversations = useCallback(async () => {
+  const loadStreamConversations = useCallback(async (force = false) => {
     if (!user?.id) {
       setConversations([]);
       return;
@@ -172,7 +176,16 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
       return;
     }
 
-    setIsLoading(true);
+    if (
+      !force &&
+      conversationsRef.current.length > 0 &&
+      !shouldAppRefetch(lastLoadedAtRef.current, { hasData: true })
+    ) {
+      return;
+    }
+
+    const showLoader = conversationsRef.current.length === 0;
+    if (showLoader) setIsLoading(true);
     setLoadError(null);
     try {
       const displayName = streamAndUiDisplayName(user);
@@ -221,6 +234,7 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
         };
       });
       setConversations(sortStreamConversationsByRecent(withPhotos));
+      lastLoadedAtRef.current = Date.now();
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Não foi possível carregar as conversas.');
       setConversations([]);
@@ -240,7 +254,7 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
 
   useFocusEffect(
     useCallback(() => {
-      void loadStreamConversations();
+      void loadStreamConversations(false);
     }, [loadStreamConversations]),
   );
 

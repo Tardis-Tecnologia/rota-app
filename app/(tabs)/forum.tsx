@@ -13,6 +13,7 @@ import {
   uploadForumImageFromUri,
 } from '@/services/forumApi';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -34,7 +35,13 @@ const FILTERS: FilterOption[] = [
 
 export default function ForumScreen() {
   const canInteract = useCanInteractAsCitizen();
-  const { handleForumApiError } = useForumModeration();
+  const { handleForumApiError, refreshRestrictionsIfStale } = useForumModeration();
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshRestrictionsIfStale();
+    }, [refreshRestrictionsIfStale]),
+  );
   const [activeFilter, setActiveFilter] = useState<string>('todos');
   const isCommunityHub = activeFilter === 'community';
   const isAllPosts = activeFilter === 'todos';
@@ -119,20 +126,23 @@ export default function ForumScreen() {
         />
       </View>
 
-      {isCommunityHub ? (
-        <ForumCommunitySection
-          refreshing={refreshing}
-          onRefresh={startRefresh}
-          onRefreshComplete={endRefresh}
-        />
-      ) : isAllPosts ? (
-        <ForumAllPostsSection
-          refreshing={refreshing}
-          onRefresh={startRefresh}
-          onRefreshComplete={endRefresh}
-          reloadToken={allFeedReloadToken}
-        />
-      ) : null}
+      <View style={styles.content}>
+        <View style={[styles.filterPanel, !isAllPosts && styles.filterPanelHidden]}>
+          <ForumAllPostsSection
+            refreshing={refreshing}
+            onRefresh={startRefresh}
+            onRefreshComplete={endRefresh}
+            reloadToken={allFeedReloadToken}
+          />
+        </View>
+        <View style={[styles.filterPanel, !isCommunityHub && styles.filterPanelHidden]}>
+          <ForumCommunitySection
+            refreshing={refreshing}
+            onRefresh={startRefresh}
+            onRefreshComplete={endRefresh}
+          />
+        </View>
+      </View>
 
       {isAllPosts && canInteract ? (
         <ForumPublishFab onOpenPublish={() => setPublishOpen(true)} />
@@ -202,6 +212,9 @@ export default function ForumScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#ffffff' },
   topSection: { paddingTop: 6, paddingBottom: 0 },
+  content: { flex: 1, minHeight: 0 },
+  filterPanel: { flex: 1, minHeight: 0 },
+  filterPanelHidden: { display: 'none' },
   errorToast: {
     position: 'absolute',
     left: 16,

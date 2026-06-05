@@ -15,9 +15,18 @@ import {
   listMyRelatedForumCommunities,
   type ForumCommunityListItem,
 } from '@/services/forumCommunityApi';
+import {
+  getCachedCarouselChannels,
+  getCachedMineList,
+  getExploreFeedCacheKey,
+  invalidateExploreFeedCache,
+  setCachedCarouselChannels,
+  setCachedMineList,
+} from '@/services/forumCommunityCache';
+import { shouldAppRefetch } from '@/utils/appRefreshPolicy';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -82,79 +91,111 @@ export default function ForumCommunitySection({
   const isVisitante = useIsVisitante();
   const canInteract = useCanInteractAsCitizen();
   const [activeTab, setActiveTab] = useState('explore');
-  const [loading, setLoading] = useState(true);
-  const [carouselLoading, setCarouselLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !getCachedMineList()?.items.length);
+  const [carouselLoading, setCarouselLoading] = useState(
+    () => !getCachedCarouselChannels()?.channels.length,
+  );
   const [error, setError] = useState<string | null>(null);
-  const [items, setItems] = useState<ForumCommunityListItem[]>([]);
-  const [carouselChannels, setCarouselChannels] = useState<ForumCommunityListItem[]>([]);
+  const [items, setItems] = useState<ForumCommunityListItem[]>(
+    () => getCachedMineList()?.items ?? [],
+  );
+  const [carouselChannels, setCarouselChannels] = useState<ForumCommunityListItem[]>(
+    () => getCachedCarouselChannels()?.channels ?? [],
+  );
   const [imageEpoch, setImageEpoch] = useState(() => Date.now());
   const [selectedChannel, setSelectedChannel] = useState<ForumCommunityListItem | null>(null);
   const [menuChannel, setMenuChannel] = useState<ForumCommunityListItem | null>(null);
   const [feedReloadToken, setFeedReloadToken] = useState(0);
+  const [staleRefreshKey, setStaleRefreshKey] = useState(0);
+  const carouselLoadedAtRef = useRef(getCachedCarouselChannels()?.loadedAt ?? 0);
+  const mineLoadedAtRef = useRef(getCachedMineList()?.loadedAt ?? 0);
 
   const isExploreTab = activeTab === 'explore';
 
-  const loadCarousel = useCallback(async () => {
-    setCarouselLoading(true);
+  const loadCarousel = useCallback(async (options?: { force?: boolean }) => {
+    const force = options?.force ?? false;
+    const cached = getCachedCarouselChannels();
+
+    if (!force && cached && carouselChannels.length > 0) {
+      if (!shouldAppRefetch(carouselLoadedAtRef.current, { hasData: true })) return;
+    } else if (!force && cached && carouselChannels.length === 0) {
+      setCarouselChannels(cached.channels);
+      carouselLoadedAtRef.current = cached.loadedAt;
+      setCarouselLoading(false);
+      if (!shouldAppRefetch(cached.loadedAt, { hasData: true })) return;
+    }
+
+    setCarouselLoading(carouselChannels.length === 0);
     try {
       const [mine, following, explore] = await Promise.all([
         listMyForumCommunities({ init: 0, end: 40 }),
         listFollowingForumCommunities({ init: 0, end: 40 }),
         listForumCommunities(undefined, { init: 0, end: 40 }),
       ]);
-      setCarouselChannels(buildCarouselChannels(mine, following, explore));
+      const channels = buildCarouselChannels(mine, following, explore);
+      setCarouselChannels(channels);
+      carouselLoadedAtRef.current = Date.now();
+      setCachedCarouselChannels(channels);
       setSelectedChannel((prev) => {
         if (!prev) return null;
         return findChannelInLists(prev.id, mine, following, explore) ?? prev;
       });
     } catch {
-      setCarouselChannels([]);
+      if (carouselChannels.length === 0) setCarouselChannels([]);
     } finally {
       setCarouselLoading(false);
     }
-  }, []);
+  }, [carouselChannels.length]);
 
-  const load = useCallback(
-    async (isRefresh = false) => {
-      if (isExploreTab) {
-        if (isRefresh) setFeedReloadToken((t) => t + 1);
-        setLoading(false);
-        setError(null);
-        return;
-      }
-      if (!isRefresh) setLoading(true);
-      setError(null);
-      try {
-        const rows = await listMyRelatedForumCommunities({ init: 0, end: 50 });
-        setItems(rows);
-        setImageEpoch(Date.now());
-        await loadCarousel();
-      } catch (e) {
+  const loadMine = useCallback(async (options?: { force?: boolean }) => {
+    const force = options?.force ?? false;
+    const cached = getCachedMineList();
+
+    if (!force && cached && items.length > 0) {
+      if (!shouldAppRefetch(mineLoadedAtRef.current, { hasData: true })) return;
+    } else if (!force && cached && items.length === 0) {
+      setItems(cached.items);
+      mineLoadedAtRef.current = cached.loadedAt;
+      setLoading(false);
+      if (!shouldAppRefetch(cached.loadedAt, { hasData: true })) return;
+    }
+
+    if (!force && items.length === 0) setLoading(true);
+    setError(null);
+    try {
+      const rows = await listMyRelatedForumCommunities({ init: 0, end: 50 });
+      setItems(rows);
+      setImageEpoch(Date.now());
+      mineLoadedAtRef.current = Date.now();
+      setCachedMineList(rows);
+    } catch (e) {
+      if (items.length === 0) {
         setItems([]);
         setError(e instanceof Error ? e.message : 'Não foi possível carregar comunidades.');
-      } finally {
-        setLoading(false);
       }
-    },
-    [isExploreTab, loadCarousel],
-  );
+    } finally {
+      setLoading(false);
+    }
+  }, [items.length]);
 
   useFocusEffect(
     useCallback(() => {
-      void loadCarousel();
-      void load(false);
-    }, [load, loadCarousel]),
+      void loadCarousel({ force: false });
+      void loadMine({ force: false });
+      setStaleRefreshKey((k) => k + 1);
+    }, [loadCarousel, loadMine]),
   );
 
   const handleRefresh = useCallback(async () => {
     onRefresh();
     try {
-      await loadCarousel();
-      await load(true);
+      await loadCarousel({ force: true });
+      await loadMine({ force: true });
+      setFeedReloadToken((t) => t + 1);
     } finally {
       onRefreshComplete?.();
     }
-  }, [load, loadCarousel, onRefresh, onRefreshComplete]);
+  }, [loadCarousel, loadMine, onRefresh, onRefreshComplete]);
 
   const openChannelDetails = useCallback((id: string) => {
     router.push({ pathname: '/forum/communities/[id]', params: { id } });
@@ -167,8 +208,11 @@ export default function ForumCommunitySection({
         return;
       }
       await followForumCommunity(id);
-      await loadCarousel();
-      setFeedReloadToken((t) => t + 1);
+      invalidateExploreFeedCache(getExploreFeedCacheKey());
+      await loadCarousel({ force: true });
+      if (!selectedChannel?.id) {
+        setFeedReloadToken((t) => t + 1);
+      }
       if (menuChannel?.id === id) {
         setMenuChannel((prev) =>
           prev ? { ...prev, isFollowing: true, followersCount: prev.followersCount + 1 } : null,
@@ -186,27 +230,22 @@ export default function ForumCommunitySection({
   const selectChannel = useCallback((channel: ForumCommunityListItem) => {
     setSelectedChannel(channel);
     setActiveTab('explore');
-    setFeedReloadToken((t) => t + 1);
     setMenuChannel(null);
   }, []);
 
   const clearSelection = useCallback(() => {
     setSelectedChannel(null);
-    setFeedReloadToken((t) => t + 1);
   }, []);
 
   const onTabSelect = useCallback(
     (tab: string) => {
       setActiveTab(tab);
-      if (tab === 'explore') {
-        setFeedReloadToken((t) => t + 1);
-        setError(null);
-      } else {
-        setError(null);
-        void load(false);
+      setError(null);
+      if (tab === 'mine') {
+        void loadMine({ force: false });
       }
     },
-    [load],
+    [loadMine],
   );
 
   return (
@@ -282,60 +321,63 @@ export default function ForumCommunitySection({
         }
         contentContainerStyle={styles.listContent}
       >
-        {isExploreTab ? (
+        <View style={[styles.tabPanel, !isExploreTab && styles.tabPanelHidden]}>
           <ForumCommunityExploreFeed
             communityId={selectedChannel?.id}
             communityName={selectedChannel?.name}
             reloadToken={feedReloadToken}
+            staleRefreshKey={staleRefreshKey}
             onClearSelection={selectedChannel ? clearSelection : undefined}
             onOpenChannelDetails={
               selectedChannel ? () => openChannelDetails(selectedChannel.id) : undefined
             }
           />
-        ) : null}
+        </View>
 
-        {!isExploreTab && loading ? (
-          <View style={styles.centerBlock}>
-            <ActivityIndicator color={AppColors.primary} />
-            <Text style={styles.centerText}>Carregando...</Text>
-          </View>
-        ) : null}
+        <View style={[styles.tabPanel, isExploreTab && styles.tabPanelHidden]}>
+          {loading ? (
+            <View style={styles.centerBlock}>
+              <ActivityIndicator color={AppColors.primary} />
+              <Text style={styles.centerText}>Carregando...</Text>
+            </View>
+          ) : null}
 
-        {!isExploreTab && error && !loading ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null}
+          {error && !loading ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
 
-        {!isExploreTab && !loading && !error && items.length === 0 ? (
-          <View style={styles.emptyBlock}>
-            <Ionicons name="people-outline" size={40} color={AppColors.text.quaternary} />
-            <Text style={styles.emptyTitle}>Nenhum canal ainda</Text>
-            <Text style={styles.emptyHint}>
-              Crie um canal, participe de um ou siga comunidades no carrossel em Explorar.
-            </Text>
-          </View>
-        ) : null}
+          {!loading && !error && items.length === 0 ? (
+            <View style={styles.emptyBlock}>
+              <Ionicons name="people-outline" size={40} color={AppColors.text.quaternary} />
+              <Text style={styles.emptyTitle}>Nenhum canal ainda</Text>
+              <Text style={styles.emptyHint}>
+                Crie um canal, participe de um ou siga comunidades no carrossel em Explorar.
+              </Text>
+            </View>
+          ) : null}
 
-        {!isExploreTab && !loading && !error
-          ? items.map((item) => (
-              <ForumCommunityListRow
-                key={item.id}
-                item={item}
-                imageEpoch={imageEpoch}
-                onPress={() => openChannelDetails(item.id)}
-                onEdit={
-                  item.myRole === 'OWNER'
-                    ? () =>
-                        router.push({
-                          pathname: '/forum/communities/edit',
-                          params: { id: item.id },
-                        })
-                    : undefined
-                }
-              />
-            ))
-          : null}
+          {!loading && !error
+            ? items.map((item) => (
+                <ForumCommunityListRow
+                  key={item.id}
+                  item={item}
+                  imageEpoch={imageEpoch}
+                  onPress={() => openChannelDetails(item.id)}
+                  onEdit={
+                    item.myRole === 'OWNER'
+                      ? () =>
+                          router.push({
+                            pathname: '/forum/communities/edit',
+                            params: { id: item.id },
+                          })
+                      : undefined
+                  }
+                />
+              ))
+            : null}
+        </View>
       </ScrollView>
     </View>
   );
@@ -350,6 +392,8 @@ const styles = StyleSheet.create({
   },
   listScroll: { flex: 1 },
   listContent: { paddingBottom: 24 },
+  tabPanel: {},
+  tabPanelHidden: { display: 'none' },
   centerBlock: { paddingVertical: 32, alignItems: 'center', gap: 6 },
   centerText: { color: AppColors.text.tertiary, fontWeight: '600', fontSize: 13 },
   errorBox: {

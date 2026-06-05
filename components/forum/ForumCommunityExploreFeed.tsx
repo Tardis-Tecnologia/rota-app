@@ -1,11 +1,11 @@
 import ForumFeedContextChip from '@/components/forum/ForumFeedContextChip';
 import ForumPostCard from '@/components/forum/ForumPostCard';
+import { forumListItemToFeedPost } from '@/components/forum/forumUtils';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCanInteractAsCitizen } from '@/hooks/useIsVisitante';
 import {
   createForumComment,
-  getForumPost,
   likeForumPost,
   listForumComments,
   listForumPosts,
@@ -13,53 +13,51 @@ import {
   type ForumPostListItemDto,
   type ForumPostResponseDto,
 } from '@/services/forumApi';
+import {
+  getCachedExploreFeed,
+  getExploreFeedCacheKey,
+  setCachedExploreFeed,
+} from '@/services/forumCommunityCache';
 import { listFollowingForumCommunities } from '@/services/forumCommunityApi';
+import { shouldAppRefetch } from '@/utils/appRefreshPolicy';
+import { loadPostsForChannels } from '@/utils/forumChannelPosts';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 interface ForumCommunityExploreFeedProps {
   communityId?: string;
   communityName?: string;
   reloadToken: number;
+  staleRefreshKey: number;
   onClearSelection?: () => void;
   onOpenChannelDetails?: () => void;
 }
 
-async function loadPostsForChannels(
-  channelIds: string[],
-): Promise<ForumPostListItemDto[]> {
-  if (channelIds.length === 0) return [];
-  const perChannel = await Promise.all(
-    channelIds.map((id) =>
-      listForumPosts(undefined, { communityId: id, init: 0, end: 15 }),
-    ),
-  );
-  const merged = perChannel.flat();
-  const byId = new Map<string, ForumPostListItemDto>();
-  for (const row of merged) {
-    if (!byId.has(row.id)) byId.set(row.id, row);
-  }
-  return Array.from(byId.values()).sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
+function listRowsToFeedPosts(rows: ForumPostListItemDto[]): ForumPostResponseDto[] {
+  return rows.slice(0, 40).map((row) => forumListItemToFeedPost(row));
 }
 
 export default function ForumCommunityExploreFeed({
   communityId,
   communityName,
   reloadToken,
+  staleRefreshKey,
   onClearSelection,
   onOpenChannelDetails,
 }: ForumCommunityExploreFeedProps) {
   const isSingleChannel = !!communityId?.trim();
+  const initialCacheKey = getExploreFeedCacheKey(communityId);
+  const initialCache = getCachedExploreFeed(initialCacheKey);
   const { user } = useAuth();
   const canInteract = useCanInteractAsCitizen();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialCache);
   const [error, setError] = useState<string | null>(null);
-  const [posts, setPosts] = useState<ForumPostResponseDto[]>([]);
-  const [channelNamesById, setChannelNamesById] = useState<Record<string, string>>({});
-  const [followingCount, setFollowingCount] = useState(0);
+  const [posts, setPosts] = useState<ForumPostResponseDto[]>(() => initialCache?.posts ?? []);
+  const [channelNamesById, setChannelNamesById] = useState<Record<string, string>>(
+    () => initialCache?.channelNamesById ?? {},
+  );
+  const [followingCount, setFollowingCount] = useState(() => initialCache?.followingCount ?? 0);
   const [imageEpoch, setImageEpoch] = useState(() => Date.now());
   const [commentsByPost, setCommentsByPost] = useState<
     Record<string, ForumPostCommentListItemDto[]>
@@ -69,56 +67,118 @@ export default function ForumCommunityExploreFeed({
     {},
   );
   const [commentSendingPostId, setCommentSendingPostId] = useState<string | null>(null);
+  const loadRequestRef = useRef(0);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      let rows: ForumPostListItemDto[] = [];
-      const nameMap: Record<string, string> = {};
+  const applyCache = useCallback((cacheKey: string) => {
+    const cached = getCachedExploreFeed(cacheKey);
+    if (!cached) return false;
+    setPosts(cached.posts);
+    setChannelNamesById(cached.channelNamesById);
+    setFollowingCount(cached.followingCount);
+    setLoading(false);
+    return true;
+  }, []);
 
-      if (isSingleChannel && communityId) {
-        rows = await listForumPosts(undefined, {
-          communityId,
-          init: 0,
-          end: 30,
-        });
-        if (communityName) nameMap[communityId] = communityName;
-      } else {
-        const following = await listFollowingForumCommunities({ init: 0, end: 50 });
-        setFollowingCount(following.length);
-        for (const ch of following) {
-          nameMap[ch.id] = ch.name;
-        }
-        rows = await loadPostsForChannels(following.map((c) => c.id));
+  const load = useCallback(
+    async (options?: { force?: boolean }) => {
+      const force = options?.force ?? false;
+      const cacheKey = getExploreFeedCacheKey(communityId);
+      const cached = getCachedExploreFeed(cacheKey);
+      const requestId = ++loadRequestRef.current;
+
+      if (!force && cached) {
+        applyCache(cacheKey);
+        if (!shouldAppRefetch(cached.loadedAt, { hasData: true })) return;
+      } else if (!cached) {
+        setLoading(true);
       }
 
-      const top = rows.slice(0, 40);
-      const detailed = await Promise.all(top.map((r) => getForumPost(r.id)));
-      const commentEntries = await Promise.all(
-        detailed.map(async (p) => {
-          const comments = await listForumComments(p.id, { init: 0, end: 50 });
-          return [p.id, comments] as const;
-        }),
-      );
-      setChannelNamesById(nameMap);
-      setCommentsByPost(Object.fromEntries(commentEntries));
-      setPosts(detailed);
-      setCommentsExpandedByPost({});
-      setImageEpoch(Date.now());
-    } catch (e) {
-      setPosts([]);
-      setCommentsByPost({});
-      setChannelNamesById({});
-      setError(e instanceof Error ? e.message : 'Não foi possível carregar o feed.');
-    } finally {
-      setLoading(false);
-    }
-  }, [communityId, communityName, isSingleChannel]);
+      setError(null);
+      try {
+        let rows: ForumPostListItemDto[] = [];
+        const nameMap: Record<string, string> = {};
+        let nextFollowingCount = 0;
+
+        if (isSingleChannel && communityId) {
+          rows = await listForumPosts(undefined, {
+            communityId,
+            init: 0,
+            end: 30,
+          });
+          if (communityName) nameMap[communityId] = communityName;
+        } else {
+          const following = await listFollowingForumCommunities({ init: 0, end: 50 });
+          nextFollowingCount = following.length;
+          for (const ch of following) {
+            nameMap[ch.id] = ch.name;
+          }
+          rows = await loadPostsForChannels(following.map((c) => c.id));
+        }
+
+        if (requestId !== loadRequestRef.current) return;
+
+        const feedPosts = listRowsToFeedPosts(rows);
+        setChannelNamesById(nameMap);
+        setFollowingCount(nextFollowingCount);
+        setPosts(feedPosts);
+        setCommentsExpandedByPost({});
+        setCommentsByPost({});
+        setImageEpoch(Date.now());
+        setCachedExploreFeed(cacheKey, {
+          posts: feedPosts,
+          channelNamesById: nameMap,
+          followingCount: nextFollowingCount,
+        });
+      } catch (e) {
+        if (requestId !== loadRequestRef.current) return;
+        if (!cached) {
+          setPosts([]);
+          setCommentsByPost({});
+          setChannelNamesById({});
+        }
+        setError(e instanceof Error ? e.message : 'Não foi possível carregar o feed.');
+      } finally {
+        if (requestId === loadRequestRef.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [applyCache, communityId, communityName, isSingleChannel],
+  );
 
   useEffect(() => {
-    void load();
+    void load({ force: false });
+  }, [communityId, load]);
+
+  useEffect(() => {
+    if (staleRefreshKey === 0) return;
+    void load({ force: false });
+  }, [load, staleRefreshKey]);
+
+  useEffect(() => {
+    if (reloadToken === 0) return;
+    void load({ force: true });
   }, [load, reloadToken]);
+
+  const loadCommentsForPost = useCallback(async (postId: string) => {
+    try {
+      const comments = await listForumComments(postId, { init: 0, end: 50 });
+      setCommentsByPost((prev) => ({ ...prev, [postId]: comments }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Não foi possível carregar os comentários.');
+    }
+  }, []);
+
+  const onToggleComments = useCallback(
+    (postId: string) => {
+      const willExpand = !commentsExpandedByPost[postId];
+      setCommentsExpandedByPost((prev) => ({ ...prev, [postId]: willExpand }));
+      if (willExpand && !commentsByPost[postId]) {
+        void loadCommentsForPost(postId);
+      }
+    },
+    [commentsByPost, commentsExpandedByPost, loadCommentsForPost],
+  );
 
   const onSendComment = useCallback(
     async (postId: string) => {
@@ -159,7 +219,7 @@ export default function ForumCommunityExploreFeed({
     try {
       await likeForumPost(postId);
     } catch {
-      void load();
+      void load({ force: true });
     }
   }, [load]);
 
@@ -225,12 +285,7 @@ export default function ForumCommunityExploreFeed({
               commentSending={commentSendingPostId === post.id}
               canInteract={canInteract}
               onLike={() => void onLike(post.id)}
-              onToggleComments={() =>
-                setCommentsExpandedByPost((prev) => ({
-                  ...prev,
-                  [post.id]: !prev[post.id],
-                }))
-              }
+              onToggleComments={() => onToggleComments(post.id)}
               onCommentDraftChange={(t) =>
                 setCommentDraftByPost((prev) => ({ ...prev, [post.id]: t }))
               }

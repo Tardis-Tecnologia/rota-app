@@ -5,6 +5,7 @@ import { ModalReportPrefeitura } from '@/components/ModalReportPrefeitura';
 import PlaceDetailsSheet from '@/components/PlaceDetailsSheet';
 import ReportButton, { REPORT_SUBJECT_BY_TYPE, type ReportType } from '@/components/ReportButton';
 import Toast from '@/components/Toast';
+import { EXPLORE_MAP_MAX_MARKERS } from '@/constants/exploreMap';
 import { AppColors } from '@/constants/theme';
 import { useNotificationUnreadCount } from '@/hooks/useNotificationUnreadCount';
 import { ensureForegroundLocationPermission } from '@/services/locationPermission';
@@ -17,7 +18,7 @@ import {
   EXPLORE_PARTNER_STORES_CHIP_ID,
   loadPartnerStoresForMap,
 } from '@/utils/commercialStoreMap';
-import { enrichPontosWithPhotos, mergePontoPhotoUpdate } from '@/services/placePhotoService';
+import { enrichPontosWithPhotos } from '@/services/placePhotoService';
 import { placeToPonto } from '@/services/mapPlaceToPonto';
 import { searchNearbyPlaces } from '@/services/placesService';
 import { Localizacao, PontoInteresse } from '@/types';
@@ -26,10 +27,12 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { useLocalSearchParams } from 'expo-router';
+import { EXPLORE_GPS_STALE_MS } from '@/utils/appRefreshPolicy';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  InteractionManager,
   Linking,
   Platform,
   Pressable,
@@ -115,6 +118,7 @@ export default function MapScreen() {
   const [locationReady, setLocationReady] = useState(false);
   const [locationError, setLocationError] = useState<'denied' | 'error' | null>(null);
   const [pontos, setPontos] = useState<PontoInteresse[]>([]);
+  const [mapPontosForView, setMapPontosForView] = useState<PontoInteresse[]>([]);
   const [categoriaSelecionada, setCategoriaSelecionada] = useState<string | undefined>(undefined);
   const [filterLoading, setFilterLoading] = useState(false);
   const [selectedPontoDetail, setSelectedPontoDetail] = useState<PontoInteresse | null>(null);
@@ -128,37 +132,56 @@ export default function MapScreen() {
   const { category } = useLocalSearchParams<{ category?: string }>();
   const appliedCategoryFromRoute = useRef(false);
   const pendingInitialGpsCenterRef = useRef(false);
+  const lastGpsAtRef = useRef(0);
 
-  const solicitarPermissaoLocalizacao = useCallback(async (): Promise<void> => {
-    setLocationError(null);
-    setLocationReady(false);
-    setLoading(true);
-    try {
-      const ok = await ensureForegroundLocationPermission();
-      if (!ok) {
-        setLocationError('denied');
+  const solicitarPermissaoLocalizacao = useCallback(
+    async (options?: { force?: boolean }): Promise<void> => {
+      const force = options?.force ?? false;
+      if (
+        !force &&
+        locationReady &&
+        Date.now() - lastGpsAtRef.current < EXPLORE_GPS_STALE_MS
+      ) {
+        setLoading(false);
         return;
       }
 
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Highest,
-      });
-      const next: Localizacao = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        latitudeDelta: 0.018,
-        longitudeDelta: 0.018,
-      };
-      pendingInitialGpsCenterRef.current = true;
-      setLocalizacao(next);
-      setMapRegion(next);
-      setLocationReady(true);
-    } catch {
-      setLocationError('error');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      setLocationError(null);
+      const showBlockingLoader = !locationReady;
+      if (showBlockingLoader) {
+        setLocationReady(false);
+        setLoading(true);
+      }
+
+      try {
+        const ok = await ensureForegroundLocationPermission();
+        if (!ok) {
+          setLocationError('denied');
+          return;
+        }
+
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        const next: Localizacao = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          latitudeDelta: 0.018,
+          longitudeDelta: 0.018,
+        };
+        pendingInitialGpsCenterRef.current = true;
+        setLocalizacao(next);
+        setMapRegion(next);
+        setLocationReady(true);
+        lastGpsAtRef.current = Date.now();
+      } catch {
+        setLocationError('error');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [locationReady],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -166,9 +189,17 @@ export default function MapScreen() {
         setLoading(false);
         return;
       }
-      void solicitarPermissaoLocalizacao();
+      void solicitarPermissaoLocalizacao({ force: false });
     }, [solicitarPermissaoLocalizacao]),
   );
+
+  const publishMapPontos = useCallback((items: PontoInteresse[]) => {
+    const limited = items.slice(0, EXPLORE_MAP_MAX_MARKERS);
+    const task = InteractionManager.runAfterInteractions(() => {
+      setMapPontosForView(limited);
+    });
+    return () => task.cancel();
+  }, []);
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -181,19 +212,25 @@ export default function MapScreen() {
       if (chipId === categoriaSelecionada) {
         setCategoriaSelecionada(undefined);
         setPontos([]);
+        setMapPontosForView([]);
         setSelectedPontoDetail(null);
         return;
       }
+
+      setMapPontosForView([]);
+      setSelectedPontoDetail(null);
+
       if (chipId === EXPLORE_COMMUNITIES_CHIP_ID) {
         setFilterLoading(true);
         try {
           const rows = await listForumCommunities(undefined, { init: 0, end: 200 });
           const mapped = rows
             .map(communityToExplorePonto)
-            .filter((p): p is PontoInteresse => p != null);
+            .filter((p): p is PontoInteresse => p != null)
+            .slice(0, EXPLORE_MAP_MAX_MARKERS);
           setPontos(mapped);
+          publishMapPontos(mapped);
           setCategoriaSelecionada(chipId);
-          setSelectedPontoDetail(null);
           setToastType(mapped.length > 0 ? 'success' : 'info');
           setToastMessage(
             mapped.length > 0
@@ -213,10 +250,10 @@ export default function MapScreen() {
       if (chipId === EXPLORE_PARTNER_STORES_CHIP_ID) {
         setFilterLoading(true);
         try {
-          const mapped = await loadPartnerStoresForMap();
+          const mapped = (await loadPartnerStoresForMap()).slice(0, EXPLORE_MAP_MAX_MARKERS);
           setPontos(mapped);
+          publishMapPontos(mapped);
           setCategoriaSelecionada(chipId);
-          setSelectedPontoDetail(null);
           setToastType(mapped.length > 0 ? 'success' : 'info');
           setToastMessage(
             mapped.length > 0
@@ -242,12 +279,8 @@ export default function MapScreen() {
         const places = await searchNearbyPlaces(placeType, pos, undefined, 20);
         const basePontos = places.map((p) => placeToPonto(p, placeType));
         setPontos(basePontos);
-        void enrichPontosWithPhotos(basePontos).then((enriched) => {
-          setPontos(enriched);
-          setSelectedPontoDetail((current) => mergePontoPhotoUpdate(current, enriched));
-        });
+        publishMapPontos(basePontos);
         setCategoriaSelecionada(chipId);
-        setSelectedPontoDetail(null);
         const label = CHIP_LABELS[chipId] ?? chipId;
         setToastType(places.length > 0 ? 'success' : 'info');
         setToastMessage(
@@ -268,7 +301,7 @@ export default function MapScreen() {
         setFilterLoading(false);
       }
     },
-    [categoriaSelecionada, localizacao.latitude, localizacao.longitude],
+    [categoriaSelecionada, localizacao.latitude, localizacao.longitude, publishMapPontos],
   );
 
   useEffect(() => {
@@ -317,6 +350,19 @@ export default function MapScreen() {
 
   const handleMarkerPress = useCallback((ponto: PontoInteresse) => {
     setSelectedPontoDetail(ponto);
+    if (ponto.photoUrl?.trim()) return;
+    void enrichPontosWithPhotos([ponto]).then((enriched) => {
+      const withPhoto = enriched[0];
+      if (!withPhoto?.photoUrl?.trim()) return;
+      setSelectedPontoDetail((current) =>
+        current?.id === withPhoto.id ? { ...current, photoUrl: withPhoto.photoUrl } : current,
+      );
+      setPontos((prev) =>
+        prev.map((item) =>
+          item.id === withPhoto.id ? { ...item, photoUrl: withPhoto.photoUrl } : item,
+        ),
+      );
+    });
   }, []);
 
   const handleRegionComplete = useCallback((region: Region) => {
@@ -431,7 +477,10 @@ export default function MapScreen() {
         <Ionicons name="location-outline" size={48} color={AppColors.primary} />
         <Text style={styles.locationErrorTitle}>Localização necessária</Text>
         <Text style={styles.locationErrorText}>{msg}</Text>
-        <Pressable style={styles.locationRetryBtn} onPress={() => void solicitarPermissaoLocalizacao()}>
+        <Pressable
+          style={styles.locationRetryBtn}
+          onPress={() => void solicitarPermissaoLocalizacao({ force: true })}
+        >
           <Text style={styles.locationRetryBtnText}>Tentar novamente</Text>
         </Pressable>
         <Pressable style={styles.locationSettingsBtn} onPress={() => void Linking.openSettings()}>
@@ -447,9 +496,11 @@ export default function MapScreen() {
   return (
     <View style={[styles.container, { backgroundColor: AppColors.background.default }]}>
       <MapLibreMapaView
+        key={categoriaSelecionada ?? 'explore-map-idle'}
         ref={mapRef}
         localizacao={localizacao}
-        pontos={pontos}
+        pontos={filterLoading ? [] : mapPontosForView}
+        markerVariant="dot"
         getMarkerColor={getMarkerColor}
         onRegionChangeComplete={handleRegionComplete}
         onUserDragMap={handleUserDragMap}

@@ -17,8 +17,8 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export const GUIA_EMPRESAS_PAGE_SIZE = 15;
-const INITIAL_CATEGORIES = 3;
-const PARALLEL_CATEGORIES = 3;
+const INITIAL_CATEGORIES = 1;
+const PARALLEL_CATEGORIES = 2;
 
 export function useGuiaCompanies(
   enabled: boolean,
@@ -223,21 +223,6 @@ export function useGuiaCompanies(
   useEffect(() => {
     if (enabled) void reloadRef.current(allItemsRef.current.length === 0);
   }, [enabled, fetchCoords.latitude, fetchCoords.longitude]);
-
-  useEffect(() => {
-    if (!enabled || !isSearching || loading || loadingMore || nextCategoryIndex >= totalCategories) {
-      return;
-    }
-    void loadMore();
-  }, [
-    enabled,
-    isSearching,
-    loading,
-    loadingMore,
-    nextCategoryIndex,
-    totalCategories,
-    loadMore,
-  ]);
 
   return {
     items,

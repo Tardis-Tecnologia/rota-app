@@ -3,6 +3,7 @@ import {
   CommunityFeedEmpty,
   CommunityFeedSectionHeader,
 } from '@/components/forum/CommunityChannelDetailSections';
+import { forumListItemToFeedPost } from '@/components/forum/forumUtils';
 import ForumPostCard from '@/components/forum/ForumPostCard';
 import ForumPublishFab from '@/components/forum/ForumPublishFab';
 import { parseCommunityCoords } from '@/services/forumCommunityApi';
@@ -10,7 +11,6 @@ import {
   createForumComment,
   createForumPost,
   findRecentlyCreatedForumPostId,
-  getForumPost,
   likeForumPost,
   listForumComments,
   listForumPosts,
@@ -27,6 +27,12 @@ import {
   unfollowForumCommunity,
   type ForumCommunityDetail,
 } from '@/services/forumCommunityApi';
+import {
+  getCachedCommunityDetail,
+  invalidateCommunityDetailCache,
+  setCachedCommunityDetail,
+} from '@/services/forumCommunityCache';
+import { shouldAppRefetch } from '@/utils/appRefreshPolicy';
 import { AppColors } from '@/constants/theme';
 import { VisitanteRestrictedZone } from '@/components/VisitanteRestrictedZone';
 import { useAuth } from '@/contexts/AuthContext';
@@ -62,9 +68,14 @@ export default function CommunityChannelScreen() {
   const canInteract = useCanInteractAsCitizen();
   const params = useLocalSearchParams<{ id?: string }>();
   const communityId = String(params.id ?? '').trim();
+  const initialDetailCache = communityId ? getCachedCommunityDetail(communityId) : null;
 
-  const [community, setCommunity] = useState<ForumCommunityDetail | null>(null);
-  const [posts, setPosts] = useState<ForumPostResponseDto[]>([]);
+  const [community, setCommunity] = useState<ForumCommunityDetail | null>(
+    () => initialDetailCache?.community ?? null,
+  );
+  const [posts, setPosts] = useState<ForumPostResponseDto[]>(
+    () => initialDetailCache?.posts ?? [],
+  );
   const [commentsByPost, setCommentsByPost] = useState<
     Record<string, ForumPostCommentListItemDto[]>
   >({});
@@ -73,7 +84,7 @@ export default function CommunityChannelScreen() {
     {},
   );
   const [commentSendingPostId, setCommentSendingPostId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !initialDetailCache);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -90,38 +101,50 @@ export default function CommunityChannelScreen() {
   const coords = community ? parseCommunityCoords(community) : null;
 
   const load = useCallback(
-    async (isRefresh = false) => {
+    async (options?: { force?: boolean; isRefresh?: boolean }) => {
+      const force = options?.force ?? false;
+      const isRefresh = options?.isRefresh ?? false;
+
       if (!communityId) {
         setError('Comunidade inválida.');
         setLoading(false);
         return;
       }
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
+
+      const cached = getCachedCommunityDetail(communityId);
+      if (!force && cached) {
+        setCommunity(cached.community);
+        setPosts(cached.posts);
+        setLoading(false);
+        if (!shouldAppRefetch(cached.loadedAt, { hasData: true })) return;
+      } else if (!cached) {
+        if (isRefresh) setRefreshing(true);
+        else setLoading(true);
+      } else if (isRefresh) {
+        setRefreshing(true);
+      }
+
       setError(null);
       try {
         const detail = await getForumCommunity(communityId);
-        setCommunity(detail);
         const rows = await listForumPosts(undefined, {
           communityId,
           init: 0,
           end: 30,
         });
-        const detailed = await Promise.all(rows.map((r) => getForumPost(r.id)));
-        const commentEntries = await Promise.all(
-          detailed.map(async (p) => {
-            const comments = await listForumComments(p.id, { init: 0, end: 50 });
-            return [p.id, comments] as const;
-          }),
-        );
-        setPosts(detailed);
-        setCommentsByPost(Object.fromEntries(commentEntries));
+        const feedPosts = rows.map((row) => forumListItemToFeedPost(row));
+        setCommunity(detail);
+        setPosts(feedPosts);
         setCommentsExpandedByPost({});
+        setCommentsByPost({});
         setImageEpoch(Date.now());
+        setCachedCommunityDetail(communityId, detail, feedPosts);
       } catch (e) {
-        setCommunity(null);
-        setPosts([]);
-        setError(e instanceof Error ? e.message : 'Não foi possível carregar a comunidade.');
+        if (!cached) {
+          setCommunity(null);
+          setPosts([]);
+          setError(e instanceof Error ? e.message : 'Não foi possível carregar a comunidade.');
+        }
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -132,8 +155,28 @@ export default function CommunityChannelScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void load(false);
+      void load({ force: false });
     }, [load]),
+  );
+
+  const loadCommentsForPost = useCallback(async (postId: string) => {
+    try {
+      const comments = await listForumComments(postId, { init: 0, end: 50 });
+      setCommentsByPost((prev) => ({ ...prev, [postId]: comments }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Não foi possível carregar os comentários.');
+    }
+  }, []);
+
+  const onToggleComments = useCallback(
+    (postId: string) => {
+      const willExpand = !commentsExpandedByPost[postId];
+      setCommentsExpandedByPost((prev) => ({ ...prev, [postId]: willExpand }));
+      if (willExpand && !commentsByPost[postId]) {
+        void loadCommentsForPost(postId);
+      }
+    },
+    [commentsByPost, commentsExpandedByPost, loadCommentsForPost],
   );
 
   const runAction = useCallback(
@@ -146,14 +189,15 @@ export default function CommunityChannelScreen() {
       setError(null);
       try {
         await fn();
-        await load(true);
+        invalidateCommunityDetailCache(communityId);
+        await load({ force: true, isRefresh: true });
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Ação não concluída.');
       } finally {
         setActionLoading(false);
       }
     },
-    [isVisitante, load],
+    [communityId, isVisitante, load],
   );
 
   const onFollow = () => void runAction(() => followForumCommunity(communityId));
@@ -219,7 +263,8 @@ export default function CommunityChannelScreen() {
       setPostTitle('');
       setPostContent('');
       setPostImageUri(null);
-      await load(true);
+      invalidateCommunityDetailCache(communityId);
+      await load({ force: true, isRefresh: true });
     } catch (e) {
       if (await handleForumApiError(e)) return;
       setError(e instanceof Error ? e.message : 'Não foi possível publicar.');
@@ -281,7 +326,7 @@ export default function CommunityChannelScreen() {
     try {
       await likeForumPost(postId);
     } catch {
-      await load(true);
+      await load({ force: true, isRefresh: true });
     }
   }, [load]);
 
@@ -381,7 +426,10 @@ export default function CommunityChannelScreen() {
     <View style={styles.flex}>
       <ScrollView
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void load({ force: true, isRefresh: true })}
+          />
         }
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
@@ -447,12 +495,7 @@ export default function CommunityChannelScreen() {
                   commentSending={commentSendingPostId === post.id}
                   canInteract={canInteract}
                   onLike={() => void onLike(post.id)}
-                  onToggleComments={() =>
-                    setCommentsExpandedByPost((prev) => ({
-                      ...prev,
-                      [post.id]: !prev[post.id],
-                    }))
-                  }
+                  onToggleComments={() => onToggleComments(post.id)}
                   onCommentDraftChange={(t) =>
                     setCommentDraftByPost((prev) => ({ ...prev, [post.id]: t }))
                   }

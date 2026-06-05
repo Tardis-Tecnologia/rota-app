@@ -10,13 +10,14 @@ import {
 } from '@/services/forumRestrictionsApi';
 import { applyForumInactiveLogout } from '@/utils/forumBanFlow';
 import { parsePostingSuspensionMessage } from '@/utils/forumPostingSuspensionParse';
-import { useFocusEffect } from '@react-navigation/native';
+import { shouldAppRefetch } from '@/utils/appRefreshPolicy';
 import React, {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -32,7 +33,8 @@ type ForumModerationContextValue = {
   canPublish: boolean;
   canComment: boolean;
   isLoadingRestrictions: boolean;
-  refreshRestrictions: () => Promise<ForumMeRestrictionsDto | null>;
+  refreshRestrictions: (force?: boolean) => Promise<ForumMeRestrictionsDto | null>;
+  refreshRestrictionsIfStale: () => Promise<ForumMeRestrictionsDto | null>;
   requestForumPublish: (openPublish: () => void) => Promise<void>;
   requestForumComment: (sendComment: () => void) => Promise<void>;
   showRestrictionMessage: (message?: string | null, title?: string) => void;
@@ -65,6 +67,7 @@ export function ForumModerationProvider({ children }: { children: React.ReactNod
   const [restrictions, setRestrictions] = useState<ForumMeRestrictionsDto | null>(null);
   const [loadingRestrictions, setLoadingRestrictions] = useState(false);
   const [modal, setModal] = useState<RestrictionModalState>(hiddenModal);
+  const lastRestrictionsFetchRef = useRef(0);
 
   const closeModal = useCallback(() => {
     setModal(hiddenModal);
@@ -108,45 +111,55 @@ export function ForumModerationProvider({ children }: { children: React.ReactNod
     [enforceBanned],
   );
 
-  const refreshRestrictions = useCallback(async (): Promise<ForumMeRestrictionsDto | null> => {
-    if (!user?.id?.trim()) {
-      setRestrictions(null);
-      return null;
-    }
-
-    setLoadingRestrictions(true);
-    try {
-      const next = await getMyForumRestrictions();
-      await applyRestrictions(next);
-      return next;
-    } catch (e) {
-      if (isForumInactiveUserError(e)) {
-        await enforceBanned(e instanceof Error ? e.message : null);
+  const refreshRestrictions = useCallback(
+    async (force = false): Promise<ForumMeRestrictionsDto | null> => {
+      if (!user?.id?.trim()) {
+        setRestrictions(null);
         return null;
       }
-      return restrictions;
-    } finally {
-      setLoadingRestrictions(false);
-    }
-  }, [applyRestrictions, enforceBanned, restrictions, user?.id]);
+
+      if (
+        !force &&
+        restrictions != null &&
+        !shouldAppRefetch(lastRestrictionsFetchRef.current, { hasData: true })
+      ) {
+        return restrictions;
+      }
+
+      setLoadingRestrictions(true);
+      try {
+        const next = await getMyForumRestrictions();
+        await applyRestrictions(next);
+        lastRestrictionsFetchRef.current = Date.now();
+        return next;
+      } catch (e) {
+        if (isForumInactiveUserError(e)) {
+          await enforceBanned(e instanceof Error ? e.message : null);
+          return null;
+        }
+        return restrictions;
+      } finally {
+        setLoadingRestrictions(false);
+      }
+    },
+    [applyRestrictions, enforceBanned, restrictions, user?.id],
+  );
+
+  const refreshRestrictionsIfStale = useCallback(
+    () => refreshRestrictions(false),
+    [refreshRestrictions],
+  );
 
   useEffect(() => {
     if (!isLoading && user?.id) {
-      void refreshRestrictions();
+      void refreshRestrictions(true);
     }
     if (!user) {
       setRestrictions(null);
       closeModal();
+      lastRestrictionsFetchRef.current = 0;
     }
   }, [closeModal, isLoading, refreshRestrictions, user?.id]);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (user?.id) {
-        void refreshRestrictions();
-      }
-    }, [refreshRestrictions, user?.id]),
-  );
 
   const requestForumPublish = useCallback(
     async (openPublish: () => void) => {
@@ -234,6 +247,7 @@ export function ForumModerationProvider({ children }: { children: React.ReactNod
       canComment: effective.canComment,
       isLoadingRestrictions: loadingRestrictions,
       refreshRestrictions,
+      refreshRestrictionsIfStale,
       requestForumPublish,
       requestForumComment,
       showRestrictionMessage,
@@ -245,6 +259,7 @@ export function ForumModerationProvider({ children }: { children: React.ReactNod
       handleForumApiError,
       loadingRestrictions,
       refreshRestrictions,
+      refreshRestrictionsIfStale,
       requestForumComment,
       requestForumPublish,
       restrictions,
@@ -277,6 +292,7 @@ export function useForumModeration(): ForumModerationContextValue {
       canComment: true,
       isLoadingRestrictions: false,
       refreshRestrictions: async () => null,
+      refreshRestrictionsIfStale: async () => null,
       requestForumPublish: async (open) => open(),
       requestForumComment: async (send) => send(),
       showRestrictionMessage: () => {},

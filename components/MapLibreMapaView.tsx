@@ -3,7 +3,9 @@ import { getMapLibreStyleUrl } from '@/constants/mapLibreStyle';
 import type { Localizacao, PontoInteresse, Region } from '@/types';
 import MapLibreGL, {
   Camera,
+  CircleLayer,
   MapView,
+  ShapeSource,
   UserLocation,
   type CameraRef,
   type MapViewRef,
@@ -43,10 +45,13 @@ export interface MapLibreMapaViewRef {
   zoomBy: (deltaLevels: number, duration?: number) => void;
 }
 
+export type MapMarkerVariant = 'card' | 'dot';
+
 interface MapLibreMapaViewProps {
   localizacao: Localizacao;
   pontos: PontoInteresse[];
-  /** Mantido por compatibilidade com telas legadas; marcadores usam MapPointMarkerCard. */
+  /** `card` = Explorar e telas com preview; `dot` = Guia (mais leve, evita crash no Fabric). */
+  markerVariant?: MapMarkerVariant;
   getMarkerColor?: (tipo: PontoInteresse['tipo']) => string;
   onRegionChangeComplete?: (region: Region) => void;
   onUserDragMap?: () => void;
@@ -55,9 +60,55 @@ interface MapLibreMapaViewProps {
 
 const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
   function MapLibreMapaView(
-    { localizacao, pontos, onRegionChangeComplete, onUserDragMap, onMarkerPress },
+    {
+      localizacao,
+      pontos,
+      markerVariant = 'card',
+      getMarkerColor,
+      onRegionChangeComplete,
+      onUserDragMap,
+      onMarkerPress,
+    },
     ref,
   ) {
+    const isDotMarker = markerVariant === 'dot';
+    const defaultMarkerColor = '#7C3AED';
+
+    const dotsGeoJson = useMemo(() => {
+      if (!isDotMarker || pontos.length === 0) return null;
+      return {
+        type: 'FeatureCollection' as const,
+        features: pontos.map((ponto) => ({
+          type: 'Feature' as const,
+          id: ponto.id,
+          geometry: {
+            type: 'Point' as const,
+            coordinates: [ponto.longitude, ponto.latitude] as [number, number],
+          },
+          properties: {
+            id: ponto.id,
+            titulo: ponto.titulo,
+            tipo: ponto.tipo,
+            markerColor: getMarkerColor?.(ponto.tipo) ?? defaultMarkerColor,
+          },
+        })),
+      };
+    }, [defaultMarkerColor, getMarkerColor, isDotMarker, pontos]);
+
+    const handleDotsPress = useCallback(
+      (event: {
+        features?: Array<{ properties?: Record<string, unknown> }>;
+        nativeEvent?: { features?: Array<{ properties?: Record<string, unknown> }> };
+      }) => {
+        const features = event.features ?? event.nativeEvent?.features;
+        const feature = features?.[0];
+        const id = feature?.properties?.id;
+        if (id == null) return;
+        const ponto = pontos.find((item) => item.id === String(id));
+        if (ponto) onMarkerPress?.(ponto);
+      },
+      [onMarkerPress, pontos],
+    );
     const mapRef = useRef<MapViewRef>(null);
     const cameraRef = useRef<CameraRef>(null);
     const mapStyleUrl = useMemo(() => getMapLibreStyleUrl(), []);
@@ -249,20 +300,34 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
       >
         <Camera ref={cameraRef} followUserLocation={false} />
         <UserLocation visible androidRenderMode="gps" showsUserHeadingIndicator />
-        {pontos.map((ponto) => (
-          <MapLibreGL.PointAnnotation
-            key={ponto.id}
-            id={ponto.id}
-            coordinate={[ponto.longitude, ponto.latitude]}
-            title={ponto.titulo}
-            anchor={{ x: 0.5, y: 1 }}
-            onSelected={() => onMarkerPress?.(ponto)}
-          >
-            <View collapsable={markerChildCollapsable}>
-              <MapPointMarkerCard ponto={ponto} />
-            </View>
-          </MapLibreGL.PointAnnotation>
-        ))}
+        {isDotMarker && dotsGeoJson ? (
+          <ShapeSource id="map-dots-source" shape={dotsGeoJson} onPress={handleDotsPress}>
+            <CircleLayer
+              id="map-dots-layer"
+              style={{
+                circleRadius: 7,
+                circleColor: ['get', 'markerColor'],
+                circleStrokeWidth: 2,
+                circleStrokeColor: '#ffffff',
+              }}
+            />
+          </ShapeSource>
+        ) : (
+          pontos.map((ponto) => (
+            <MapLibreGL.PointAnnotation
+              key={ponto.id}
+              id={ponto.id}
+              coordinate={[ponto.longitude, ponto.latitude]}
+              title={ponto.titulo}
+              anchor={{ x: 0.5, y: 1 }}
+              onSelected={() => onMarkerPress?.(ponto)}
+            >
+              <View collapsable={markerChildCollapsable}>
+                <MapPointMarkerCard ponto={ponto} />
+              </View>
+            </MapLibreGL.PointAnnotation>
+          ))
+        )}
       </MapView>
     );
   },

@@ -1,5 +1,6 @@
 import GuiaProviderCard from '@/components/guia/GuiaProviderCard';
 import MapLibreMapaView, { type MapLibreMapaViewRef } from '@/components/MapLibreMapaView';
+import { GUIA_MAP_MAX_MARKERS } from '@/constants/guiaMap';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGuiaCompanies } from '@/hooks/useGuiaCompanies';
@@ -21,6 +22,7 @@ import {
     ActivityIndicator,
     Alert,
     Dimensions,
+    InteractionManager,
     Platform,
     Pressable,
     ScrollView,
@@ -82,10 +84,28 @@ export default function GuiaIndexScreen() {
     [activeTab, searchQuery, searchOrigin, catalogItems],
   );
 
-  const mapPoints: PontoInteresse[] = useMemo(
-    () => results.map(guiaProfileToPonto).filter((p): p is PontoInteresse => p != null),
+  const computedMapPoints = useMemo(
+    () =>
+      results
+        .map(guiaProfileToPonto)
+        .filter((p): p is PontoInteresse => p != null)
+        .slice(0, GUIA_MAP_MAX_MARKERS),
     [results],
   );
+
+  const [mapPointsForView, setMapPointsForView] = useState<PontoInteresse[]>([]);
+
+  useEffect(() => {
+    setMapPointsForView([]);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (listLoading) return;
+    const task = InteractionManager.runAfterInteractions(() => {
+      setMapPointsForView(computedMapPoints);
+    });
+    return () => task.cancel();
+  }, [listLoading, computedMapPoints]);
 
   const loadUserLocation = useCallback(async () => {
     setLocating(true);
@@ -191,9 +211,11 @@ export default function GuiaIndexScreen() {
       </View>
     ) : (
       <MapLibreMapaView
+        key={activeTab}
         ref={mapRef}
         localizacao={mapRegion}
-        pontos={mapPoints}
+        pontos={mapPointsForView}
+        markerVariant="dot"
         getMarkerColor={() => '#7C3AED'}
         onRegionChangeComplete={handleMapRegionChangeComplete}
         onMarkerPress={handleMarkerPress}

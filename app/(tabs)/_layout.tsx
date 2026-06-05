@@ -47,6 +47,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
+        lazy: true,
         tabBarActiveTintColor: AppColors.tab.active,
         tabBarInactiveTintColor: AppColors.tab.inactive,
         headerShown: false, // Remover header padrão

@@ -143,12 +143,12 @@ export default function ForgotPasswordScreen() {
               </Text>
               <Text style={styles.subtitle}>
                 {phase === 'email' &&
-                  'Informe seu e-mail. Enviaremos um código para redefinir sua senha.'}
+                  'Informe o e-mail da sua conta (cidadão ou loja parceira). Enviaremos um código para redefinir a senha.'}
                 {phase === 'code' &&
                   `Digite o código de 6 dígitos que enviamos para ${email.trim().toLowerCase()}.`}
                 {phase === 'password' &&
                   'Código confirmado. Defina uma nova senha para sua conta.'}
-                {phase === 'done' && 'Sua senha foi atualizada. Você já pode entrar com a nova senha.'}
+                {phase === 'done' && 'Sua senha foi atualizada. Você já pode entrar com a nova senha no app.'}
               </Text>
             </View>
 

@@ -2,6 +2,7 @@ import { CATEGORIES_WITH_ALL } from '@/constants/providerCategories';
 import { AppColors } from '@/constants/theme';
 import { listPublicServiceProviders } from '@/services/serviceProvidersApi';
 import type { Profile } from '@/types';
+import { providerMatchesCategoryFilter } from '@/utils/serviceProviderCategories';
 import { serviceProviderListItemToGuia } from '@/utils/serviceProviderMappers';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -37,7 +38,13 @@ export default function ServiceProviders() {
   const filteredProviders =
     activeCategory === 'todos'
       ? providers
-      : providers.filter((provider) => provider.categoryId === activeCategory);
+      : providers.filter((provider) =>
+          providerMatchesCategoryFilter(
+            provider.categoryIds,
+            provider.categoryId,
+            activeCategory,
+          ),
+        );
 
   return (
     <View style={styles.container}>
@@ -75,7 +82,11 @@ export default function ServiceProviders() {
       <View style={styles.listContainer}>
         {filteredProviders.map((provider) => {
           const categoryLabel =
-            categories.find((c) => c.id === provider.categoryId)?.label || '';
+            provider.categoryIds?.length
+              ? provider.categoryIds
+                  .map((id) => categories.find((c) => c.id === id)?.label ?? id)
+                  .join(' · ')
+              : categories.find((c) => c.id === provider.categoryId)?.label || '';
           return (
             <View key={provider.id} style={styles.providerCard}>
               <Image source={{ uri: provider.image }} style={styles.avatar} />

@@ -19,6 +19,11 @@ import { GUIA_DEFAULT_CENTER } from '@/utils/guiaGeo';
 import { formatBrazilPhoneInput } from '@/utils/phoneMask';
 import type { ServiceProviderStatus } from '@/types/serviceProvider';
 import {
+  isCargoPrestadorId,
+  resolveProviderCategories,
+  validateProviderCategoriesForSubmit,
+} from '@/utils/serviceProviderCategories';
+import {
   buildServiceProviderUpdateBody,
   businessHoursFromApi,
   editFooterHint,
@@ -100,10 +105,7 @@ export default function CadastroPrestadorScreen() {
   const providerId = String(params.providerId ?? '').trim();
   const isEditMode = providerId.length > 0;
   const [displayName, setDisplayName] = useState('');
-  const [professionCategoryId, setProfessionCategoryId] = useState<CargoPrestadorId | null>(
-    null,
-  );
-  const [professionCustom, setProfessionCustom] = useState('');
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<CargoPrestadorId[]>([]);
   const [cnpj, setCnpj] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -143,8 +145,8 @@ export default function CadastroPrestadorScreen() {
         }
         setProviderStatus(provider.status);
         setDisplayName(provider.name ?? '');
-        setProfessionCategoryId(null);
-        setProfessionCustom(provider.category ?? '');
+        const loaded = resolveProviderCategories(provider).filter(isCargoPrestadorId);
+        setSelectedCategoryIds(loaded);
         setCnpj(formatCnpjInput(provider.cnpj ?? ''));
         setPhone(formatBrazilPhoneInput(provider.phone ?? ''));
         setEmail(provider.email ?? '');
@@ -168,19 +170,12 @@ export default function CadastroPrestadorScreen() {
     };
   }, [isEditMode, providerId, user?.id, user?.profile]);
 
-  const selectProfessionShortcut = (id: CargoPrestadorId, label: string) => {
-    setProfessionCategoryId(id);
-    setProfessionCustom(label);
-  };
-
-  const onProfessionCustomChange = (text: string) => {
-    setProfessionCustom(text);
-    if (professionCategoryId) {
-      const selected = CARGOS_PRESTADORES.find((c) => c.id === professionCategoryId);
-      if (selected && text.trim() !== selected.label) {
-        setProfessionCategoryId(null);
-      }
-    }
+  const toggleProfession = (id: CargoPrestadorId) => {
+    setSelectedCategoryIds((prev) => {
+      const index = prev.indexOf(id);
+      if (index >= 0) return prev.filter((item) => item !== id);
+      return [...prev, id];
+    });
   };
 
   const handleCepChange = useCallback((text: string) => {
@@ -237,7 +232,8 @@ export default function CadastroPrestadorScreen() {
     if (!isEditMode && cnpjDigits.length !== 14) return 'Informe um CNPJ válido com 14 dígitos.';
     if (phoneDigits.length < 10) return 'Informe um telefone válido com DDD.';
     if (!email.trim() || !email.includes('@')) return 'Informe um e-mail válido.';
-    if (!professionCustom.trim()) return 'Informe qual serviço você presta.';
+    const categoriesErr = validateProviderCategoriesForSubmit(selectedCategoryIds);
+    if (categoriesErr) return categoriesErr;
     if (!description.trim()) return 'Descreva brevemente os serviços que você presta.';
     if (cepDigits.length !== 8) return 'Informe um CEP válido com 8 dígitos.';
     if (!locationName.trim()) return 'Informe o bairro ou região de atendimento.';
@@ -266,10 +262,11 @@ export default function CadastroPrestadorScreen() {
       return;
     }
 
+    const categories = [...selectedCategoryIds];
+
     const payload = {
       displayName: displayName.trim(),
-      professionCustom: professionCustom.trim(),
-      ...(professionCategoryId ? { professionCategoryId } : {}),
+      categories,
       cnpj: cnpj.trim(),
       phone: phone.trim(),
       email: email.trim(),
@@ -294,7 +291,7 @@ export default function CadastroPrestadorScreen() {
       if (isEditMode) {
         const updateBody = buildServiceProviderUpdateBody({
           name: payload.displayName,
-          category: payload.professionCustom,
+          categories: payload.categories,
           description: payload.description,
           phoneDigits,
           email: payload.email,
@@ -319,7 +316,7 @@ export default function CadastroPrestadorScreen() {
         await createServiceProvider({
           type: 'INDIVIDUAL',
           name: payload.displayName,
-          category: payload.professionCustom,
+          categories: payload.categories,
           cnpj: cnpjDigits,
           phone: phoneDigits,
           email: payload.email,
@@ -397,26 +394,28 @@ export default function CadastroPrestadorScreen() {
             </View>
 
             <View style={styles.field}>
-              <FieldLabel label="Qual serviço você presta?" required />
-              <TextInput
-                style={styles.input}
-                value={professionCustom}
-                onChangeText={onProfessionCustomChange}
-                placeholder="Ex.: encanador, manutenção de ar-condicionado…"
-                placeholderTextColor={AppColors.text.quaternary}
-              />
+              <FieldLabel label="Quais serviços você presta?" required />
+              <Text style={styles.fieldHint}>
+                Toque para marcar vários. A primeira selecionada aparece em destaque no guia.
+              </Text>
               <View style={styles.chipsRow}>
                 {CARGOS_PRESTADORES.map((c) => {
-                  const active = professionCategoryId === c.id;
+                  const active = selectedCategoryIds.includes(c.id);
+                  const isPrimary = selectedCategoryIds[0] === c.id;
                   return (
                     <TouchableOpacity
                       key={c.id}
-                      style={[styles.chip, active && styles.chipActive]}
-                      onPress={() => selectProfessionShortcut(c.id, c.label)}
+                      style={[
+                        styles.chip,
+                        active && styles.chipActive,
+                        isPrimary && styles.chipPrimary,
+                      ]}
+                      onPress={() => toggleProfession(c.id)}
                       activeOpacity={0.85}
                     >
                       <Text style={[styles.chipText, active && styles.chipTextActive]}>
                         {c.label}
+                        {isPrimary ? ' ★' : ''}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -754,6 +753,10 @@ const styles = StyleSheet.create({
   chipActive: {
     backgroundColor: '#2563eb',
     borderColor: '#2563eb',
+  },
+  chipPrimary: {
+    borderWidth: 2,
+    borderColor: '#1d4ed8',
   },
   chipText: { fontSize: 13, fontWeight: '600', color: AppColors.gray[700] },
   chipTextActive: { color: '#fff' },

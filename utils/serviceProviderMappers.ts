@@ -10,6 +10,11 @@ import {
   parseProviderRatingAverage,
   parseProviderRatingCount,
 } from '@/utils/providerRatingDisplay';
+import {
+  categoryIdToLabel,
+  formatCategoriesLabel,
+  resolveProviderCategories,
+} from '@/utils/serviceProviderCategories';
 import { businessHoursFromApi } from '@/utils/serviceProviderForm';
 
 export type GuiaProviderApprovalStatus = ServiceProviderStatus;
@@ -31,11 +36,15 @@ export function serviceProviderListItemToGuia(
     longitude = GUIA_DEFAULT_CENTER.longitude;
   }
 
+  const categoryIds = resolveProviderCategories(item);
+  const primaryId = categoryIds[0] ?? item.category ?? '';
+
   return {
     id: item.id,
     type: 'PROVIDER',
     name: item.name,
-    categoryId: item.category,
+    categoryId: primaryId,
+    categoryIds,
     rating: parseProviderRatingAverage(
       item.ratingAverage ?? (item as { rating_average?: unknown }).rating_average,
     ),
@@ -51,7 +60,7 @@ export function serviceProviderListItemToGuia(
     reviews: [],
     gallery: [],
     services: [],
-    categoryLabel: item.category,
+    categoryLabel: formatCategoriesLabel(categoryIds) || item.category,
     approvalStatus: item.status,
   };
 }
@@ -64,7 +73,9 @@ export function serviceProviderResponseToProfile(
     hostId: provider.hostId,
     type: provider.type,
     name: provider.name,
+    categories: provider.categories,
     category: provider.category,
+    primaryCategory: provider.primaryCategory,
     cnpj: provider.cnpj,
     status: provider.status,
     imagePublicUrl: provider.imagePublicUrl,
@@ -78,24 +89,26 @@ export function serviceProviderResponseToProfile(
   const hoursText = businessHoursFromApi(provider.businessHours);
   const hours = hoursText || undefined;
 
+  const categoryIds = resolveProviderCategories(provider);
+  const primaryId = categoryIds[0] ?? provider.category ?? '';
   const normalizedDescription = provider.description?.trim() ?? '';
-  const services =
-    normalizedDescription.length > 0
-      ? [
-          {
-            name: provider.category,
-            description: normalizedDescription,
-            price: 'A combinar',
-          },
-        ]
-      : [];
+  const sharedDescription =
+    categoryIds.length === 1
+      ? normalizedDescription || 'Detalhes do serviço não informados.'
+      : '';
+  const services = categoryIds.map((id) => ({
+    name: categoryIdToLabel(id),
+    description: sharedDescription,
+    price: 'A combinar',
+  }));
 
   return {
     id: provider.id,
     type: 'PROVIDER',
     ownerUserId: provider.userId,
     name: provider.name,
-    categoryId: provider.category,
+    categoryId: primaryId,
+    categoryIds,
     rating: parseProviderRatingAverage(provider.ratingAverage),
     review: parseProviderRatingCount(provider.ratingCount),
     image: provider.imagePublicUrl?.trim() ?? '',

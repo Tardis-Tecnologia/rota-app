@@ -9,6 +9,10 @@ import { prepareServiceProviderChat } from '@/services/serviceProviderChat';
 import type { Profile } from '@/types';
 import type { ServiceProviderUserRating } from '@/types/serviceProvider';
 import { formatProviderRatingLabel } from '@/utils/providerRatingDisplay';
+import {
+  categoryIdToLabel,
+  formatCategoriesLabel,
+} from '@/utils/serviceProviderCategories';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -50,27 +54,47 @@ export default function ProviderProfile({
 
   const isCompany = data.type === 'COMPANY';
   const isOwner = !!user?.id && !!data.ownerUserId && data.ownerUserId === user.id;
-  const professionLabel = isCompany
-    ? (CATEGORIAS_EMPRESAS.find((c) => c.id === data.categoryId)?.label ?? '')
-    : (CATEGORIES_WITH_ALL.find((c) => c.id === data.categoryId)?.label ?? '');
-  const professionPill = professionLabel
-    ? (isCompany ? data.categoryId.toUpperCase() : professionLabel.toUpperCase())
-    : '';
+  const professionLabels = useMemo(() => {
+    if (isCompany) {
+      const label =
+        CATEGORIAS_EMPRESAS.find((c) => c.id === data.categoryId)?.label ?? data.categoryId;
+      return label ? [label] : [];
+    }
+    const ids = data.categoryIds?.length ? data.categoryIds : data.categoryId ? [data.categoryId] : [];
+    return ids.map((id) => categoryIdToLabel(id));
+  }, [data.categoryId, data.categoryIds, isCompany]);
+
+  const professionSummary = professionLabels.join(' · ');
+  const categoriesDisplayLabel =
+    !isCompany && professionLabels.length > 0
+      ? formatCategoriesLabel(data.categoryIds ?? [data.categoryId])
+      : professionSummary;
 
   const showFallback = !data?.image || imageError;
-  const renderedServices = useMemo(
-    () =>
-      data.services && data.services.length > 0
-        ? data.services
-        : [
-            {
-              name: professionLabel || data.categoryId || 'Serviço',
-              description: data.about || 'Detalhes do serviço não informados.',
-              price: 'A combinar',
-            },
-          ],
-    [data.about, data.categoryId, data.services, professionLabel],
-  );
+  const renderedServices = useMemo(() => {
+    const fallbackDescription =
+      professionLabels.length <= 1
+        ? data.about || 'Detalhes do serviço não informados.'
+        : '';
+    if (data.services && data.services.length > 0) {
+      if (professionLabels.length <= 1) return data.services;
+      return data.services.map((srv) => ({ ...srv, description: '' }));
+    }
+    if (professionLabels.length > 0) {
+      return professionLabels.map((name) => ({
+        name,
+        description: fallbackDescription,
+        price: 'A combinar',
+      }));
+    }
+    return [
+      {
+        name: data.categoryId || 'Serviço',
+        description: data.about || 'Detalhes do serviço não informados.',
+        price: 'A combinar',
+      },
+    ];
+  }, [data.about, data.categoryId, data.services, professionLabels]);
 
   const openProviderChat = async () => {
     if (!data.ownerUserId?.trim()) {
@@ -102,7 +126,7 @@ export default function ProviderProfile({
         currentUserId: user.id,
         providerOwnerUserId: data.ownerUserId,
         providerName: data.name,
-        providerCategoryLabel: professionLabel || data.categoryId,
+        providerCategoryLabel: categoriesDisplayLabel || data.categoryId,
         providerImage: data.image || undefined,
         currentUserDisplayName: user.name,
       });
@@ -163,9 +187,22 @@ export default function ProviderProfile({
           </View>
           <Text style={styles.name}>{data.name}</Text>
           <View style={styles.pillRow}>
-            {professionPill ? (
+            {!isCompany && professionLabels.length > 0 ? (
+              <View style={styles.professionPillsWrap}>
+                {professionLabels.map((label, index) => (
+                  <View
+                    key={`${label}-${index}`}
+                    style={[styles.professionPill, index === 0 && styles.professionPillPrimary]}
+                  >
+                    <Text style={styles.professionPillText}>{label.toUpperCase()}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : isCompany && professionLabels[0] ? (
               <View style={styles.professionPill}>
-                <Text style={styles.professionPillText}>{professionPill}</Text>
+                <Text style={styles.professionPillText}>
+                  {data.categoryId.toUpperCase()}
+                </Text>
               </View>
             ) : null}
             <View style={styles.ratingBadge}>
@@ -198,7 +235,9 @@ export default function ProviderProfile({
                 <Text style={styles.serviceName}>{srv.name}</Text>
                 <Text style={styles.servicePrice}>{srv.price}</Text>
               </View>
-              <Text style={styles.serviceDesc}>{srv.description}</Text>
+              {srv.description?.trim() ? (
+                <Text style={styles.serviceDesc}>{srv.description}</Text>
+              ) : null}
             </View>
           ))}
         </View>
@@ -371,11 +410,23 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'center',
   },
+  professionPillsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    flex: 1,
+    justifyContent: 'center',
+  },
   professionPill: {
     backgroundColor: '#EDE9FE',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
+  },
+  professionPillPrimary: {
+    backgroundColor: '#DDD6FE',
+    borderWidth: 1,
+    borderColor: '#7C3AED',
   },
   professionPillText: {
     fontSize: 12,

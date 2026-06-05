@@ -94,7 +94,10 @@ export type Profile = {
   /** Dono do perfil (prestador) para chat direto */
   ownerUserId?: string;
   name: string;
+  /** Categoria principal (1ª de categoryIds). */
   categoryId: string;
+  /** Todas as profissões do prestador (IDs). */
+  categoryIds?: string[];
   rating: number;
   image: string;
   review: number;

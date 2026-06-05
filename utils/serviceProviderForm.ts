@@ -52,7 +52,7 @@ export function businessHoursToApi(text: string): Record<string, unknown> | unde
 
 export interface ServiceProviderFormUpdateInput {
   name: string;
-  category: string;
+  categories: string[];
   description: string;
   phoneDigits: string;
   email: string;
@@ -71,7 +71,7 @@ export function buildServiceProviderUpdateBody(
   const hours = businessHoursToApi(input.businessHoursText);
   const body: ServiceProviderOwnerUpdateBody = {
     name: input.name,
-    category: input.category,
+    categories: input.categories,
     description: input.description,
     phone: input.phoneDigits,
     email: input.email,

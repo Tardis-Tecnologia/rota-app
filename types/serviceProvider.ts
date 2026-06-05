@@ -11,7 +11,10 @@ export interface CreateServiceProviderBody {
   type: ServiceProviderType;
   cnpj: string;
   name: string;
-  category: string;
+  /** Fonte da verdade — IDs (encanador, eletricista, …). */
+  categories: string[];
+  /** Legado; omitir quando enviar categories. */
+  category?: string;
   phone: string;
   description?: string;
   email?: string;
@@ -28,6 +31,8 @@ export interface CreateServiceProviderBody {
 /** Campos editáveis pelo dono do prestador (PATCH parcial). */
 export interface ServiceProviderOwnerUpdateBody {
   name?: string;
+  categories?: string[];
+  /** Legado; back prioriza categories quando ambos vêm. */
   category?: string;
   description?: string;
   phone?: string;
@@ -73,7 +78,9 @@ export interface ServiceProviderListItem {
   hostId: string;
   type: ServiceProviderType;
   name: string;
+  categories?: string[];
   category: string;
+  primaryCategory?: string;
   cnpj: string;
   status: ServiceProviderStatus;
   imagePublicUrl?: string | null;
@@ -91,7 +98,9 @@ export interface ServiceProviderResponse {
   userId: string;
   type: ServiceProviderType;
   name: string;
+  categories?: string[];
   category: string;
+  primaryCategory?: string;
   cnpj: string;
   status: ServiceProviderStatus;
   cnpjLegalName?: string | null;

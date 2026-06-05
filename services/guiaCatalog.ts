@@ -21,6 +21,7 @@ export function matchesGuiaSearch(item: GuiaListItem, query: string): boolean {
     item.name,
     item.categoryLabel,
     item.categoryId,
+    ...(item.categoryIds ?? []),
     item.about,
     item.serviceArea ?? '',
     item.address ?? '',

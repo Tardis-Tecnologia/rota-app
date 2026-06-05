@@ -2,12 +2,12 @@ import { getMarketplaceCategoryMeta } from '@/constants/marketplaceCategories';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  deleteMarketplaceListing,
   getMarketplaceListingById,
 } from '@/services/marketplaceApi';
 import { prepareMarketplaceSellerChat } from '@/services/marketplaceSellerChat';
 import type { MarketplaceListing } from '@/types/marketplace';
 import { formatMarketplacePrice } from '@/utils/marketplaceFormat';
+import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -37,7 +37,6 @@ export default function MarketplaceDetailScreen() {
 
   const [item, setItem] = useState<MarketplaceListing | null>(null);
   const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
 
   const load = useCallback(async () => {
@@ -64,18 +63,17 @@ export default function MarketplaceDetailScreen() {
   const openSellerChat = useCallback(async () => {
     if (!item) return;
     if (!user?.id) {
-      Alert.alert('Login necessário', 'Faça login para enviar mensagem ao vendedor.');
+      Alert.alert('Login necessário', 'Faça login para enviar mensagem à loja.');
       return;
     }
     if (user.profile === 'VISITANTE') {
-      Alert.alert('Conta necessária', 'Visitantes não podem enviar mensagens. Faça login com uma conta cadastrada.');
+      promptVisitanteLogin('enviar mensagem à loja');
       return;
     }
     if (!item.sellerId?.trim()) {
-      Alert.alert('Indisponível', 'Não foi possível identificar o vendedor deste anúncio.');
+      Alert.alert('Indisponível', 'Não foi possível identificar a loja deste anúncio.');
       return;
     }
-    if (item.sellerId === user.id) return;
 
     setChatLoading(true);
     try {
@@ -83,8 +81,10 @@ export default function MarketplaceDetailScreen() {
         buyerUserId: user.id,
         sellerId: item.sellerId,
         sellerName: item.sellerName,
+        sellerImage: item.sellerPhotoUrl,
         listingTitle: item.title,
         formattedPrice: formatMarketplacePrice(item.price),
+        buyerDisplayName: user.name,
       });
       router.push({
         pathname: '/ChatTab',
@@ -100,36 +100,11 @@ export default function MarketplaceDetailScreen() {
     } finally {
       setChatLoading(false);
     }
-  }, [item, user?.id, user?.profile]);
+  }, [item, user?.id, user?.name, user?.profile]);
 
   const callPhone = () => {
     if (!item?.advertiserContact) return;
     void Linking.openURL(`tel:${contactDigits(item.advertiserContact)}`);
-  };
-
-  const onDelete = () => {
-    if (!item) return;
-    Alert.alert('Excluir anúncio', 'Tem certeza que deseja excluir este produto?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: () => {
-          setDeleting(true);
-          void deleteMarketplaceListing(item.id)
-            .then(() => {
-              router.back();
-            })
-            .catch((e) => {
-              Alert.alert(
-                'Erro',
-                e instanceof Error ? e.message : 'Não foi possível excluir.',
-              );
-            })
-            .finally(() => setDeleting(false));
-        },
-      },
-    ]);
   };
 
   if (loading) {
@@ -150,7 +125,7 @@ export default function MarketplaceDetailScreen() {
 
   const cat = getMarketplaceCategoryMeta(item.category);
   const locationLine = [item.locationName, item.locationAddress].filter(Boolean).join(' · ');
-  const canMessageSeller = !item.isOwner && !!item.sellerId?.trim();
+  const canContactStore = !!item.sellerId?.trim();
 
   return (
     <View style={styles.flex}>
@@ -186,10 +161,10 @@ export default function MarketplaceDetailScreen() {
           <Text style={styles.sectionLabel}>Descrição</Text>
           <Text style={styles.description}>{item.description}</Text>
 
-          <Text style={styles.sectionLabel}>Anunciante</Text>
+          <Text style={styles.sectionLabel}>Loja</Text>
           <Text style={styles.sellerName}>{item.sellerName}</Text>
 
-          {canMessageSeller ? (
+          {canContactStore ? (
             <>
               <Text style={styles.sectionLabel}>Contato</Text>
               <Pressable
@@ -201,7 +176,7 @@ export default function MarketplaceDetailScreen() {
                 <View style={styles.contactTextWrap}>
                   <Text style={styles.contactText}>Enviar mensagem no app</Text>
                   <Text style={styles.contactHint} numberOfLines={2}>
-                    Abre um chat com {item.sellerName} e uma mensagem pronta sobre este produto.
+                    Abre um chat com {item.sellerName} sobre este produto.
                   </Text>
                 </View>
                 {chatLoading ? (
@@ -217,55 +192,6 @@ export default function MarketplaceDetailScreen() {
                 </Pressable>
               ) : null}
             </>
-          ) : null}
-
-          {item.isOwner ? (
-            <View style={styles.ownerActions}>
-              <Pressable
-                style={styles.editBtn}
-                onPress={() =>
-                  router.push({
-                    pathname: '/marketplace/editar/[id]',
-                    params: { id: item.id },
-                  })
-                }
-              >
-                <Ionicons name="create-outline" size={20} color="#fff" />
-                <Text style={styles.editBtnText}>Editar anúncio</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.deleteBtn, deleting && styles.deleteBtnDisabled]}
-                onPress={onDelete}
-                disabled={deleting}
-              >
-                <Ionicons name="trash-outline" size={20} color={AppColors.status.error} />
-                <Text style={styles.deleteBtnText}>
-                  {deleting ? 'Excluindo...' : 'Excluir anúncio'}
-                </Text>
-              </Pressable>
-            </View>
-          ) : canMessageSeller ? (
-            <Pressable
-              style={styles.ctaBtn}
-              onPress={() => void openSellerChat()}
-              disabled={chatLoading}
-            >
-              <LinearGradient
-                colors={['#7c3aed', '#db2777']}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={styles.ctaGradient}
-              >
-                {chatLoading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" />
-                    <Text style={styles.ctaText}>Enviar mensagem ao vendedor</Text>
-                  </>
-                )}
-              </LinearGradient>
-            </Pressable>
           ) : null}
         </View>
       </ScrollView>
@@ -356,38 +282,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: AppColors.text.tertiary,
   },
-  ownerActions: { marginTop: 20, gap: 10 },
-  editBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#7c3aed',
-    borderRadius: 14,
-    paddingVertical: 14,
-  },
-  editBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  deleteBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 14,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: '#fecaca',
-    backgroundColor: '#fef2f2',
-  },
-  deleteBtnDisabled: { opacity: 0.6 },
-  deleteBtnText: { color: AppColors.status.error, fontWeight: '800', fontSize: 16 },
-  ctaBtn: { marginTop: 20, borderRadius: 14, overflow: 'hidden' },
-  ctaGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    minHeight: 52,
-  },
-  ctaText: { color: '#fff', fontSize: 16, fontWeight: '800' },
 });

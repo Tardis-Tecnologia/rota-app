@@ -34,14 +34,6 @@ export default function MarketplaceLayout() {
     >
       <Stack.Screen name="index" options={{ title: 'Marketplace' }} />
       <Stack.Screen name="[id]" options={{ title: 'Produto' }} />
-      <Stack.Screen
-        name="publicar"
-        options={{
-          title: 'Novo anúncio',
-          headerStyle: { backgroundColor: '#f1f5f9' },
-        }}
-      />
-      <Stack.Screen name="editar/[id]" options={{ title: 'Editar anúncio' }} />
     </Stack>
   );
 }

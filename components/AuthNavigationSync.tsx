@@ -63,6 +63,16 @@ export function AuthNavigationSync() {
       return;
     }
 
+    if (!isCommercial && inComercianteGroup) {
+      const target = String(ROUTE_APP_HOME);
+      if (lastTargetRef.current === target) {
+        return;
+      }
+      lastTargetRef.current = target;
+      router.replace(target as Href);
+      return;
+    }
+
     if (inComercianteGroup || onLogin) {
       const target = String(ROUTE_APP_HOME);
       if (lastTargetRef.current === target && !inComercianteGroup) {

@@ -27,17 +27,22 @@ function readListingId(dto: MarketplaceListingListItemDto): string {
   return String(dto.id ?? r.listingId ?? '').trim();
 }
 
-function mapSeller(dto: MarketplaceListingListItemDto): { sellerId: string; sellerName: string } {
+function mapSeller(dto: MarketplaceListingListItemDto): {
+  sellerId: string;
+  sellerName: string;
+  sellerPhotoUrl: string | null;
+} {
   const sellerId = dto.seller?.id?.trim() || '';
-  const sellerName = dto.seller?.name?.trim() || 'Anunciante';
-  return { sellerId, sellerName };
+  const sellerName = dto.seller?.name?.trim() || 'Loja';
+  const sellerPhotoUrl = dto.seller?.photoUrl?.trim() || null;
+  return { sellerId, sellerName, sellerPhotoUrl };
 }
 
 export function mapMarketplaceListItem(dto: MarketplaceListingListItemDto): MarketplaceListing | null {
   const id = readListingId(dto);
   if (!id) return null;
 
-  const { sellerId, sellerName } = mapSeller(dto);
+  const { sellerId, sellerName, sellerPhotoUrl } = mapSeller(dto);
   const detail = dto as MarketplaceListingDetailDto;
   const imageUri =
     dto.imagePublicUrl?.trim() ||
@@ -52,6 +57,7 @@ export function mapMarketplaceListItem(dto: MarketplaceListingListItemDto): Mark
     id,
     sellerId,
     sellerName,
+    sellerPhotoUrl,
     title: dto.title,
     description: dto.description?.trim() || '',
     category: dto.category,
@@ -75,7 +81,7 @@ export function mapMarketplaceDetail(dto: MarketplaceListingDetailDto): Marketpl
   }
   return {
     ...base,
-    sellerId: base.sellerId || dto.userId?.trim() || '',
+    sellerId: base.sellerId || dto.commercialAccountId?.trim() || dto.userId?.trim() || '',
     description: dto.description?.trim() || base.description,
     locationAddress: dto.locationAddress?.trim() || null,
     advertiserContact: dto.advertiserContact?.trim() || '',

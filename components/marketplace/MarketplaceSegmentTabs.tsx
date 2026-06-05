@@ -24,7 +24,7 @@ export default function MarketplaceSegmentTabs({ active, onChange }: Marketplace
         onPress={() => onChange('meus')}
         style={[styles.tab, active === 'meus' && styles.tabActive]}
       >
-        <Text style={[styles.tabText, active === 'meus' && styles.tabTextActive]}>MEUS ANÚNCIOS</Text>
+        <Text style={[styles.tabText, active === 'meus' && styles.tabTextActive]}>MINHA LOJA</Text>
       </Pressable>
     </View>
   );

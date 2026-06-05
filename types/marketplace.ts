@@ -19,6 +19,7 @@ export interface MarketplaceListing {
   id: string;
   sellerId: string;
   sellerName: string;
+  sellerPhotoUrl?: string | null;
   title: string;
   description: string;
   category: string;
@@ -72,6 +73,7 @@ export interface MarketplaceListingDetailDto extends MarketplaceListingListItemD
   advertiserContact?: string | null;
   image?: { id: string; publicUrl: string | null; path?: string } | null;
   isOwner?: boolean;
+  commercialAccountId?: string;
   userId?: string;
   createdAt?: string;
   updatedAt?: string;

@@ -1,13 +1,16 @@
 import { FORUM_ACCOUNT_BANNED_ERROR } from './forumBanNoticeStore';
-import { loginCommercial } from './commercialAuthApi';
+import {
+  getApiBaseUrl,
+  getAuthToken,
+  getWhitelabelHostId,
+  setAuthToken,
+} from './apiConfig';
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
 import { isForumInactiveUserMessage } from '@/utils/forumPostingSuspensionParse';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+export { getApiBaseUrl, getAuthToken, getWhitelabelHostId, setAuthToken } from './apiConfig';
 
 const BASE_PATH = '/api/v1';
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 interface LoginResponseBody {
   token: string;
@@ -26,14 +29,6 @@ export interface LoginSuccess {
   themeSlug: string | null;
   photoUrl: string | null;
 }
-
-export type LoginAccountKind = 'citizen' | 'commercial';
-
-export type LoginWithEmailPasswordResult = LoginSuccess & {
-  accountKind: LoginAccountKind;
-  commercialCep?: string | null;
-  commercialCnpj?: string | null;
-};
 
 export interface GoogleLoginSuccess {
   token: string;
@@ -60,23 +55,6 @@ export interface UserSummary {
   uf?: string;
   cpf?: string;
   photoUrl?: string | null;
-}
-
-let authToken: string | null = null;
-
-export function getAuthToken(): string | null {
-  return authToken;
-}
-
-export function setAuthToken(token: string | null): void {
-  authToken = token;
-}
-
-export function getApiBaseUrl(): string {
-  if (!API_BASE_URL) {
-    throw new Error('EXPO_PUBLIC_API_BASE_URL não definida');
-  }
-  return API_BASE_URL.replace(/\/$/, '');
 }
 
 function pickPhotoUrl(raw: Record<string, unknown>): string | null | undefined {
@@ -269,34 +247,6 @@ export async function login(
   };
 }
 
-function isCommercialLoginCredentialFailure(message: string): boolean {
-  const m = message.trim().toLowerCase();
-  return (
-    m === 'email_ou_senha_incorretos' ||
-    m === 'credenciais inválidas' ||
-    m.includes('credenciais inválidas') ||
-    m.includes('email ou senha')
-  );
-}
-
-/** Tenta loja comercial antes do cidadão (mesmo e-mail pode existir nos dois cadastros). */
-export async function loginWithEmailPassword(
-  email: string,
-  password: string,
-): Promise<LoginWithEmailPasswordResult> {
-  try {
-    const commercial = await loginCommercial(email, password);
-    return { ...commercial, accountKind: 'commercial' };
-  } catch (err) {
-    if (!(err instanceof Error) || !isCommercialLoginCredentialFailure(err.message)) {
-      throw err;
-    }
-  }
-
-  const citizen = await login(email, password);
-  return { ...citizen, accountKind: 'citizen' };
-}
-
 export async function loginWithGoogle(idToken: string): Promise<GoogleLoginSuccess> {
   const hostId = getWhitelabelHostId();
   const url = `${getApiBaseUrl()}${BASE_PATH}/auth/google-login`;
@@ -424,17 +374,6 @@ export async function registerCitizen(
     }
     throw new Error(parseApiErrorBody(text) || `Erro no cadastro: ${res.status}`);
   }
-}
-
-export function getWhitelabelHostId(): string {
-  const raw = process.env.EXPO_PUBLIC_HOST_ID?.trim();
-  if (!raw) {
-    throw new Error('EXPO_PUBLIC_HOST_ID não definida');
-  }
-  if (!UUID_REGEX.test(raw)) {
-    throw new Error('EXPO_PUBLIC_HOST_ID inválida: informe um UUID válido');
-  }
-  return raw;
 }
 
 export async function forgotPassword(email: string): Promise<{ message: string }> {

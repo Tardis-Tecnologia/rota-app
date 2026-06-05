@@ -1,6 +1,7 @@
 import { refreshAppThemeAfterLogin } from '@/services/appThemeBridge';
 import type { UpdateUserProfilePayload, UserSummary } from '@/services/authApi';
 import * as authApi from '@/services/authApi';
+import { loginWithEmailPassword } from '@/services/loginApi';
 import { clearAuthSession, getAuthSession, saveAuthSession } from '@/services/authSessionStore';
 import { disconnectGoogleAccount } from '@/services/googleAuth';
 import { disconnectStreamChat } from '@/services/streamChatApi';
@@ -126,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     }
-    const data = await authApi.loginWithEmailPassword(email, password);
+    const data = await loginWithEmailPassword(email, password);
     authApi.setAuthToken(data.token);
     const emailNorm = email.trim();
     let nextUser: AuthUser = {

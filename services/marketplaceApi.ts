@@ -15,7 +15,7 @@ import { getApiBaseUrl, getAuthToken, getWhitelabelHostId } from './authApi';
 const BASE_PATH = '/api/v1';
 const DEFAULT_PAGE_SIZE = 20;
 
-/** Host do município (EXPO_PUBLIC_HOST_ID). Obrigatório no body/query para cidadãos. */
+/** Host do município (EXPO_PUBLIC_HOST_ID). Obrigatório no body/query das requisições. */
 function marketplaceHostId(): string {
   return getWhitelabelHostId();
 }

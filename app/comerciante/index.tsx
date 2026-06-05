@@ -4,8 +4,9 @@ import { useComercianteStore } from '@/contexts/ComercianteStoreContext';
 import { formatRelativeTimePt } from '@/utils/formatRelativeTime';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 function displayUserName(name: string | undefined, userId: string): string {
   const trimmed = name?.trim();
@@ -39,6 +40,22 @@ export default function ComerciantePainelScreen() {
               <Text style={styles.metricHint}>Curtidas e comentários nos seus posts</Text>
             </View>
           </View>
+
+          <Pressable
+            style={({ pressed }) => [styles.marketplaceCard, pressed && styles.marketplaceCardPressed]}
+            onPress={() => router.push('/comerciante/marketplace')}
+          >
+            <View style={styles.marketplaceIconWrap}>
+              <Ionicons name="bag-handle-outline" size={22} color="#7c3aed" />
+            </View>
+            <View style={styles.marketplaceTextWrap}>
+              <Text style={styles.marketplaceTitle}>Marketplace da loja</Text>
+              <Text style={styles.marketplaceHint}>
+                Publique produtos e veja o catálogo das lojas do bairro.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#94a3b8" />
+          </Pressable>
 
           <View style={styles.notifCard}>
             <View style={styles.notifHeader}>
@@ -137,6 +154,44 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   metricHint: {
+    fontSize: 12,
+    color: '#64748b',
+    lineHeight: 17,
+  },
+  marketplaceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  marketplaceCardPressed: {
+    opacity: 0.92,
+  },
+  marketplaceIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#ede9fe',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  marketplaceTextWrap: {
+    flex: 1,
+    gap: 4,
+  },
+  marketplaceTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  marketplaceHint: {
     fontSize: 12,
     color: '#64748b',
     lineHeight: 17,

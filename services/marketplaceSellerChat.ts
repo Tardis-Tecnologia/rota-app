@@ -1,6 +1,7 @@
 import { resolveChatPeerPhotoUrl } from '@/services/chatPeerPhotos';
 import { findOrCreateDirectStreamChannel } from '@/services/streamChatApi';
 import { buildMarketplaceInterestMessage } from '@/utils/marketplaceChat';
+import { toCommercialStreamUserId } from '@/utils/streamUserId';
 
 export interface OpenMarketplaceSellerChatParams {
   buyerUserId: string;
@@ -9,6 +10,7 @@ export interface OpenMarketplaceSellerChatParams {
   listingTitle: string;
   formattedPrice?: string;
   sellerImage?: string | null;
+  sellerIsCommercial?: boolean;
 }
 
 export interface MarketplaceChatNavigationPayload {
@@ -33,19 +35,27 @@ export async function prepareMarketplaceSellerChat(
     throw new Error('Você não pode enviar mensagem para o seu próprio anúncio.');
   }
 
-  const sellerName = params.sellerName.trim() || 'Anunciante';
+  const sellerName = params.sellerName.trim() || 'Loja';
+  const peerUserId =
+    params.sellerIsCommercial === false
+      ? sellerId
+      : toCommercialStreamUserId(sellerId);
   const sellerPhoto =
-    params.sellerImage?.trim() || (await resolveChatPeerPhotoUrl(sellerId)) || undefined;
+    params.sellerImage?.trim() ||
+    (params.sellerIsCommercial === false
+      ? await resolveChatPeerPhotoUrl(sellerId)
+      : undefined) ||
+    undefined;
   const channel = await findOrCreateDirectStreamChannel({
     currentUserId: buyerUserId,
     currentUserDisplayName: params.buyerDisplayName?.trim() || 'Usuário',
-    peerUserId: sellerId,
+    peerUserId,
     peerName: sellerName,
     peerImage: sellerPhoto,
   });
 
   return {
-    id: sellerId,
+    id: peerUserId,
     name: sellerName,
     image: sellerPhoto,
     channelType: channel.channelType,

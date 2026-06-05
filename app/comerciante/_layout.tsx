@@ -147,6 +147,14 @@ function ComercianteTabs() {
         }}
       />
       <Tabs.Screen
+        name="marketplace"
+        options={{
+          href: null,
+          title: 'Marketplace',
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
         name="mensagens"
         options={{
           href: null,

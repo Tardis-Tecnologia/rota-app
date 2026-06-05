@@ -1,8 +1,13 @@
-import { getApiBaseUrl, getWhitelabelHostId } from './authApi';
+import { getApiBaseUrl, getWhitelabelHostId } from './apiConfig';
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
-import type { LoginSuccess } from './authApi';
 
-export type CommercialLoginSuccess = LoginSuccess & {
+export type CommercialLoginSuccess = {
+  token: string;
+  userId: string;
+  name?: string | null;
+  profile: string;
+  themeSlug: string | null;
+  photoUrl: string | null;
   commercialCep?: string | null;
   commercialCnpj?: string | null;
 };

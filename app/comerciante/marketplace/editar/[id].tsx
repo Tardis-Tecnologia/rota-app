@@ -18,7 +18,7 @@ const KNOWN_CATEGORIES = new Set<string>([
   'outros',
 ]);
 
-export default function MarketplaceEditScreen() {
+export default function ComercianteMarketplaceEditScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const listingId = String(params.id ?? '').trim();
 
@@ -78,7 +78,7 @@ export default function MarketplaceEditScreen() {
     try {
       await updateMarketplaceListing(listingId, input);
       router.replace({
-        pathname: '/marketplace/[id]',
+        pathname: '/comerciante/marketplace/[id]',
         params: { id: listingId },
       });
     } catch (e) {

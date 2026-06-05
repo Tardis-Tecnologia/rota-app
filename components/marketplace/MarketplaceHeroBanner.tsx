@@ -3,7 +3,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-export default function MarketplaceHeroBanner() {
+type MarketplaceHeroBannerProps = {
+  variant?: 'citizen' | 'commercial';
+};
+
+export default function MarketplaceHeroBanner({ variant = 'commercial' }: MarketplaceHeroBannerProps) {
+  const isCitizen = variant === 'citizen';
+
   return (
     <LinearGradient
       colors={['#7c3aed', '#db2777', '#f97316']}
@@ -15,9 +21,13 @@ export default function MarketplaceHeroBanner() {
         <Ionicons name="bag-handle-outline" size={14} color="#fff" />
         <Text style={styles.badgeText}>MARKETPLACE DO BAIRRO</Text>
       </View>
-      <Text style={styles.title}>Compre e venda perto de você</Text>
+      <Text style={styles.title}>
+        {isCitizen ? 'Produtos das lojas do bairro' : 'Vitrine da sua loja'}
+      </Text>
       <Text style={styles.subtitle}>
-        Anúncios de produtos usados e novos — publique, negocie e encontre no app.
+        {isCitizen
+          ? 'Encontre ofertas publicadas pelas lojas parceiras e fale direto pelo app.'
+          : 'Publique produtos e gerencie os anúncios da sua loja.'}
       </Text>
     </LinearGradient>
   );

@@ -6,24 +6,20 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
-export default function MarketplacePublishScreen() {
+export default function ComercianteMarketplacePublishScreen() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const onSubmit = async (input: MarketplaceListingInput) => {
     if (!user) {
-      Alert.alert('Login necessário', 'Faça login para publicar um anúncio.');
-      return;
-    }
-    if (user.profile === 'VISITANTE') {
-      Alert.alert('Conta necessária', 'Visitantes não podem publicar anúncios. Faça login com uma conta cadastrada.');
+      Alert.alert('Sessão expirada', 'Faça login novamente para publicar um anúncio.');
       return;
     }
     setLoading(true);
     try {
       const created = await createMarketplaceListing(input);
       router.replace({
-        pathname: '/marketplace/[id]',
+        pathname: '/comerciante/marketplace/[id]',
         params: { id: created.id },
       });
     } catch (e) {

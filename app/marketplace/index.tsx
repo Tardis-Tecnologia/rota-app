@@ -2,17 +2,10 @@ import MarketplaceCategoryFilter from '@/components/marketplace/MarketplaceCateg
 import MarketplaceHeroBanner from '@/components/marketplace/MarketplaceHeroBanner';
 import MarketplaceProductCard from '@/components/marketplace/MarketplaceProductCard';
 import MarketplaceSearchBar from '@/components/marketplace/MarketplaceSearchBar';
-import MarketplaceSegmentTabs, {
-  type MarketplaceSegment,
-} from '@/components/marketplace/MarketplaceSegmentTabs';
 import { AppColors } from '@/constants/theme';
-import { useAuth } from '@/contexts/AuthContext';
-import { useIsVisitante } from '@/hooks/useIsVisitante';
-import { promptVisitanteLogin } from '@/utils/visitanteAccess';
-import { listMarketplaceListings, listMyMarketplaceListings } from '@/services/marketplaceApi';
+import { listMarketplaceListings } from '@/services/marketplaceApi';
 import type { MarketplaceListFilter, MarketplaceListing } from '@/types/marketplace';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
@@ -22,16 +15,12 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
 const PAGE_SIZE = 20;
 
 export default function MarketplaceIndexScreen() {
-  const { user } = useAuth();
-  const isVisitante = useIsVisitante();
-  const [segment, setSegment] = useState<MarketplaceSegment>('todos');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<MarketplaceListFilter>('todos');
   const [items, setItems] = useState<MarketplaceListing[]>([]);
@@ -45,19 +34,14 @@ export default function MarketplaceIndexScreen() {
   itemsLengthRef.current = items.length;
 
   const fetchPage = useCallback(
-    async (offset: number) => {
-      if (segment === 'meus') {
-        if (isVisitante) return [];
-        return listMyMarketplaceListings({ init: offset, end: offset + PAGE_SIZE });
-      }
-      return listMarketplaceListings({
+    async (offset: number) =>
+      listMarketplaceListings({
         category: category === 'todos' ? undefined : category,
         search: search.trim() || undefined,
         init: offset,
         end: offset + PAGE_SIZE,
-      });
-    },
-    [category, isVisitante, search, segment],
+      }),
+    [category, search],
   );
 
   const load = useCallback(async () => {
@@ -101,41 +85,15 @@ export default function MarketplaceIndexScreen() {
     }
   }, [fetchPage, hasMore, loading, loadingMore, refreshing]);
 
-  const filteredMeusItems = useMemo(() => {
-    if (segment !== 'meus') return items;
-    const q = search.trim().toLowerCase();
-    return items.filter((item) => {
-      const matchesSearch =
-        !q ||
-        item.title.toLowerCase().includes(q) ||
-        item.description.toLowerCase().includes(q) ||
-        item.locationName.toLowerCase().includes(q);
-      const matchesCategory = category === 'todos' || item.category === category;
-      return matchesSearch && matchesCategory;
-    });
-  }, [category, items, search, segment]);
-
-  const displayItems = segment === 'meus' ? filteredMeusItems : items;
-
   const listHeader = useMemo(
     () => (
       <View style={styles.listHeader}>
-        <MarketplaceHeroBanner />
-        <MarketplaceSegmentTabs
-          active={segment}
-          onChange={(next) => {
-            if (next === 'meus' && isVisitante) {
-              promptVisitanteLogin('gerenciar seus anúncios');
-              return;
-            }
-            setSegment(next);
-          }}
-        />
+        <MarketplaceHeroBanner variant="citizen" />
         <MarketplaceSearchBar value={search} onChangeText={setSearch} />
         <MarketplaceCategoryFilter active={category} onSelect={setCategory} />
       </View>
     ),
-    [category, search, segment],
+    [category, search],
   );
 
   const empty = useMemo(() => {
@@ -158,23 +116,17 @@ export default function MarketplaceIndexScreen() {
     return (
       <View style={styles.center}>
         <Ionicons name="cube-outline" size={44} color={AppColors.text.quaternary} />
-        <Text style={styles.emptyTitle}>
-          {segment === 'meus' ? 'Você ainda não publicou produtos' : 'Nenhum produto encontrado'}
-        </Text>
-        <Text style={styles.emptyHint}>
-          {segment === 'meus'
-            ? 'Toque em "Anunciar produto" para criar seu primeiro anúncio.'
-            : 'Tente outro termo de busca ou categoria.'}
-        </Text>
+        <Text style={styles.emptyTitle}>Nenhum produto encontrado</Text>
+        <Text style={styles.emptyHint}>Tente outro termo de busca ou categoria.</Text>
       </View>
     );
-  }, [loadError, loading, segment]);
+  }, [loadError, loading]);
 
   return (
     <View style={styles.container}>
       <FlatList
-        data={displayItems}
-        key={`${segment}-${category}-${search}`}
+        data={items}
+        key={`${category}-${search}`}
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => (
           <View style={index === 0 ? styles.firstCardWrap : undefined}>
@@ -201,29 +153,9 @@ export default function MarketplaceIndexScreen() {
         contentContainerStyle={styles.listContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
         showsVerticalScrollIndicator={false}
-        onEndReached={() => {
-          if (segment === 'todos') void loadMore();
-        }}
+        onEndReached={() => void loadMore()}
         onEndReachedThreshold={0.35}
       />
-
-      {!isVisitante ? (
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={styles.fab}
-          onPress={() => router.push('/marketplace/publicar')}
-        >
-          <LinearGradient
-            colors={['#7c3aed', '#db2777']}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={styles.fabGradient}
-          >
-            <Ionicons name="add" size={24} color="#fff" />
-            <Text style={styles.fabText}>Anunciar produto</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      ) : null}
     </View>
   );
 }
@@ -236,7 +168,7 @@ const styles = StyleSheet.create({
   firstCardWrap: {
     marginTop: 4,
   },
-  listContent: { paddingBottom: 100, flexGrow: 1 },
+  listContent: { paddingBottom: 32, flexGrow: 1 },
   center: {
     paddingVertical: 48,
     paddingHorizontal: 32,
@@ -258,30 +190,5 @@ const styles = StyleSheet.create({
     color: AppColors.text.tertiary,
     textAlign: 'center',
     lineHeight: 20,
-  },
-  fab: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 20,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#7c3aed',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  fabGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-  },
-  fabText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '800',
   },
 });

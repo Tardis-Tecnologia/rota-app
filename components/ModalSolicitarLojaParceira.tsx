@@ -1,6 +1,7 @@
 import { AppColors } from '@/constants/theme';
 import { registerCommercialAccount } from '@/services/commercialAuthApi';
 import { cepDigitsOnly, formatCepDisplay } from '@/services/viacep';
+import { formatCpf, isCpfWith11Digits, onlyCpfDigits } from '@/utils/cpf';
 import { getPasswordPolicyError, PASSWORD_PLACEHOLDER } from '@/utils/passwordPolicy';
 import { formatBrazilPhoneInput } from '@/utils/phoneMask';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +26,7 @@ type FormState = {
   endereco: string;
   cep: string;
   responsavel: string;
+  cpf: string;
   telefone: string;
   email: string;
   senha: string;
@@ -39,6 +41,7 @@ const EMPTY_FORM: FormState = {
   endereco: '',
   cep: '',
   responsavel: '',
+  cpf: '',
   telefone: '',
   email: '',
   senha: '',
@@ -84,6 +87,14 @@ export default function ModalSolicitarLojaParceira({
       setFormError('Informe o nome do responsável.');
       return;
     }
+    if (!form.cpf.trim()) {
+      setFormError('Informe o CPF do responsável.');
+      return;
+    }
+    if (!isCpfWith11Digits(form.cpf)) {
+      setFormError('Informe um CPF com 11 dígitos.');
+      return;
+    }
     if (!form.telefone.trim()) {
       setFormError('Informe o telefone.');
       return;
@@ -113,6 +124,7 @@ export default function ModalSolicitarLojaParceira({
         storeName: form.nomeLoja,
         email: form.email,
         responsibleName: form.responsavel,
+        cpf: onlyCpfDigits(form.cpf),
         phone: form.telefone,
         password: form.senha,
         cnpj: form.cnpj || undefined,
@@ -231,6 +243,19 @@ export default function ModalSolicitarLojaParceira({
                     placeholder="Nome completo"
                     placeholderTextColor={AppColors.text.quaternary}
                     style={styles.input}
+                  />
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>CPF do responsável *</Text>
+                  <TextInput
+                    value={form.cpf}
+                    onChangeText={(v) => updateField('cpf', formatCpf(v))}
+                    placeholder="000.000.000-00"
+                    placeholderTextColor={AppColors.text.quaternary}
+                    style={styles.input}
+                    keyboardType="numeric"
+                    maxLength={14}
                   />
                 </View>
 

@@ -44,6 +44,7 @@ export interface RegisterCommercialAccountPayload {
   storeName: string;
   email: string;
   responsibleName: string;
+  cpf: string;
   phone: string;
   password: string;
   cnpj?: string;
@@ -130,6 +131,7 @@ export async function registerCommercialAccount(
     storeName: payload.storeName.trim(),
     email: payload.email.trim(),
     responsibleName: payload.responsibleName.trim(),
+    cpf: payload.cpf.replace(/\D/g, ''),
     phone: payload.phone.trim(),
     password: payload.password,
     cnpj: payload.cnpj?.trim() || undefined,

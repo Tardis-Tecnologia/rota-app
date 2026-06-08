@@ -41,6 +41,10 @@ export interface FeedNovidade {
   curtidas: number;
   liked: boolean;
   comentarios: number;
+  /** Comunicado fixado pela prefeitura (só `article`). */
+  isPinned?: boolean;
+  /** ISO 8601 — quando foi fixado. */
+  pinnedAt?: string | null;
 }
 
 export function isFeedPollItem(item: FeedNovidade): boolean {

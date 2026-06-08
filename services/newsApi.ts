@@ -42,6 +42,8 @@ export interface NewsItem {
   postType?: string;
   pollId?: string | null;
   poll?: NewsPollEmbeddedDto | null;
+  isPinned?: boolean;
+  pinnedAt?: string | null;
 }
 
 export interface NewsPollEmbeddedDto {
@@ -252,6 +254,11 @@ function normalizeNewsItem(raw: NewsItem & Record<string, unknown>): NewsItem {
   const pollIdRaw = raw.pollId ?? raw.poll_id;
   const pollId = pollIdRaw != null && String(pollIdRaw).trim() ? String(pollIdRaw).trim() : null;
   const poll = normalizeNewsPollEmbedded(raw.poll, pollId);
+  const pinnedAtRaw = raw.pinnedAt ?? raw.pinned_at;
+  const pinnedAt =
+    pinnedAtRaw != null && String(pinnedAtRaw).trim() ? String(pinnedAtRaw).trim() : null;
+  const isPinned =
+    postType === 'poll' ? false : readBoolean(raw.isPinned ?? raw.is_pinned);
 
   return {
     ...raw,
@@ -260,6 +267,8 @@ function normalizeNewsItem(raw: NewsItem & Record<string, unknown>): NewsItem {
     postType,
     pollId: pollId ?? poll?.id ?? null,
     poll,
+    isPinned,
+    pinnedAt: isPinned ? pinnedAt : null,
     likesCount: postType === 'poll' ? 0 : readNumber(raw.likesCount ?? raw.likes_count),
     liked: postType === 'poll' ? false : readBoolean(raw.liked),
     commentsCount: postType === 'poll' ? 0 : readNumber(raw.commentsCount ?? raw.comments_count),
@@ -632,6 +641,8 @@ function newsItemToPollFeed(item: NewsItem): FeedNovidade {
     curtidas: 0,
     liked: false,
     comentarios: 0,
+    isPinned: false,
+    pinnedAt: null,
   };
 }
 
@@ -676,13 +687,27 @@ export function newsItemToNovidade(item: NewsItem): FeedNovidade {
     curtidas: item.likesCount ?? post.curtidas,
     liked: item.liked ?? post.curtido,
     comentarios: item.commentsCount ?? 0,
+    isPinned: !!item.isPinned,
+    pinnedAt: item.pinnedAt ?? null,
   };
 }
 
+export function sortNovidadesForFeed(items: FeedNovidade[]): FeedNovidade[] {
+  return [...items].sort((a, b) => {
+    const aPinned = !!a.isPinned;
+    const bPinned = !!b.isPinned;
+    if (aPinned !== bPinned) return aPinned ? -1 : 1;
+    if (aPinned && bPinned) {
+      const aPin = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
+      const bPin = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
+      if (aPin !== bPin) return bPin - aPin;
+    }
+    return new Date(b.dataPublicacao).getTime() - new Date(a.dataPublicacao).getTime();
+  });
+}
+
 export function sortNovidadesByDate(items: FeedNovidade[]): FeedNovidade[] {
-  return [...items].sort(
-    (a, b) => new Date(b.dataPublicacao).getTime() - new Date(a.dataPublicacao).getTime(),
-  );
+  return sortNovidadesForFeed(items);
 }
 
 export const NEWS_FEED_TAG = {

@@ -1,4 +1,5 @@
 import FeedNovidadeCard from '@/components/feed/FeedNovidadeCard';
+import FeedPinnedNovidadeCard from '@/components/feed/FeedPinnedNovidadeCard';
 import FeedPollCard from '@/components/feed/FeedPollCard';
 import FilterTabs, { type FilterOption } from '@/components/FilterTabs';
 import FeedMuralHeader from '@/components/feed/FeedMuralHeader';
@@ -358,24 +359,36 @@ export default function FeedNovidadesContent({
                 />
               );
             }
+            const cardProps = {
+              item,
+              imageCacheEpoch: imageEpoch,
+              comments: commentsByPost[item.id] ?? [],
+              commentDraft: commentDraftByPost[item.id] ?? '',
+              commentsExpanded: !!commentsExpandedByPost[item.id],
+              commentsLoading: commentsLoadingPostId === item.id,
+              commentSending: commentSendingPostId === item.id,
+              canInteract,
+              onOpenDetail: () => openDetail(item),
+              onLike: () => void onLike(item.id),
+              onToggleComments: () => onToggleComments(item.id),
+              onCommentDraftChange: (text: string) =>
+                setCommentDraftByPost((prev) => ({ ...prev, [item.id]: text })),
+              onSendComment: () => void onSendComment(item.id),
+            };
+
+            if (item.isPinned) {
+              return (
+                <FeedPinnedNovidadeCard
+                  key={`${activeFilter}-pinned-${item.id}`}
+                  {...cardProps}
+                />
+              );
+            }
+
             return (
               <FeedNovidadeCard
                 key={`${activeFilter}-post-${item.id}`}
-                item={item}
-                imageCacheEpoch={imageEpoch}
-                comments={commentsByPost[item.id] ?? []}
-                commentDraft={commentDraftByPost[item.id] ?? ''}
-                commentsExpanded={!!commentsExpandedByPost[item.id]}
-                commentsLoading={commentsLoadingPostId === item.id}
-                commentSending={commentSendingPostId === item.id}
-                canInteract={canInteract}
-                onOpenDetail={() => openDetail(item)}
-                onLike={() => void onLike(item.id)}
-                onToggleComments={() => onToggleComments(item.id)}
-                onCommentDraftChange={(text) =>
-                  setCommentDraftByPost((prev) => ({ ...prev, [item.id]: text }))
-                }
-                onSendComment={() => void onSendComment(item.id)}
+                {...cardProps}
                 showDivider={index < items.length - 1 || hasMore}
               />
             );

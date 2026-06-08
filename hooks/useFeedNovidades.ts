@@ -2,7 +2,7 @@ import {
   buildNewsFeedQuery,
   getNews,
   newsItemToFeedItem,
-  sortNovidadesByDate,
+  sortNovidadesForFeed,
 } from '@/services/newsApi';
 import { FeedFilter } from '@/types';
 import type { FeedNovidade } from '@/types/feedNovidade';
@@ -25,7 +25,7 @@ function dedupeFeedItemsById(items: FeedNovidade[]): FeedNovidade[] {
 }
 
 function mergeFeedPages(prev: FeedNovidade[], page: FeedNovidade[]): FeedNovidade[] {
-  return dedupeFeedItemsById(sortNovidadesByDate([...prev, ...page]));
+  return dedupeFeedItemsById(sortNovidadesForFeed([...prev, ...page]));
 }
 
 const PAGE_SIZE = 10;
@@ -52,7 +52,7 @@ export function useFeedNovidades() {
         end: offset + PAGE_SIZE,
       });
       const page = applyClientFeedFilter(
-        sortNovidadesByDate(list.map(newsItemToFeedItem)),
+        sortNovidadesForFeed(list.map(newsItemToFeedItem)),
         activeFilter,
       );
       return { items: page, rawCount: list.length };

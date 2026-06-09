@@ -8,7 +8,10 @@ import Toast from '@/components/Toast';
 import { EXPLORE_MAP_MAX_MARKERS } from '@/constants/exploreMap';
 import { AppColors } from '@/constants/theme';
 import { useNotificationUnreadCount } from '@/hooks/useNotificationUnreadCount';
-import { ensureForegroundLocationPermission } from '@/services/locationPermission';
+import {
+  ensureForegroundLocationPermission,
+  getCurrentPositionWithRetry,
+} from '@/services/locationPermission';
 import {
   communityToExplorePonto,
   EXPLORE_COMMUNITIES_CHIP_ID,
@@ -50,6 +53,9 @@ const MARICA_CENTER = {
   latitudeDelta: 0.05,
   longitudeDelta: 0.05,
 };
+
+const MAP_LOCATION_WATCH_DISTANCE_METERS = 15;
+const MAP_LOCATION_WATCH_TIME_MS = 5000;
 
 const FILTER_CHIP_TO_PLACE_TYPE: Record<string, string> = {
   restaurant: 'restaurant',
@@ -133,21 +139,61 @@ export default function MapScreen() {
   const appliedCategoryFromRoute = useRef(false);
   const pendingInitialGpsCenterRef = useRef(false);
   const lastGpsAtRef = useRef(0);
+  const locationReadyRef = useRef(false);
+  const hadLocationErrorRef = useRef(false);
+
+  useEffect(() => {
+    locationReadyRef.current = locationReady;
+  }, [locationReady]);
+
+  const shouldSkipGpsRefresh = useCallback((force: boolean): boolean => {
+    if (force) return false;
+    if (hadLocationErrorRef.current) return false;
+    if (!locationReadyRef.current) return false;
+    if (lastGpsAtRef.current === 0) return false;
+    return Date.now() - lastGpsAtRef.current < EXPLORE_GPS_STALE_MS;
+  }, []);
+
+  const applyGpsCoords = useCallback(
+    (latitude: number, longitude: number, options?: { centerMap?: boolean }) => {
+      const centerMap = options?.centerMap ?? false;
+      setLocalizacao((prev) => {
+        const next: Localizacao = centerMap
+          ? {
+              latitude,
+              longitude,
+              latitudeDelta: 0.018,
+              longitudeDelta: 0.018,
+            }
+          : {
+              ...prev,
+              latitude,
+              longitude,
+            };
+        if (centerMap) {
+          pendingInitialGpsCenterRef.current = true;
+          setMapRegion(next);
+        }
+        return next;
+      });
+      setLocationReady(true);
+      setLocationError(null);
+      hadLocationErrorRef.current = false;
+      lastGpsAtRef.current = Date.now();
+    },
+    [],
+  );
 
   const solicitarPermissaoLocalizacao = useCallback(
     async (options?: { force?: boolean }): Promise<void> => {
       const force = options?.force ?? false;
-      if (
-        !force &&
-        locationReady &&
-        Date.now() - lastGpsAtRef.current < EXPLORE_GPS_STALE_MS
-      ) {
+      if (shouldSkipGpsRefresh(force)) {
         setLoading(false);
         return;
       }
 
       setLocationError(null);
-      const showBlockingLoader = !locationReady;
+      const showBlockingLoader = !locationReadyRef.current;
       if (showBlockingLoader) {
         setLocationReady(false);
         setLoading(true);
@@ -156,31 +202,23 @@ export default function MapScreen() {
       try {
         const ok = await ensureForegroundLocationPermission();
         if (!ok) {
+          hadLocationErrorRef.current = true;
           setLocationError('denied');
           return;
         }
 
-        const location = await Location.getCurrentPositionAsync({
+        const location = await getCurrentPositionWithRetry({
           accuracy: Location.Accuracy.Balanced,
         });
-        const next: Localizacao = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          latitudeDelta: 0.018,
-          longitudeDelta: 0.018,
-        };
-        pendingInitialGpsCenterRef.current = true;
-        setLocalizacao(next);
-        setMapRegion(next);
-        setLocationReady(true);
-        lastGpsAtRef.current = Date.now();
+        applyGpsCoords(location.coords.latitude, location.coords.longitude, { centerMap: true });
       } catch {
+        hadLocationErrorRef.current = true;
         setLocationError('error');
       } finally {
         setLoading(false);
       }
     },
-    [locationReady],
+    [applyGpsCoords, shouldSkipGpsRefresh],
   );
 
   useFocusEffect(
@@ -189,8 +227,41 @@ export default function MapScreen() {
         setLoading(false);
         return;
       }
-      void solicitarPermissaoLocalizacao({ force: false });
-    }, [solicitarPermissaoLocalizacao]),
+
+      let cancelled = false;
+      let watchSub: Location.LocationSubscription | null = null;
+
+      async function startLocationWatch(): Promise<void> {
+        await solicitarPermissaoLocalizacao({ force: false });
+        if (cancelled) return;
+
+        try {
+          const { status } = await Location.getForegroundPermissionsAsync();
+          if (cancelled || status !== 'granted') return;
+
+          watchSub = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.Balanced,
+              distanceInterval: MAP_LOCATION_WATCH_DISTANCE_METERS,
+              timeInterval: MAP_LOCATION_WATCH_TIME_MS,
+            },
+            ({ coords }) => {
+              if (cancelled) return;
+              applyGpsCoords(coords.latitude, coords.longitude);
+            },
+          );
+        } catch {
+          // Leitura inicial segue válida se o watch falhar (comum no emulador).
+        }
+      }
+
+      void startLocationWatch();
+
+      return () => {
+        cancelled = true;
+        watchSub?.remove();
+      };
+    }, [applyGpsCoords, solicitarPermissaoLocalizacao]),
   );
 
   const publishMapPontos = useCallback((items: PontoInteresse[]) => {
@@ -380,15 +451,12 @@ export default function MapScreen() {
 
   const handleCenterUser = useCallback(async () => {
     try {
-      const { status } = await Location.getForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        const req = await Location.requestForegroundPermissionsAsync();
-        if (req.status !== 'granted') {
-          Alert.alert('Localização', 'Permita o acesso à localização para centralizar o mapa.');
-          return;
-        }
+      const ok = await ensureForegroundLocationPermission();
+      if (!ok) {
+        Alert.alert('Localização', 'Permita o acesso à localização para centralizar o mapa.');
+        return;
       }
-      const pos = await Location.getCurrentPositionAsync({
+      const pos = await getCurrentPositionWithRetry({
         accuracy: Location.Accuracy.Highest,
       });
       const region: Region = {
@@ -405,6 +473,10 @@ export default function MapScreen() {
       };
       setLocalizacao(nextLoc);
       setMapRegion(region);
+      setLocationReady(true);
+      setLocationError(null);
+      hadLocationErrorRef.current = false;
+      lastGpsAtRef.current = Date.now();
       mapRef.current?.animateToRegion(region, 500);
     } catch {
       Alert.alert('Mapa', 'Não foi possível obter sua localização.');

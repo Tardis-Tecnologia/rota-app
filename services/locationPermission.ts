@@ -1,47 +1,47 @@
 import * as Location from 'expo-location';
-import { Alert, Linking, PermissionsAndroid, Platform } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
+
+const PERMISSION_DENIED_MESSAGE =
+  'Sem permissão o mapa usa uma região padrão. Você pode ativar nas configurações do app.';
 
 export async function ensureForegroundLocationPermission(): Promise<boolean> {
-  if (Platform.OS === 'android') {
-    const result = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      {
-        title: 'Permitir localização',
-        message:
-          'O app precisa da sua localização para mostrar pontos próximos e sua posição no mapa.',
-        buttonPositive: 'Permitir',
-        buttonNegative: 'Cancelar',
-      },
-    );
-    if (result !== PermissionsAndroid.RESULTS.GRANTED) {
-      Alert.alert(
-        'Localização',
-        'Sem permissão o mapa usa uma região padrão. Você pode ativar nas configurações do app.',
-        [
-          { text: 'OK', style: 'cancel' },
-          { text: 'Abrir configurações', onPress: () => void Linking.openSettings() },
-        ],
-      );
-      return false;
-    }
-    return true;
-  }
+  if (Platform.OS === 'web') return false;
 
-  if (Platform.OS === 'ios') {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(
-        'Permissão negada',
-        'A localização é necessária para mostrar sua posição no mapa.',
-        [
-          { text: 'OK', style: 'cancel' },
-          { text: 'Abrir configurações', onPress: () => void Linking.openSettings() },
-        ],
-      );
-      return false;
-    }
-    return true;
-  }
+  const existing = await Location.getForegroundPermissionsAsync();
+  if (existing.status === 'granted') return true;
 
-  return false;
+  const { status } = await Location.requestForegroundPermissionsAsync();
+  if (status !== 'granted') {
+    Alert.alert('Localização', PERMISSION_DENIED_MESSAGE, [
+      { text: 'OK', style: 'cancel' },
+      { text: 'Abrir configurações', onPress: () => void Linking.openSettings() },
+    ]);
+    return false;
+  }
+  return true;
+}
+
+const DEFAULT_GET_POSITION_RETRIES = 2;
+const DEFAULT_GET_POSITION_RETRY_DELAY_MS = 1500;
+
+export async function getCurrentPositionWithRetry(
+  options?: Location.LocationOptions,
+  retries = DEFAULT_GET_POSITION_RETRIES,
+  retryDelayMs = DEFAULT_GET_POSITION_RETRY_DELAY_MS,
+): Promise<Location.LocationObject> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      if (attempt > 0) {
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      }
+      return await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+        ...options,
+      });
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
 }

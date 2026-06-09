@@ -32,7 +32,7 @@ export default function DemandsLayout() {
         headerLeft: () => <HeaderBack />,
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Demandas Finalizadas' }} />
+      <Stack.Screen name="index" options={{ title: 'Realizações' }} />
     </Stack>
   );
 }

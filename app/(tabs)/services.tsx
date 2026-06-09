@@ -67,7 +67,7 @@ const servicesCards: ServiceCard[] = [
   },
   {
     id: 'demands',
-    title: 'Demandas Finalizadas',
+    title: 'Realizações',
     icon: 'clipboard-outline',
     iconColor: '#CA8A04',
     iconBg: '#FEF9C3',
@@ -76,10 +76,10 @@ const servicesCards: ServiceCard[] = [
 
 function ServicesListHeader() {
   return (
-    <>
+    <View style={styles.listHeader}>
       <ServicesHeroBanner />
       <QuickAccessSection />
-    </>
+    </View>
   );
 }
 
@@ -189,6 +189,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
     backgroundColor: '#F8FAFC',
+  },
+  listHeader: {
+    marginBottom: 12,
   },
   listContent: {
     paddingTop: 4,

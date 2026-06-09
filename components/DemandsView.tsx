@@ -149,7 +149,7 @@ export function DemandsView() {
           <View>
             <View style={styles.hero}>
               <Text style={styles.heroOverline}>PAINEL DE ENTREGAS</Text>
-              <Text style={styles.heroTitle}>Demandas concluídas</Text>
+              <Text style={styles.heroTitle}>Realizações</Text>
               <Text style={styles.heroSubtitle}>Publicações oficiais com melhorias já executadas pela Prefeitura.</Text>
             </View>
 

@@ -1,3 +1,4 @@
+import AnimatedRainIcon from '@/components/icons/AnimatedRainIcon';
 import {
   type EmergencyAlertItem,
   getEmergencyAlerts,
@@ -116,7 +117,11 @@ export default function CityAlerts() {
           </Text>
         ) : null}
       </View>
-      <Ionicons name={visual.rightIcon} size={22} color={visual.rightIconColor} />
+      {visual.rightIcon === 'rainy' ? (
+        <AnimatedRainIcon color={visual.rightIconColor} size={28} />
+      ) : (
+        <Ionicons name={visual.rightIcon} size={22} color={visual.rightIconColor} />
+      )}
     </View>
   );
 }

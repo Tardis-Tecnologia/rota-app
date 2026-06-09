@@ -117,9 +117,7 @@ export default function MapScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const mapRef = useRef<MapLibreMapaViewRef | null>(null);
   const [localizacao, setLocalizacao] = useState<Localizacao>(MARICA_CENTER);
-  const [mapRegion, setMapRegion] = useState<Region>(() => ({
-    ...MARICA_CENTER,
-  }));
+  const mapRegionRef = useRef<Region>({ ...MARICA_CENTER });
   const [loading, setLoading] = useState<boolean>(true);
   const [locationReady, setLocationReady] = useState(false);
   const [locationError, setLocationError] = useState<'denied' | 'error' | null>(null);
@@ -172,7 +170,7 @@ export default function MapScreen() {
             };
         if (centerMap) {
           pendingInitialGpsCenterRef.current = true;
-          setMapRegion(next);
+          mapRegionRef.current = next;
         }
         return next;
       });
@@ -409,15 +407,18 @@ export default function MapScreen() {
     localizacao.longitudeDelta,
   ]);
 
-  const getMarkerColor = (tipo: PontoInteresse['tipo']): string => {
-    if (categoriaSelecionada === EXPLORE_COMMUNITIES_CHIP_ID) {
-      return '#0891b2';
-    }
-    if (categoriaSelecionada === EXPLORE_PARTNER_STORES_CHIP_ID) {
-      return '#b45309';
-    }
-    return AppColors.categoria[tipo] || AppColors.primary;
-  };
+  const getMarkerColor = useCallback(
+    (tipo: PontoInteresse['tipo']): string => {
+      if (categoriaSelecionada === EXPLORE_COMMUNITIES_CHIP_ID) {
+        return '#0891b2';
+      }
+      if (categoriaSelecionada === EXPLORE_PARTNER_STORES_CHIP_ID) {
+        return '#b45309';
+      }
+      return AppColors.categoria[tipo] || AppColors.primary;
+    },
+    [categoriaSelecionada],
+  );
 
   const handleMarkerPress = useCallback((ponto: PontoInteresse) => {
     setSelectedPontoDetail(ponto);
@@ -438,11 +439,11 @@ export default function MapScreen() {
 
   const handleRegionComplete = useCallback((region: Region) => {
     const clamp = (d: number) => Math.min(45, Math.max(0.0003, d));
-    setMapRegion({
+    mapRegionRef.current = {
       ...region,
       latitudeDelta: clamp(region.latitudeDelta),
       longitudeDelta: clamp(region.longitudeDelta),
-    });
+    };
   }, []);
 
   const handleUserDragMap = useCallback(() => {
@@ -462,8 +463,8 @@ export default function MapScreen() {
       const region: Region = {
         latitude: pos.coords.latitude,
         longitude: pos.coords.longitude,
-        latitudeDelta: mapRegion.latitudeDelta,
-        longitudeDelta: mapRegion.longitudeDelta,
+        latitudeDelta: mapRegionRef.current.latitudeDelta,
+        longitudeDelta: mapRegionRef.current.longitudeDelta,
       };
       const nextLoc: Localizacao = {
         latitude: region.latitude,
@@ -472,7 +473,7 @@ export default function MapScreen() {
         longitudeDelta: region.longitudeDelta,
       };
       setLocalizacao(nextLoc);
-      setMapRegion(region);
+      mapRegionRef.current = region;
       setLocationReady(true);
       setLocationError(null);
       hadLocationErrorRef.current = false;
@@ -481,7 +482,7 @@ export default function MapScreen() {
     } catch {
       Alert.alert('Mapa', 'Não foi possível obter sua localização.');
     }
-  }, [mapRegion.latitudeDelta, mapRegion.longitudeDelta]);
+  }, []);
 
   const handleZoomIn = useCallback(() => {
     mapRef.current?.zoomBy(1, 220);
@@ -568,11 +569,10 @@ export default function MapScreen() {
   return (
     <View style={[styles.container, { backgroundColor: AppColors.background.default }]}>
       <MapLibreMapaView
-        key={categoriaSelecionada ?? 'explore-map-idle'}
         ref={mapRef}
         localizacao={localizacao}
         pontos={filterLoading ? [] : mapPontosForView}
-        markerVariant="dot"
+        markerVariant="hybrid"
         getMarkerColor={getMarkerColor}
         onRegionChangeComplete={handleRegionComplete}
         onUserDragMap={handleUserDragMap}

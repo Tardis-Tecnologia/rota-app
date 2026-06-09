@@ -381,6 +381,7 @@ export default function FeedNovidadesContent({
                 <FeedPinnedNovidadeCard
                   key={`${activeFilter}-pinned-${item.id}`}
                   {...cardProps}
+                  showDivider={index < items.length - 1 || hasMore}
                 />
               );
             }

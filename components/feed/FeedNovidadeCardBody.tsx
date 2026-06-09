@@ -4,6 +4,7 @@ import { useAppTheme } from '@/contexts/AppThemeContext';
 import type { NewsCommentListItemDto } from '@/services/newsApi';
 import type { FeedNovidade } from '@/types/feedNovidade';
 import { Ionicons } from '@expo/vector-icons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useMemo } from 'react';
 import {
   ActivityIndicator,
@@ -29,6 +30,7 @@ export interface FeedNovidadeCardBodyProps {
   onToggleComments: () => void;
   onCommentDraftChange: (text: string) => void;
   onSendComment: () => void;
+  showPinnedLabel?: boolean;
 }
 
 function formatHandleLine(handle: string, dataRelativa: string): string {
@@ -55,6 +57,7 @@ export default function FeedNovidadeCardBody({
   onToggleComments,
   onCommentDraftChange,
   onSendComment,
+  showPinnedLabel = false,
 }: FeedNovidadeCardBodyProps) {
   const { name: themeName } = useAppTheme();
 
@@ -103,7 +106,18 @@ export default function FeedNovidadeCardBody({
                 {formatHandleLine(item.autorHandle, item.dataRelativa)}
               </Text>
             </View>
-            <Ionicons name="ellipsis-horizontal" size={18} color="#536471" />
+            {showPinnedLabel ? (
+              <View
+                style={styles.pinnedLabel}
+                accessibilityRole="text"
+                accessibilityLabel="Fixado"
+              >
+                <MaterialIcons name="push-pin" size={13} color="#94a3b8" />
+                <Text style={styles.pinnedLabelText}>Fixado</Text>
+              </View>
+            ) : (
+              <Ionicons name="ellipsis-horizontal" size={18} color="#536471" />
+            )}
           </View>
 
           <Text style={styles.body}>{bodyText}</Text>
@@ -237,6 +251,17 @@ const styles = StyleSheet.create({
   metaLine: {
     fontSize: 14,
     color: '#536471',
+  },
+  pinnedLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingTop: 2,
+  },
+  pinnedLabelText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94a3b8',
   },
   body: {
     fontSize: 15,

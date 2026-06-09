@@ -1,5 +1,10 @@
 import MapPointMarkerCard from '@/components/MapPointMarkerCard';
-import { getMapLibreStyleUrl } from '@/constants/mapLibreStyle';
+import {
+  getMapLibreStyleUrl,
+  MAP_CAMERA_HEADING,
+  MAP_CAMERA_PITCH,
+  MAP_DEFAULT_ZOOM,
+} from '@/constants/mapLibreStyle';
 import type { Localizacao, PontoInteresse, Region } from '@/types';
 import MapLibreGL, {
   Camera,
@@ -18,7 +23,6 @@ import React, {
   useImperativeHandle,
   useMemo,
   useRef,
-  useState,
 } from 'react';
 import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 
@@ -112,9 +116,7 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
     const mapRef = useRef<MapViewRef>(null);
     const cameraRef = useRef<CameraRef>(null);
     const mapStyleUrl = useMemo(() => getMapLibreStyleUrl(), []);
-    const [mapStyleJson, setMapStyleJson] = useState<string | null>(null);
 
-   
     const initialViewAppliedRef = useRef(false);
     const lastAnchorRef = useRef<Anchor | null>(null);
     const lastZoomLevelRef = useRef<number>(zoomFromLatitudeDelta(0.05));
@@ -125,17 +127,21 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
     
     const lastPropLocRef = useRef<{ lat: number; lng: number } | null>(null);
 
-    const applyCameraToAnchor = useCallback((loc: Localizacao, duration: number) => {
-      const z = zoomFromLatitudeDelta(loc.latitudeDelta);
-      lastZoomLevelRef.current = z;
-      lastCenterRef.current = [loc.longitude, loc.latitude];
-      cameraRef.current?.setCamera({
-        centerCoordinate: lastCenterRef.current,
-        zoomLevel: z,
-        animationDuration: duration,
-        animationMode: 'easeTo',
-      });
-    }, []);
+    const applyCameraToAnchor = useCallback(
+      (loc: Localizacao, duration: number, zoomLevel = MAP_DEFAULT_ZOOM) => {
+        lastZoomLevelRef.current = zoomLevel;
+        lastCenterRef.current = [loc.longitude, loc.latitude];
+        cameraRef.current?.setCamera({
+          centerCoordinate: lastCenterRef.current,
+          zoomLevel,
+          pitch: MAP_CAMERA_PITCH,
+          heading: MAP_CAMERA_HEADING,
+          animationDuration: duration,
+          animationMode: duration > 0 ? 'easeTo' : 'moveTo',
+        });
+      },
+      [],
+    );
 
     const handleDidFinishLoadingMap = useCallback(() => {
       if (initialViewAppliedRef.current) return;
@@ -170,47 +176,6 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
       lastPropLocRef.current = { lat, lng };
       applyCameraToAnchor(localizacao, 450);
     }, [localizacao, applyCameraToAnchor]);
-
-    useEffect(() => {
-      const isMapTiler = mapStyleUrl.startsWith('https://api.maptiler.com/');
-      if (!isMapTiler) {
-        setMapStyleJson(null);
-        return;
-      }
-
-      const ac = new AbortController();
-      (async () => {
-        try {
-          const res = await fetch(mapStyleUrl, { signal: ac.signal, headers: { Accept: 'application/json' } });
-          if (!res.ok) return;
-          const style = (await res.json()) as any;
-          if (style?.sources && typeof style.sources === 'object') {
-            const removed = new Set<string>();
-            for (const [id, src] of Object.entries<any>(style.sources)) {
-              const type = src?.type as string | undefined;
-              const hasUrl = typeof src?.url === 'string' && src.url.length > 0;
-              const hasTiles = Array.isArray(src?.tiles) && src.tiles.length > 0;
-              const hasData = src?.data != null;
-
-              const needsTilesOrUrl = type === 'vector' || type === 'raster' || type === 'raster-dem';
-              const ok = needsTilesOrUrl ? hasUrl || hasTiles : type === 'geojson' ? hasData : true;
-              if (!ok) {
-                delete style.sources[id];
-                removed.add(id);
-              }
-            }
-
-            if (removed.size > 0 && Array.isArray(style.layers)) {
-              style.layers = style.layers.filter((l: any) => !removed.has(l?.source));
-            }
-          }
-          setMapStyleJson(JSON.stringify(style));
-        } catch {
-        }
-      })();
-
-      return () => ac.abort();
-    }, [mapStyleUrl]);
 
     const emitRegionFromPayload = useCallback(
       (p: RegionPayload) => {
@@ -251,6 +216,8 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
           cameraRef.current?.setCamera({
             centerCoordinate: lastCenterRef.current,
             zoomLevel: z,
+            pitch: MAP_CAMERA_PITCH,
+            heading: MAP_CAMERA_HEADING,
             animationDuration: duration,
             animationMode: 'easeTo',
           });
@@ -261,6 +228,8 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
           cameraRef.current?.setCamera({
             centerCoordinate: lastCenterRef.current,
             zoomLevel: next,
+            pitch: MAP_CAMERA_PITCH,
+            heading: MAP_CAMERA_HEADING,
             animationDuration: duration,
             animationMode: 'easeTo',
           });
@@ -276,15 +245,11 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
       return styles.map;
     }, []);
 
-    const isMapTiler = mapStyleUrl.startsWith('https://api.maptiler.com/');
-    if (isMapTiler && mapStyleJson == null) {
-      return <View style={mapViewStyle} />;
-    }
     return (
       <MapView
         ref={mapRef}
         style={mapViewStyle}
-        mapStyle={mapStyleJson ?? mapStyleUrl}
+        mapStyle={mapStyleUrl}
         scrollEnabled
         pitchEnabled
         rotateEnabled
@@ -298,17 +263,25 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
           }
         }}
       >
-        <Camera ref={cameraRef} followUserLocation={false} />
+        <Camera
+          ref={cameraRef}
+          followUserLocation={false}
+          defaultSettings={{
+            pitch: MAP_CAMERA_PITCH,
+            heading: MAP_CAMERA_HEADING,
+          }}
+        />
         <UserLocation visible androidRenderMode="gps" showsUserHeadingIndicator />
         {isDotMarker && dotsGeoJson ? (
           <ShapeSource id="map-dots-source" shape={dotsGeoJson} onPress={handleDotsPress}>
             <CircleLayer
               id="map-dots-layer"
               style={{
-                circleRadius: 7,
+                circleRadius: ['interpolate', ['linear'], ['zoom'], 12, 7, 15, 11, 17, 13],
                 circleColor: ['get', 'markerColor'],
-                circleStrokeWidth: 2,
+                circleStrokeWidth: 3,
                 circleStrokeColor: '#ffffff',
+                circleOpacity: 0.95,
               }}
             />
           </ShapeSource>

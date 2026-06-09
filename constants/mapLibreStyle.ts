@@ -1,6 +1,12 @@
 const DEMO_STYLE = 'https://demotiles.maplibre.org/style.json';
 
-const DEFAULT_MAP_STYLE = 'basic-v2';
+const DEFAULT_MAP_STYLE = 'dataviz';
+
+export const MAP_DEFAULT_ZOOM = 16;
+export const MAP_CAMERA_PITCH = 75;
+export const MAP_CAMERA_HEADING = -45;
+
+export const EXPLORE_LATITUDE_DELTA = 360 / Math.pow(2, MAP_DEFAULT_ZOOM + 1);
 
 export function getMapLibreStyleUrl(): string {
   const key = process.env.EXPO_PUBLIC_MAPTILER_KEY?.trim();

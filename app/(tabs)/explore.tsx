@@ -13,6 +13,7 @@ import { searchNearbyPlaces } from '@/services/placesService';
 import type { Localizacao, PontoInteresse, Region } from '@/types';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { getForegroundPosition } from '@/services/locationPermission';
 import * as Location from 'expo-location';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -163,17 +164,9 @@ export default function ExplorarScreen() {
 
   const solicitarPermissaoLocalizacao = async (): Promise<void> => {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert(
-          'Permissão Negada',
-          'A permissão de localização é necessária para mostrar sua posição no mapa.'
-        );
-        setLoading(false);
-        return;
-      }
-
-      const location = await Location.getCurrentPositionAsync({});
+      const location = await getForegroundPosition({
+        accuracy: Location.Accuracy.High,
+      });
       const next: Localizacao = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
@@ -258,15 +251,9 @@ export default function ExplorarScreen() {
 
   const handleCenterUser = useCallback(async () => {
     try {
-      const { status } = await Location.getForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        const req = await Location.requestForegroundPermissionsAsync();
-        if (req.status !== 'granted') {
-          Alert.alert('Localização', 'Permita o acesso à localização para centralizar o mapa.');
-          return;
-        }
-      }
-      const pos = await Location.getCurrentPositionAsync({});
+      const pos = await getForegroundPosition({
+        accuracy: Location.Accuracy.Highest,
+      });
       const region: Region = {
         latitude: pos.coords.latitude,
         longitude: pos.coords.longitude,

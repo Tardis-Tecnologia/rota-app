@@ -10,7 +10,8 @@ import { AppColors } from '@/constants/theme';
 import { useNotificationUnreadCount } from '@/hooks/useNotificationUnreadCount';
 import {
   ensureForegroundLocationPermission,
-  getCurrentPositionWithRetry,
+  ForegroundLocationError,
+  getForegroundPosition,
 } from '@/services/locationPermission';
 import {
   communityToExplorePonto,
@@ -205,13 +206,17 @@ export default function MapScreen() {
           return;
         }
 
-        const location = await getCurrentPositionWithRetry({
-          accuracy: Location.Accuracy.Balanced,
+        const location = await getForegroundPosition({
+          accuracy: Location.Accuracy.High,
         });
         applyGpsCoords(location.coords.latitude, location.coords.longitude, { centerMap: true });
-      } catch {
+      } catch (error) {
         hadLocationErrorRef.current = true;
-        setLocationError('error');
+        if (error instanceof ForegroundLocationError && error.code === 'PERMISSION_DENIED') {
+          setLocationError('denied');
+        } else {
+          setLocationError('error');
+        }
       } finally {
         setLoading(false);
       }
@@ -239,9 +244,10 @@ export default function MapScreen() {
 
           watchSub = await Location.watchPositionAsync(
             {
-              accuracy: Location.Accuracy.Balanced,
+              accuracy: Location.Accuracy.High,
               distanceInterval: MAP_LOCATION_WATCH_DISTANCE_METERS,
               timeInterval: MAP_LOCATION_WATCH_TIME_MS,
+              ...(Platform.OS === 'android' ? { mayShowUserSettingsDialog: true } : {}),
             },
             ({ coords }) => {
               if (cancelled) return;
@@ -457,7 +463,7 @@ export default function MapScreen() {
         Alert.alert('Localização', 'Permita o acesso à localização para centralizar o mapa.');
         return;
       }
-      const pos = await getCurrentPositionWithRetry({
+      const pos = await getForegroundPosition({
         accuracy: Location.Accuracy.Highest,
       });
       const region: Region = {
@@ -536,6 +542,7 @@ export default function MapScreen() {
       <View style={[styles.centerContainer, { backgroundColor: AppColors.background.default }]}>
         <ActivityIndicator size="large" color={AppColors.primary} />
         <Text style={styles.loadingText}>Obtendo sua localização…</Text>
+        <Text style={styles.loadingHintText}>O GPS pode levar alguns segundos na primeira vez.</Text>
       </View>
     );
   }
@@ -544,7 +551,7 @@ export default function MapScreen() {
     const msg =
       locationError === 'denied'
         ? 'Ative a localização nas configurações para ver o mapa na sua posição.'
-        : 'Não foi possível obter sua posição. Verifique o GPS ou tente novamente.';
+        : 'Não foi possível obter sua posição. Ative o GPS do aparelho e aguarde alguns segundos antes de tentar de novo.';
     return (
       <View style={[styles.centerContainer, { backgroundColor: AppColors.background.default, paddingHorizontal: 24 }]}>
         <Ionicons name="location-outline" size={48} color={AppColors.primary} />
@@ -677,6 +684,13 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: AppColors.text.tertiary,
+  },
+  loadingHintText: {
+    marginTop: 8,
+    fontSize: 14,
+    textAlign: 'center',
+    color: AppColors.text.tertiary,
+    paddingHorizontal: 32,
   },
   locationErrorTitle: {
     marginTop: 16,

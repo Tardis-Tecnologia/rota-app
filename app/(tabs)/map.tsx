@@ -1,6 +1,9 @@
 import ExploreFloatingCard from '@/components/ExploreFloatingCard';
 import ExploreMapControls from '@/components/ExploreMapControls';
-import MapLibreMapaView, { type MapLibreMapaViewRef } from '@/components/MapLibreMapaView';
+import MapLibreMapaView, {
+  type MapLibreMapaViewRef,
+  type MapMarkerVariant,
+} from '@/components/MapLibreMapaView';
 import { ModalReportPrefeitura } from '@/components/ModalReportPrefeitura';
 import PlaceDetailsSheet from '@/components/PlaceDetailsSheet';
 import ReportButton, { REPORT_SUBJECT_BY_TYPE, type ReportType } from '@/components/ReportButton';
@@ -32,7 +35,7 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -56,6 +59,8 @@ const MARICA_CENTER = {
 
 const MAP_LOCATION_WATCH_DISTANCE_METERS = 15;
 const MAP_LOCATION_WATCH_TIME_MS = 5000;
+/** Cards até zoom de bairro/rua; acima disso usa dots leves. */
+const EXPLORE_CARD_MAX_LAT_DELTA = 0.058;
 
 const FILTER_CHIP_TO_PLACE_TYPE: Record<string, string> = {
   restaurant: 'restaurant',
@@ -445,6 +450,12 @@ export default function MapScreen() {
     });
   }, []);
 
+  const markerVariant = useMemo((): MapMarkerVariant => {
+    return mapRegion.latitudeDelta <= EXPLORE_CARD_MAX_LAT_DELTA ? 'card' : 'dot';
+  }, [mapRegion.latitudeDelta]);
+
+  const pontosForMap = filterLoading ? [] : mapPontosForView;
+
   const handleUserDragMap = useCallback(() => {
     setShowDragHint(false);
   }, []);
@@ -571,8 +582,8 @@ export default function MapScreen() {
         key={categoriaSelecionada ?? 'explore-map-idle'}
         ref={mapRef}
         localizacao={localizacao}
-        pontos={filterLoading ? [] : mapPontosForView}
-        markerVariant="dot"
+        pontos={pontosForMap}
+        markerVariant={markerVariant}
         getMarkerColor={getMarkerColor}
         onRegionChangeComplete={handleRegionComplete}
         onUserDragMap={handleUserDragMap}

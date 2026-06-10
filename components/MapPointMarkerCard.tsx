@@ -7,9 +7,9 @@ type MapPointMarkerCardProps = {
   ponto: PontoInteresse;
 };
 
-const CARD_WIDTH = 124;
-const CARD_PADDING = 12;
-const AVATAR_HEIGHT = 76;
+const CARD_WIDTH = 76;
+const CARD_PADDING = 5;
+const AVATAR_HEIGHT = 48;
 
 function markerInitial(name: string): string {
   const trimmed = name.trim();
@@ -42,49 +42,47 @@ const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
     width: CARD_WIDTH,
-    minHeight: CARD_PADDING * 2 + AVATAR_HEIGHT + 48,
   },
   card: {
     width: CARD_WIDTH,
     backgroundColor: AppColors.background.default,
-    borderRadius: 18,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: AppColors.border.muted,
     padding: CARD_PADDING,
     shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
   },
   avatar: {
     width: CARD_WIDTH - CARD_PADDING * 2,
     height: AVATAR_HEIGHT,
-    borderRadius: 14,
+    borderRadius: 7,
     backgroundColor: AppColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarLetter: {
-    fontSize: 38,
+    fontSize: 15,
     fontWeight: '700',
     color: AppColors.text.white,
   },
   label: {
-    marginTop: 10,
-    paddingHorizontal: 4,
-    paddingBottom: 4,
-    fontSize: 13,
-    lineHeight: 17,
+    marginTop: 4,
+    paddingHorizontal: 1,
+    fontSize: 9,
+    lineHeight: 11,
     fontWeight: '700',
     color: AppColors.text.secondary,
     textAlign: 'center',
   },
   pointer: {
-    width: 16,
-    height: 8,
-    marginTop: 4,
-    borderRadius: 2,
+    width: 8,
+    height: 4,
+    marginTop: 2,
+    borderRadius: 1,
     backgroundColor: AppColors.background.default,
     borderWidth: 1,
     borderColor: AppColors.border.muted,

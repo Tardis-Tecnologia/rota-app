@@ -4,8 +4,13 @@ import {
   formatRouteDistance,
   formatRouteDuration,
   getDirectionsRoute,
+  ROUTING_TIMEOUT_ERROR,
 } from '@/services/directionsService';
-import { ensureForegroundLocationPermission } from '@/services/locationPermission';
+import {
+  ensureForegroundLocationPermission,
+  getCurrentPositionWithRetry,
+  LOCATION_TIMEOUT_ERROR,
+} from '@/services/locationPermission';
 import type { DirectionsProfile } from '@/types/directions';
 import { distanceMeters } from '@/utils/guiaGeo';
 import { openExternalDirections } from '@/utils/openExternalMaps';
@@ -13,7 +18,7 @@ import { regionFromRouteCoordinates } from '@/utils/routeBounds';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -25,36 +30,76 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-function parseCoord(value: string | undefined): number | null {
-  if (value == null || value === '') return null;
-  const n = Number.parseFloat(value);
+const MAX_ROUTE_DISTANCE_METERS = 2_000_000;
+const ORIGIN_GPS_TIMEOUT_MS = 12_000;
+
+function normalizeParam(value: string | string[] | undefined): string | undefined {
+  if (value == null) return undefined;
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function parseCoord(value: string | string[] | undefined): number | null {
+  const raw = normalizeParam(value);
+  if (raw == null || raw === '') return null;
+  const n = Number.parseFloat(raw);
   return Number.isFinite(n) ? n : null;
+}
+
+async function resolveOriginCoords(
+  originLatParam: string | string[] | undefined,
+  originLngParam: string | string[] | undefined,
+): Promise<{ latitude: number; longitude: number } | null> {
+  let fromLat = parseCoord(originLatParam);
+  let fromLng = parseCoord(originLngParam);
+  if (fromLat != null && fromLng != null) {
+    return { latitude: fromLat, longitude: fromLng };
+  }
+
+  const ok = await ensureForegroundLocationPermission();
+  if (!ok) return null;
+
+  const lastKnown = await Location.getLastKnownPositionAsync();
+  if (lastKnown) {
+    return {
+      latitude: lastKnown.coords.latitude,
+      longitude: lastKnown.coords.longitude,
+    };
+  }
+
+  const pos = await getCurrentPositionWithRetry(
+    { accuracy: Location.Accuracy.Balanced },
+    1,
+    800,
+    ORIGIN_GPS_TIMEOUT_MS,
+  );
+  return { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
 }
 
 export default function DirectionsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
-    destLat?: string;
-    destLng?: string;
-    destName?: string;
-    originLat?: string;
-    originLng?: string;
-    profile?: string;
+    destLat?: string | string[];
+    destLng?: string | string[];
+    destName?: string | string[];
+    originLat?: string | string[];
+    originLng?: string | string[];
+    profile?: string | string[];
   }>();
 
   const destLat = parseCoord(params.destLat);
   const destLng = parseCoord(params.destLng);
-  const destName = String(params.destName ?? '').trim() || 'Destino';
-  const profile: DirectionsProfile = params.profile === 'walking' ? 'walking' : 'driving';
+  const destName = String(normalizeParam(params.destName) ?? '').trim() || 'Destino';
+  const profileParam = normalizeParam(params.profile);
+  const profile: DirectionsProfile = profileParam === 'walking' ? 'walking' : 'driving';
+  const originLatParam = normalizeParam(params.originLat);
+  const originLngParam = normalizeParam(params.originLng);
 
-  const [loading, setLoading] = useState(true);
+  const [routeLoading, setRouteLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [routeWarning, setRouteWarning] = useState<string | null>(null);
   const [origin, setOrigin] = useState<{ latitude: number; longitude: number } | null>(null);
   const [route, setRoute] = useState<Awaited<ReturnType<typeof getDirectionsRoute>> | null>(null);
-
-  /** Acima disso não há rota rodoviária viável (ex.: emulador nos EUA → loja no Brasil). */
-  const MAX_ROUTE_DISTANCE_METERS = 2_000_000;
+  const loadSeqRef = useRef(0);
 
   const destination = useMemo(() => {
     if (destLat == null || destLng == null) return null;
@@ -64,41 +109,33 @@ export default function DirectionsScreen() {
   const loadRoute = useCallback(async () => {
     if (!destination) {
       setError('Destino inválido.');
-      setLoading(false);
+      setRouteLoading(false);
       return;
     }
 
-    setLoading(true);
+    const seq = ++loadSeqRef.current;
+    setRouteLoading(true);
     setError(null);
     setRouteWarning(null);
 
     try {
-      let fromLat = parseCoord(params.originLat);
-      let fromLng = parseCoord(params.originLng);
+      const originPoint = await resolveOriginCoords(originLatParam, originLngParam);
+      if (seq !== loadSeqRef.current) return;
 
-      if (fromLat == null || fromLng == null) {
-        const ok = await ensureForegroundLocationPermission();
-        if (!ok) {
-          setOrigin(null);
-          setRoute(null);
-          setRouteWarning(
-            'Permita a localização para traçar a rota. O endereço de destino está marcado no mapa.',
-          );
-          return;
-        }
-        const pos = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        fromLat = pos.coords.latitude;
-        fromLng = pos.coords.longitude;
+      if (!originPoint) {
+        setOrigin(null);
+        setRoute(null);
+        setRouteWarning(
+          'Permita a localização para traçar a rota. O destino está marcado no mapa.',
+        );
+        return;
       }
 
-      const originPoint = { latitude: fromLat, longitude: fromLng };
       setOrigin(originPoint);
 
       const distToDest = distanceMeters(
-        fromLat,
-        fromLng,
+        originPoint.latitude,
+        originPoint.longitude,
         destination.latitude,
         destination.longitude,
       );
@@ -111,20 +148,29 @@ export default function DirectionsScreen() {
       }
 
       const result = await getDirectionsRoute(
-        [fromLng, fromLat],
+        [originPoint.longitude, originPoint.latitude],
         [destination.longitude, destination.latitude],
         profile,
       );
+      if (seq !== loadSeqRef.current) return;
       setRoute(result);
-    } catch {
+    } catch (err) {
+      if (seq !== loadSeqRef.current) return;
       setRoute(null);
+      const isTimeout =
+        err instanceof Error &&
+        (err.message === ROUTING_TIMEOUT_ERROR || err.message === LOCATION_TIMEOUT_ERROR);
       setRouteWarning(
-        'Não foi possível traçar a rota da sua posição atual. O endereço de destino está marcado no mapa.',
+        isTimeout
+          ? 'O serviço de rotas demorou para responder. O destino está marcado no mapa — tente novamente ou abra no app de mapas.'
+          : 'Não foi possível traçar a rota da sua posição atual. O endereço de destino está marcado no mapa.',
       );
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current) {
+        setRouteLoading(false);
+      }
     }
-  }, [destination, params.originLat, params.originLng, profile]);
+  }, [destination, originLatParam, originLngParam, profile]);
 
   useEffect(() => {
     void loadRoute();
@@ -150,9 +196,6 @@ export default function DirectionsScreen() {
     };
   }, [route, destination]);
 
-  const showDestinationMap = !!destination && !loading && (!!route || !!routeWarning);
-  const showFatalError = !!error && !loading && !showDestinationMap;
-
   if (!destination) {
     return (
       <SafeAreaView style={styles.centered} edges={['top']}>
@@ -171,12 +214,7 @@ export default function DirectionsScreen() {
           <Ionicons name="map-outline" size={40} color={AppColors.gray[400]} />
           <Text style={styles.webPlaceholderText}>Rota disponível no app mobile</Text>
         </View>
-      ) : loading ? (
-        <View style={styles.centeredMap}>
-          <ActivityIndicator size="large" color="#7C3AED" />
-          <Text style={styles.loadingText}>Calculando rota…</Text>
-        </View>
-      ) : showFatalError ? (
+      ) : error ? (
         <View style={styles.centeredMap}>
           <Ionicons name="navigate-outline" size={44} color={AppColors.gray[400]} />
           <Text style={styles.errorText}>{error}</Text>
@@ -184,14 +222,14 @@ export default function DirectionsScreen() {
             <Text style={styles.retryBtnText}>Tentar novamente</Text>
           </TouchableOpacity>
         </View>
-      ) : showDestinationMap ? (
+      ) : (
         <DirectionsMapView
           localizacao={mapRegion}
           routeCoordinates={route?.coordinates ?? []}
           destination={destination}
           origin={origin}
         />
-      ) : null}
+      )}
 
       <SafeAreaView style={styles.overlay} edges={['top']} pointerEvents="box-none">
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
@@ -199,12 +237,17 @@ export default function DirectionsScreen() {
         </Pressable>
       </SafeAreaView>
 
-      {showDestinationMap ? (
+      {Platform.OS !== 'web' && !error ? (
         <View style={[styles.panel, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <Text style={styles.destTitle} numberOfLines={2}>
             {destName}
           </Text>
-          {route ? (
+          {routeLoading ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator size="small" color="#7C3AED" />
+              <Text style={styles.loadingText}>Calculando rota…</Text>
+            </View>
+          ) : route ? (
             <View style={styles.metaRow}>
               <View style={styles.metaItem}>
                 <Ionicons name="time-outline" size={18} color="#6d28d9" />
@@ -228,7 +271,7 @@ export default function DirectionsScreen() {
             <Ionicons name="open-outline" size={18} color={AppColors.text.secondary} />
             <Text style={styles.externalBtnText}>Abrir no app de mapas</Text>
           </TouchableOpacity>
-          {routeWarning ? (
+          {!routeLoading && routeWarning ? (
             <TouchableOpacity onPress={() => void loadRoute()} style={styles.retryLink} activeOpacity={0.85}>
               <Text style={styles.retryLinkText}>Tentar calcular rota novamente</Text>
             </TouchableOpacity>
@@ -266,6 +309,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: AppColors.gray[500],
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   loadingText: {
     fontSize: 14,

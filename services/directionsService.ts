@@ -1,6 +1,11 @@
 import type { DirectionsProfile, DirectionsRoute, RouteCoordinate } from '@/types/directions';
 
 const DEFAULT_OSRM_BASE = 'https://router.project-osrm.org';
+const ORS_BASE_URL = 'https://api.openrouteservice.org';
+const DEFAULT_ROUTING_FETCH_TIMEOUT_MS = 20_000;
+const ORS_FETCH_TIMEOUT_MS = 15_000;
+
+export const ROUTING_TIMEOUT_ERROR = 'ROUTING_TIMEOUT';
 
 function getOsrmBaseUrl(): string {
   const custom = process.env.EXPO_PUBLIC_OSRM_URL?.trim().replace(/\/$/, '');
@@ -29,6 +34,59 @@ function formatDistance(meters: number): string {
 
 export { formatDistance as formatRouteDistance, formatDuration as formatRouteDuration };
 
+type OsrmRouteResponse = {
+  code?: string;
+  routes?: Array<{
+    distance?: number;
+    duration?: number;
+    geometry?: { coordinates?: RouteCoordinate[] };
+  }>;
+};
+
+type OrsRouteResponse = {
+  features?: Array<{
+    properties?: { summary?: { distance?: number; duration?: number } };
+    geometry?: { coordinates?: RouteCoordinate[] };
+  }>;
+};
+
+type FetchJsonOptions = {
+  timeoutMs?: number;
+  method?: 'GET' | 'POST';
+  headers?: Record<string, string>;
+  body?: string;
+};
+
+async function fetchJsonWithTimeout<T>(url: string, options: FetchJsonOptions = {}): Promise<T> {
+  const { timeoutMs = DEFAULT_ROUTING_FETCH_TIMEOUT_MS, method = 'GET', headers, body } = options;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(ROUTING_TIMEOUT_ERROR)), timeoutMs);
+  });
+
+  try {
+    const res = await Promise.race([
+      fetch(url, {
+        method,
+        headers: { Accept: 'application/json', ...headers },
+        body,
+      }),
+      timeoutPromise,
+    ]);
+    if (!res.ok) {
+      throw new Error(`HTTP_${res.status}`);
+    }
+    return (await res.json()) as T;
+  } catch (error) {
+    if (error instanceof Error && error.message === ROUTING_TIMEOUT_ERROR) {
+      throw error;
+    }
+    throw error instanceof Error ? error : new Error('Não foi possível calcular a rota.');
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function fetchOsrmRoute(
   origin: RouteCoordinate,
   destination: RouteCoordinate,
@@ -39,19 +97,7 @@ async function fetchOsrmRoute(
   const [dLng, dLat] = destination;
   const url = `${getOsrmBaseUrl()}/route/v1/${osrmProfile}/${oLng},${oLat};${dLng},${dLat}?overview=full&geometries=geojson`;
 
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!res.ok) {
-    throw new Error('Não foi possível calcular a rota.');
-  }
-
-  const data = (await res.json()) as {
-    code?: string;
-    routes?: Array<{
-      distance?: number;
-      duration?: number;
-      geometry?: { coordinates?: RouteCoordinate[] };
-    }>;
-  };
+  const data = await fetchJsonWithTimeout<OsrmRouteResponse>(url);
 
   if (data.code !== 'Ok' || !data.routes?.[0]?.geometry?.coordinates?.length) {
     throw new Error('Nenhuma rota encontrada entre os pontos.');
@@ -73,21 +119,19 @@ async function fetchOrsRoute(
   apiKey: string,
 ): Promise<DirectionsRoute> {
   const orsProfile = profile === 'walking' ? 'foot-walking' : 'driving-car';
-  const [oLng, oLat] = origin;
-  const [dLng, dLat] = destination;
-  const url = `https://api.openrouteservice.org/v2/directions/${orsProfile}?api_key=${encodeURIComponent(apiKey)}&start=${oLng},${oLat}&end=${dLng},${dLat}`;
+  const url = `${ORS_BASE_URL}/v2/directions/${orsProfile}/geojson`;
 
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!res.ok) {
-    throw new Error('Não foi possível calcular a rota.');
-  }
-
-  const data = (await res.json()) as {
-    features?: Array<{
-      properties?: { summary?: { distance?: number; duration?: number } };
-      geometry?: { coordinates?: RouteCoordinate[] };
-    }>;
-  };
+  const data = await fetchJsonWithTimeout<OrsRouteResponse>(url, {
+    timeoutMs: ORS_FETCH_TIMEOUT_MS,
+    method: 'POST',
+    headers: {
+      Authorization: apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      coordinates: [origin, destination],
+    }),
+  });
 
   const feature = data.features?.[0];
   if (!feature) {
@@ -118,8 +162,12 @@ export async function getDirectionsRoute(
     try {
       return await fetchOrsRoute(origin, destination, profile, orsKey);
     } catch {
-      // fallback OSRM
+      // fallback OSRM demo quando ORS falhar (limite, chave inválida, etc.)
     }
   }
   return fetchOsrmRoute(origin, destination, profile);
+}
+
+export function isOrsConfigured(): boolean {
+  return getOrsApiKey() != null;
 }

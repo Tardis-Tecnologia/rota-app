@@ -11,8 +11,12 @@ import {
     type GuiaListItem,
     type GuiaTab,
 } from '@/services/guiaCatalog';
-import { ensureForegroundLocationPermission } from '@/services/locationPermission';
+import {
+    ensureForegroundLocationPermission,
+    getCurrentPositionWithRetry,
+} from '@/services/locationPermission';
 import type { Localizacao, PontoInteresse } from '@/types';
+import { EXPLORE_GPS_STALE_MS } from '@/utils/appRefreshPolicy';
 import { GUIA_DEFAULT_CENTER } from '@/utils/guiaGeo';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -34,17 +38,24 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+const MAP_LOCATION_WATCH_DISTANCE_METERS = 15;
+const MAP_LOCATION_WATCH_TIME_MS = 5000;
+const GUIA_MAP_ZOOM_DELTA = 0.04;
+
 export default function GuiaIndexScreen() {
   const { user } = useAuth();
   const { cadastroStatus } = useLocalSearchParams<{ cadastroStatus?: string }>();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<GuiaTab>('prestadores');
-  const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(
-    null,
-  );
-  const [locating, setLocating] = useState(false);
+  const [localizacao, setLocalizacao] = useState<Localizacao>(GUIA_DEFAULT_CENTER);
   const [mapRegion, setMapRegion] = useState<Localizacao>(GUIA_DEFAULT_CENTER);
+  const [locationReady, setLocationReady] = useState(false);
+  const [locating, setLocating] = useState(false);
   const mapRef = useRef<MapLibreMapaViewRef | null>(null);
+  const pendingInitialGpsCenterRef = useRef(false);
+  const lastGpsAtRef = useRef(0);
+  const locationReadyRef = useRef(false);
+  const hadLocationErrorRef = useRef(false);
 
   const providersEnabled = activeTab === 'prestadores';
   const companiesEnabled = activeTab === 'empresas';
@@ -70,7 +81,76 @@ export default function GuiaIndexScreen() {
   const catalogItems = activeTab === 'prestadores' ? providerItems : companyItems;
   const listLoading = activeTab === 'prestadores' ? providersLoading : companiesLoading;
   const listError = activeTab === 'prestadores' ? providersError : companiesError;
+  const userCoords = locationReady
+    ? { latitude: localizacao.latitude, longitude: localizacao.longitude }
+    : null;
   const searchOrigin = activeTab === 'empresas' ? mapRegion : userCoords;
+
+  useEffect(() => {
+    locationReadyRef.current = locationReady;
+  }, [locationReady]);
+
+  const shouldSkipGpsRefresh = useCallback((force: boolean): boolean => {
+    if (force) return false;
+    if (hadLocationErrorRef.current) return false;
+    if (!locationReadyRef.current) return false;
+    if (lastGpsAtRef.current === 0) return false;
+    return Date.now() - lastGpsAtRef.current < EXPLORE_GPS_STALE_MS;
+  }, []);
+
+  const applyGpsCoords = useCallback(
+    (latitude: number, longitude: number, options?: { centerMap?: boolean }) => {
+      const centerMap = options?.centerMap ?? false;
+      const next: Localizacao = {
+        latitude,
+        longitude,
+        latitudeDelta: GUIA_MAP_ZOOM_DELTA,
+        longitudeDelta: GUIA_MAP_ZOOM_DELTA,
+      };
+      setLocalizacao(next);
+      if (centerMap) {
+        pendingInitialGpsCenterRef.current = true;
+        setMapRegion(next);
+      }
+      setLocationReady(true);
+      hadLocationErrorRef.current = false;
+      lastGpsAtRef.current = Date.now();
+    },
+    [],
+  );
+
+  const solicitarPermissaoLocalizacao = useCallback(
+    async (options?: { force?: boolean }): Promise<void> => {
+      const force = options?.force ?? false;
+      if (shouldSkipGpsRefresh(force)) {
+        setLocating(false);
+        return;
+      }
+
+      const showBlockingLoader = !locationReadyRef.current;
+      if (showBlockingLoader) {
+        setLocating(true);
+      }
+
+      try {
+        const ok = await ensureForegroundLocationPermission();
+        if (!ok) {
+          hadLocationErrorRef.current = true;
+          return;
+        }
+
+        const location = await getCurrentPositionWithRetry({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        applyGpsCoords(location.coords.latitude, location.coords.longitude, { centerMap: true });
+      } catch {
+        hadLocationErrorRef.current = true;
+      } finally {
+        setLocating(false);
+      }
+    },
+    [applyGpsCoords, shouldSkipGpsRefresh],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -78,6 +158,70 @@ export default function GuiaIndexScreen() {
       else void reloadCompaniesIfStale();
     }, [activeTab, reloadProvidersIfStale, reloadCompaniesIfStale]),
   );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS === 'web') return;
+
+      let cancelled = false;
+      let watchSub: Location.LocationSubscription | null = null;
+
+      async function startLocationWatch(): Promise<void> {
+        await solicitarPermissaoLocalizacao({ force: false });
+        if (cancelled) return;
+
+        try {
+          const { status } = await Location.getForegroundPermissionsAsync();
+          if (cancelled || status !== 'granted') return;
+
+          watchSub = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.Balanced,
+              distanceInterval: MAP_LOCATION_WATCH_DISTANCE_METERS,
+              timeInterval: MAP_LOCATION_WATCH_TIME_MS,
+            },
+            ({ coords }) => {
+              if (cancelled) return;
+              applyGpsCoords(coords.latitude, coords.longitude);
+            },
+          );
+        } catch {
+          // Leitura inicial segue válida se o watch falhar (comum no emulador).
+        }
+      }
+
+      void startLocationWatch();
+
+      return () => {
+        cancelled = true;
+        watchSub?.remove();
+      };
+    }, [applyGpsCoords, solicitarPermissaoLocalizacao]),
+  );
+
+  useEffect(() => {
+    if (Platform.OS === 'web' || !locationReady) return;
+    if (!pendingInitialGpsCenterRef.current) return;
+    pendingInitialGpsCenterRef.current = false;
+    const id = setTimeout(() => {
+      mapRef.current?.animateToRegion(
+        {
+          latitude: localizacao.latitude,
+          longitude: localizacao.longitude,
+          latitudeDelta: localizacao.latitudeDelta,
+          longitudeDelta: localizacao.longitudeDelta,
+        },
+        420,
+      );
+    }, 180);
+    return () => clearTimeout(id);
+  }, [
+    locationReady,
+    localizacao.latitude,
+    localizacao.longitude,
+    localizacao.latitudeDelta,
+    localizacao.longitudeDelta,
+  ]);
 
   const results = useMemo(
     () => filterAndSortGuia(activeTab, searchQuery, searchOrigin, catalogItems),
@@ -107,35 +251,6 @@ export default function GuiaIndexScreen() {
     return () => task.cancel();
   }, [listLoading, computedMapPoints]);
 
-  const loadUserLocation = useCallback(async () => {
-    setLocating(true);
-    try {
-      const ok = await ensureForegroundLocationPermission();
-      if (!ok) return;
-      const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const { latitude, longitude } = pos.coords;
-      setUserCoords({ latitude, longitude });
-      const region: Localizacao = {
-        latitude,
-        longitude,
-        latitudeDelta: 0.04,
-        longitudeDelta: 0.04,
-      };
-      setMapRegion(region);
-      mapRef.current?.animateToRegion(region, 400);
-    } catch {
-      // mantém centro padrão
-    } finally {
-      setLocating(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadUserLocation();
-  }, [loadUserLocation]);
-
   useEffect(() => {
     if (cadastroStatus !== 'enviado') return;
     Alert.alert(
@@ -145,22 +260,25 @@ export default function GuiaIndexScreen() {
     );
   }, [cadastroStatus]);
 
-  const handleMyLocation = () => {
-    if (userCoords) {
-      const region = {
-        ...userCoords,
-        latitudeDelta: 0.04,
-        longitudeDelta: 0.04,
+  const handleMyLocation = useCallback(() => {
+    if (locationReady) {
+      const region: Localizacao = {
+        latitude: localizacao.latitude,
+        longitude: localizacao.longitude,
+        latitudeDelta: GUIA_MAP_ZOOM_DELTA,
+        longitudeDelta: GUIA_MAP_ZOOM_DELTA,
       };
       setMapRegion(region);
-      mapRef.current?.animateToRegion(
-        region,
-        320,
-      );
+      mapRef.current?.animateToRegion(region, 320);
       return;
     }
-    void loadUserLocation();
-  };
+    void solicitarPermissaoLocalizacao({ force: true });
+  }, [
+    locationReady,
+    localizacao.latitude,
+    localizacao.longitude,
+    solicitarPermissaoLocalizacao,
+  ]);
 
   const handleMapRegionChangeComplete = useCallback((region: Localizacao) => {
     setMapRegion((current) => {
@@ -176,7 +294,15 @@ export default function GuiaIndexScreen() {
   const openDetail = (item: GuiaListItem) => {
     router.push({
       pathname: '/guia/[id]',
-      params: { id: item.id },
+      params: {
+        id: item.id,
+        ...(userCoords
+          ? {
+              originLat: String(userCoords.latitude),
+              originLng: String(userCoords.longitude),
+            }
+          : {}),
+      },
     });
   };
 
@@ -213,7 +339,7 @@ export default function GuiaIndexScreen() {
       <MapLibreMapaView
         key={activeTab}
         ref={mapRef}
-        localizacao={mapRegion}
+        localizacao={localizacao}
         pontos={mapPointsForView}
         markerVariant="dot"
         getMarkerColor={() => '#7C3AED'}

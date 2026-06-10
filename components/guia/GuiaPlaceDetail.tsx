@@ -1,23 +1,36 @@
 import { AppColors } from '@/constants/theme';
 import type { GuiaListItem } from '@/services/guiaCatalog';
 import { formatDistanceMeters } from '@/utils/guiaGeo';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React from 'react';
 import { navigateToDirections } from '@/utils/navigateDirections';
 import { openExternalDirections } from '@/utils/openExternalMaps';
+import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
+import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+function parseRouteCoord(value: string | undefined): number | undefined {
+  if (value == null || value === '') return undefined;
+  const n = Number.parseFloat(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 export default function GuiaPlaceDetail({ item }: { item: GuiaListItem }) {
+  const { originLat, originLng } = useLocalSearchParams<{
+    originLat?: string;
+    originLng?: string;
+  }>();
   const distanceLabel =
     item.distanceMeters != null ? formatDistanceMeters(item.distanceMeters) : null;
 
   const openDirections = () => {
+    const fromLat = parseRouteCoord(originLat);
+    const fromLng = parseRouteCoord(originLng);
     navigateToDirections({
       destLat: item.latitude,
       destLng: item.longitude,
       destName: item.name,
+      ...(fromLat != null && fromLng != null ? { originLat: fromLat, originLng: fromLng } : {}),
     });
   };
 

@@ -9,42 +9,42 @@ import { EXPLORE_MAP_MAX_MARKERS } from '@/constants/exploreMap';
 import { AppColors } from '@/constants/theme';
 import { useNotificationUnreadCount } from '@/hooks/useNotificationUnreadCount';
 import {
-  ensureForegroundLocationPermission,
-  getCurrentPositionWithRetry,
-} from '@/services/locationPermission';
-import {
-  communityToExplorePonto,
-  EXPLORE_COMMUNITIES_CHIP_ID,
-  listForumCommunities,
+    communityToExplorePonto,
+    EXPLORE_COMMUNITIES_CHIP_ID,
+    listForumCommunities,
 } from '@/services/forumCommunityApi';
 import {
-  EXPLORE_PARTNER_STORES_CHIP_ID,
-  loadPartnerStoresForMap,
-} from '@/utils/commercialStoreMap';
-import { enrichPontosWithPhotos } from '@/services/placePhotoService';
+    ensureForegroundLocationPermission,
+    getCurrentPositionWithRetry,
+} from '@/services/locationPermission';
 import { placeToPonto } from '@/services/mapPlaceToPonto';
+import { enrichPontosWithPhotos } from '@/services/placePhotoService';
 import { searchNearbyPlaces } from '@/services/placesService';
+import type { Region } from '@/types';
 import { Localizacao, PontoInteresse } from '@/types';
+import { EXPLORE_GPS_STALE_MS } from '@/utils/appRefreshPolicy';
+import {
+    EXPLORE_PARTNER_STORES_CHIP_ID,
+    loadPartnerStoresForMap,
+} from '@/utils/commercialStoreMap';
 import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { useLocalSearchParams } from 'expo-router';
-import { EXPLORE_GPS_STALE_MS } from '@/utils/appRefreshPolicy';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  InteractionManager,
-  Linking,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator,
+    Alert,
+    InteractionManager,
+    Linking,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
-import type { Region } from '@/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MARICA_CENTER = {

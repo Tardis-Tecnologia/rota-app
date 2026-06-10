@@ -39,7 +39,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     ActivityIndicator,
     Alert,
-    InteractionManager,
     Linking,
     Platform,
     Pressable,
@@ -59,7 +58,7 @@ const MARICA_CENTER = {
 
 const MAP_LOCATION_WATCH_DISTANCE_METERS = 15;
 const MAP_LOCATION_WATCH_TIME_MS = 5000;
-/** Cards até zoom de bairro/rua; acima disso usa dots leves. */
+/** Cards até zoom de bairro/rua; acima disso usa dots leves (estáveis no Fabric). */
 const EXPLORE_CARD_MAX_LAT_DELTA = 0.058;
 
 const FILTER_CHIP_TO_PLACE_TYPE: Record<string, string> = {
@@ -130,6 +129,7 @@ export default function MapScreen() {
   const [locationError, setLocationError] = useState<'denied' | 'error' | null>(null);
   const [pontos, setPontos] = useState<PontoInteresse[]>([]);
   const [mapPontosForView, setMapPontosForView] = useState<PontoInteresse[]>([]);
+  const [markersLayerKey, setMarkersLayerKey] = useState(0);
   const [categoriaSelecionada, setCategoriaSelecionada] = useState<string | undefined>(undefined);
   const [filterLoading, setFilterLoading] = useState(false);
   const [selectedPontoDetail, setSelectedPontoDetail] = useState<PontoInteresse | null>(null);
@@ -146,6 +146,7 @@ export default function MapScreen() {
   const lastGpsAtRef = useRef(0);
   const locationReadyRef = useRef(false);
   const hadLocationErrorRef = useRef(false);
+  const filterRequestSeqRef = useRef(0);
 
   useEffect(() => {
     locationReadyRef.current = locationReady;
@@ -270,11 +271,7 @@ export default function MapScreen() {
   );
 
   const publishMapPontos = useCallback((items: PontoInteresse[]) => {
-    const limited = items.slice(0, EXPLORE_MAP_MAX_MARKERS);
-    const task = InteractionManager.runAfterInteractions(() => {
-      setMapPontosForView(limited);
-    });
-    return () => task.cancel();
+    setMapPontosForView(items.slice(0, EXPLORE_MAP_MAX_MARKERS));
   }, []);
 
   useEffect(() => {
@@ -285,7 +282,11 @@ export default function MapScreen() {
 
   const applyFilterChip = useCallback(
     async (chipId: string) => {
+      const requestId = ++filterRequestSeqRef.current;
+      const isStale = () => requestId !== filterRequestSeqRef.current;
+
       if (chipId === categoriaSelecionada) {
+        setMarkersLayerKey((k) => k + 1);
         setCategoriaSelecionada(undefined);
         setPontos([]);
         setMapPontosForView([]);
@@ -293,6 +294,7 @@ export default function MapScreen() {
         return;
       }
 
+      setMarkersLayerKey((k) => k + 1);
       setMapPontosForView([]);
       setSelectedPontoDetail(null);
 
@@ -300,6 +302,7 @@ export default function MapScreen() {
         setFilterLoading(true);
         try {
           const rows = await listForumCommunities(undefined, { init: 0, end: 200 });
+          if (isStale()) return;
           const mapped = rows
             .map(communityToExplorePonto)
             .filter((p): p is PontoInteresse => p != null)
@@ -316,9 +319,13 @@ export default function MapScreen() {
           setToastKey((k) => k + 1);
           setShowToast(true);
         } catch {
-          Alert.alert('Erro', 'Não foi possível carregar as comunidades.');
+          if (!isStale()) {
+            Alert.alert('Erro', 'Não foi possível carregar as comunidades.');
+          }
         } finally {
-          setFilterLoading(false);
+          if (!isStale()) {
+            setFilterLoading(false);
+          }
         }
         return;
       }
@@ -327,6 +334,7 @@ export default function MapScreen() {
         setFilterLoading(true);
         try {
           const mapped = (await loadPartnerStoresForMap()).slice(0, EXPLORE_MAP_MAX_MARKERS);
+          if (isStale()) return;
           setPontos(mapped);
           publishMapPontos(mapped);
           setCategoriaSelecionada(chipId);
@@ -339,9 +347,13 @@ export default function MapScreen() {
           setToastKey((k) => k + 1);
           setShowToast(true);
         } catch {
-          Alert.alert('Erro', 'Não foi possível carregar as lojas parceiras.');
+          if (!isStale()) {
+            Alert.alert('Erro', 'Não foi possível carregar as lojas parceiras.');
+          }
         } finally {
-          setFilterLoading(false);
+          if (!isStale()) {
+            setFilterLoading(false);
+          }
         }
         return;
       }
@@ -353,6 +365,7 @@ export default function MapScreen() {
       try {
         const pos: [number, number] = [localizacao.longitude, localizacao.latitude];
         const places = await searchNearbyPlaces(placeType, pos, undefined, 20);
+        if (isStale()) return;
         const basePontos = places.map((p) => placeToPonto(p, placeType));
         setPontos(basePontos);
         publishMapPontos(basePontos);
@@ -367,6 +380,7 @@ export default function MapScreen() {
         setToastKey((k) => k + 1);
         setShowToast(true);
       } catch (err) {
+        if (isStale()) return;
         const msg = err instanceof Error ? err.message : '';
         if (msg === 'UNSUPPORTED_CATEGORY') {
           Alert.alert('Em breve', 'Essa categoria ainda não está disponível.');
@@ -374,7 +388,9 @@ export default function MapScreen() {
           Alert.alert('Erro', 'Não foi possível buscar locais próximos.');
         }
       } finally {
-        setFilterLoading(false);
+        if (!isStale()) {
+          setFilterLoading(false);
+        }
       }
     },
     [categoriaSelecionada, localizacao.latitude, localizacao.longitude, publishMapPontos],
@@ -579,11 +595,11 @@ export default function MapScreen() {
   return (
     <View style={[styles.container, { backgroundColor: AppColors.background.default }]}>
       <MapLibreMapaView
-        key={categoriaSelecionada ?? 'explore-map-idle'}
         ref={mapRef}
         localizacao={localizacao}
         pontos={pontosForMap}
         markerVariant={markerVariant}
+        markersLayerKey={markersLayerKey}
         getMarkerColor={getMarkerColor}
         onRegionChangeComplete={handleRegionComplete}
         onUserDragMap={handleUserDragMap}

@@ -81,10 +81,17 @@ export default function GuiaIndexScreen() {
   const catalogItems = activeTab === 'prestadores' ? providerItems : companyItems;
   const listLoading = activeTab === 'prestadores' ? providersLoading : companiesLoading;
   const listError = activeTab === 'prestadores' ? providersError : companiesError;
-  const userCoords = locationReady
-    ? { latitude: localizacao.latitude, longitude: localizacao.longitude }
-    : null;
-  const searchOrigin = activeTab === 'empresas' ? mapRegion : userCoords;
+  const userCoords = useMemo(
+    () =>
+      locationReady
+        ? { latitude: localizacao.latitude, longitude: localizacao.longitude }
+        : null,
+    [locationReady, localizacao.latitude, localizacao.longitude],
+  );
+  const searchOrigin = useMemo((): Localizacao | null => {
+    if (activeTab === 'empresas') return mapRegion;
+    return userCoords;
+  }, [activeTab, mapRegion, userCoords]);
 
   useEffect(() => {
     locationReadyRef.current = locationReady;
@@ -238,6 +245,10 @@ export default function GuiaIndexScreen() {
   );
 
   const [mapPointsForView, setMapPointsForView] = useState<PontoInteresse[]>([]);
+  const mapPointsSignature = useMemo(
+    () => computedMapPoints.map((ponto) => ponto.id).join('\u0001'),
+    [computedMapPoints],
+  );
 
   useEffect(() => {
     setMapPointsForView([]);
@@ -246,10 +257,14 @@ export default function GuiaIndexScreen() {
   useEffect(() => {
     if (listLoading) return;
     const task = InteractionManager.runAfterInteractions(() => {
-      setMapPointsForView(computedMapPoints);
+      setMapPointsForView((prev) => {
+        const prevSignature = prev.map((ponto) => ponto.id).join('\u0001');
+        if (prevSignature === mapPointsSignature) return prev;
+        return computedMapPoints;
+      });
     });
     return () => task.cancel();
-  }, [listLoading, computedMapPoints]);
+  }, [listLoading, mapPointsSignature, computedMapPoints]);
 
   useEffect(() => {
     if (cadastroStatus !== 'enviado') return;

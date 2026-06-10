@@ -1,7 +1,7 @@
 import { AppColors } from '@/constants/theme';
 import type { PontoInteresse } from '@/types';
 import React, { useMemo } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 type MapPointMarkerCardProps = {
   ponto: PontoInteresse;
@@ -21,10 +21,7 @@ export default function MapPointMarkerCard({ ponto }: MapPointMarkerCardProps) {
   const initial = useMemo(() => markerInitial(ponto.titulo), [ponto.titulo]);
 
   return (
-    <View
-      style={styles.wrap}
-      collapsable={Platform.OS === 'android' ? false : undefined}
-    >
+    <View style={styles.wrap} collapsable={false}>
       <View style={styles.card}>
         <View style={styles.avatar}>
           <Text style={styles.avatarLetter}>{initial}</Text>

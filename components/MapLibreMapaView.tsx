@@ -22,7 +22,38 @@ import React, {
 } from 'react';
 import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 
-const markerChildCollapsable = Platform.OS === 'android' ? false : undefined;
+/** Fabric precisa de um ciclo de desmontagem antes de remontar PointAnnotation com views React. */
+const CARD_MARKER_MOUNT_DELAY_MS = Platform.OS === 'ios' ? 160 : 80;
+
+type MapCardMarkersLayerProps = {
+  layerKey: string | number;
+  pontos: PontoInteresse[];
+  onMarkerPress?: (ponto: PontoInteresse) => void;
+};
+
+function MapCardMarkersLayer({ layerKey, pontos, onMarkerPress }: MapCardMarkersLayerProps) {
+  return (
+    <>
+      {pontos.map((ponto) => {
+        const annotationId = `${layerKey}-${ponto.id}`;
+        return (
+          <MapLibreGL.PointAnnotation
+            key={annotationId}
+            id={annotationId}
+            coordinate={[ponto.longitude, ponto.latitude]}
+            title={ponto.titulo}
+            anchor={{ x: 0.5, y: 1 }}
+            onSelected={() => onMarkerPress?.(ponto)}
+          >
+            <View collapsable={false}>
+              <MapPointMarkerCard ponto={ponto} />
+            </View>
+          </MapLibreGL.PointAnnotation>
+        );
+      })}
+    </>
+  );
+}
 
 function zoomFromLatitudeDelta(latitudeDelta: number): number {
   const span = Math.max(latitudeDelta, 1e-6);
@@ -50,8 +81,10 @@ export type MapMarkerVariant = 'card' | 'dot';
 interface MapLibreMapaViewProps {
   localizacao: Localizacao;
   pontos: PontoInteresse[];
-  /** `card` = Explorar e telas com preview; `dot` = Guia (mais leve, evita crash no Fabric). */
+  /** `card` = preview com card; `dot` = leve e estável no Fabric (recomendado no Explorar). */
   markerVariant?: MapMarkerVariant;
+  /** Troca a camada de dots ao mudar filtro/categoria (evita reciclagem de views no Fabric). */
+  markersLayerKey?: string | number;
   getMarkerColor?: (tipo: PontoInteresse['tipo']) => string;
   onRegionChangeComplete?: (region: Region) => void;
   onUserDragMap?: () => void;
@@ -64,6 +97,7 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
       localizacao,
       pontos,
       markerVariant = 'card',
+      markersLayerKey = 'default',
       getMarkerColor,
       onRegionChangeComplete,
       onUserDragMap,
@@ -73,6 +107,47 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
   ) {
     const isDotMarker = markerVariant === 'dot';
     const defaultMarkerColor = '#7C3AED';
+    const [cardPontos, setCardPontos] = useState<PontoInteresse[]>([]);
+    const [cardLayerKey, setCardLayerKey] = useState(markersLayerKey);
+    const cardMountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pontosRef = useRef(pontos);
+    pontosRef.current = pontos;
+    const cardPontosSignature = useMemo(
+      () => pontos.map((ponto) => ponto.id).join('\u0001'),
+      [pontos],
+    );
+
+    useEffect(() => {
+      if (cardMountTimerRef.current) {
+        clearTimeout(cardMountTimerRef.current);
+        cardMountTimerRef.current = null;
+      }
+
+      if (isDotMarker) {
+        setCardPontos([]);
+        return;
+      }
+
+      setCardPontos([]);
+
+      if (pontosRef.current.length === 0) {
+        setCardLayerKey(markersLayerKey);
+        return;
+      }
+
+      cardMountTimerRef.current = setTimeout(() => {
+        cardMountTimerRef.current = null;
+        setCardLayerKey(markersLayerKey);
+        setCardPontos(pontosRef.current);
+      }, CARD_MARKER_MOUNT_DELAY_MS);
+
+      return () => {
+        if (cardMountTimerRef.current) {
+          clearTimeout(cardMountTimerRef.current);
+          cardMountTimerRef.current = null;
+        }
+      };
+    }, [isDotMarker, markersLayerKey, cardPontosSignature]);
 
     const dotsGeoJson = useMemo(() => {
       if (!isDotMarker || pontos.length === 0) return null;
@@ -301,9 +376,14 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
         <Camera ref={cameraRef} followUserLocation={false} />
         <UserLocation visible androidRenderMode="gps" showsUserHeadingIndicator />
         {isDotMarker && dotsGeoJson ? (
-          <ShapeSource id="map-dots-source" shape={dotsGeoJson} onPress={handleDotsPress}>
+          <ShapeSource
+            key={`map-dots-${markersLayerKey}`}
+            id={`map-dots-${markersLayerKey}`}
+            shape={dotsGeoJson}
+            onPress={handleDotsPress}
+          >
             <CircleLayer
-              id="map-dots-layer"
+              id={`map-dots-layer-${markersLayerKey}`}
               style={{
                 circleRadius: 7,
                 circleColor: ['get', 'markerColor'],
@@ -312,22 +392,14 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
               }}
             />
           </ShapeSource>
-        ) : (
-          pontos.map((ponto) => (
-            <MapLibreGL.PointAnnotation
-              key={ponto.id}
-              id={ponto.id}
-              coordinate={[ponto.longitude, ponto.latitude]}
-              title={ponto.titulo}
-              anchor={{ x: 0.5, y: 1 }}
-              onSelected={() => onMarkerPress?.(ponto)}
-            >
-              <View collapsable={markerChildCollapsable}>
-                <MapPointMarkerCard ponto={ponto} />
-              </View>
-            </MapLibreGL.PointAnnotation>
-          ))
-        )}
+        ) : cardPontos.length > 0 ? (
+          <MapCardMarkersLayer
+            key={`card-layer-${cardLayerKey}`}
+            layerKey={cardLayerKey}
+            pontos={cardPontos}
+            onMarkerPress={onMarkerPress}
+          />
+        ) : null}
       </MapView>
     );
   },

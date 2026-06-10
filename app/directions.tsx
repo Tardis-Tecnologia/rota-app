@@ -5,13 +5,12 @@ import {
   formatRouteDuration,
   getDirectionsRoute,
 } from '@/services/directionsService';
-import { ensureForegroundLocationPermission } from '@/services/locationPermission';
+import { resolveOriginPositionForDirections } from '@/services/locationPermission';
 import type { DirectionsProfile } from '@/types/directions';
 import { distanceMeters } from '@/utils/guiaGeo';
 import { openExternalDirections } from '@/utils/openExternalMaps';
 import { regionFromRouteCoordinates } from '@/utils/routeBounds';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -77,20 +76,17 @@ export default function DirectionsScreen() {
       let fromLng = parseCoord(params.originLng);
 
       if (fromLat == null || fromLng == null) {
-        const ok = await ensureForegroundLocationPermission();
-        if (!ok) {
+        const resolved = await resolveOriginPositionForDirections();
+        if (!resolved) {
           setOrigin(null);
           setRoute(null);
           setRouteWarning(
-            'Permita a localização para traçar a rota. O endereço de destino está marcado no mapa.',
+            'Não foi possível obter sua localização. O endereço de destino está marcado no mapa.',
           );
           return;
         }
-        const pos = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        fromLat = pos.coords.latitude;
-        fromLng = pos.coords.longitude;
+        fromLat = resolved.latitude;
+        fromLng = resolved.longitude;
       }
 
       const originPoint = { latitude: fromLat, longitude: fromLng };

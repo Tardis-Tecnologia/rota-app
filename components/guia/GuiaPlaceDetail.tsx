@@ -9,7 +9,13 @@ import { openExternalDirections } from '@/utils/openExternalMaps';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function GuiaPlaceDetail({ item }: { item: GuiaListItem }) {
+type GuiaPlaceDetailProps = {
+  item: GuiaListItem;
+  originLat?: number;
+  originLng?: number;
+};
+
+export default function GuiaPlaceDetail({ item, originLat, originLng }: GuiaPlaceDetailProps) {
   const distanceLabel =
     item.distanceMeters != null ? formatDistanceMeters(item.distanceMeters) : null;
 
@@ -18,6 +24,9 @@ export default function GuiaPlaceDetail({ item }: { item: GuiaListItem }) {
       destLat: item.latitude,
       destLng: item.longitude,
       destName: item.name,
+      ...(originLat != null && originLng != null
+        ? { originLat, originLng }
+        : {}),
     });
   };
 

@@ -1,6 +1,17 @@
 import type { DirectionsProfile, DirectionsRoute, RouteCoordinate } from '@/types/directions';
 
 const DEFAULT_OSRM_BASE = 'https://router.project-osrm.org';
+const ROUTE_FETCH_TIMEOUT_MS = 20_000;
+
+async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ROUTE_FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function getOsrmBaseUrl(): string {
   const custom = process.env.EXPO_PUBLIC_OSRM_URL?.trim().replace(/\/$/, '');
@@ -39,7 +50,7 @@ async function fetchOsrmRoute(
   const [dLng, dLat] = destination;
   const url = `${getOsrmBaseUrl()}/route/v1/${osrmProfile}/${oLng},${oLat};${dLng},${dLat}?overview=full&geometries=geojson`;
 
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  const res = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } });
   if (!res.ok) {
     throw new Error('Não foi possível calcular a rota.');
   }
@@ -77,7 +88,7 @@ async function fetchOrsRoute(
   const [dLng, dLat] = destination;
   const url = `https://api.openrouteservice.org/v2/directions/${orsProfile}?api_key=${encodeURIComponent(apiKey)}&start=${oLng},${oLat}&end=${dLng},${dLat}`;
 
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  const res = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } });
   if (!res.ok) {
     throw new Error('Não foi possível calcular a rota.');
   }

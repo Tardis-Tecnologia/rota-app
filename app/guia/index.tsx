@@ -176,7 +176,12 @@ export default function GuiaIndexScreen() {
   const openDetail = (item: GuiaListItem) => {
     router.push({
       pathname: '/guia/[id]',
-      params: { id: item.id },
+      params: {
+        id: item.id,
+        ...(userCoords
+          ? { originLat: String(userCoords.latitude), originLng: String(userCoords.longitude) }
+          : {}),
+      },
     });
   };
 

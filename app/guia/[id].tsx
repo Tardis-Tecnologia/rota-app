@@ -25,7 +25,7 @@ function needsOwnerPhoto(provider: ServiceProviderResponse): boolean {
 
 export default function GuiaDetailScreen() {
   const { user } = useAuth();
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; originLat?: string; originLng?: string }>();
   const id = String(params.id ?? '').trim();
   const [loading, setLoading] = useState(true);
   const [provider, setProvider] = useState<ServiceProviderResponse | null>(null);
@@ -145,8 +145,19 @@ export default function GuiaDetailScreen() {
     );
   }
 
+  const originLat = (() => {
+    const n = Number.parseFloat(String(params.originLat ?? ''));
+    return Number.isFinite(n) ? n : undefined;
+  })();
+  const originLng = (() => {
+    const n = Number.parseFloat(String(params.originLng ?? ''));
+    return Number.isFinite(n) ? n : undefined;
+  })();
+
   if (mapPlace) {
-    return <GuiaPlaceDetail item={mapPlace} />;
+    return (
+      <GuiaPlaceDetail item={mapPlace} originLat={originLat} originLng={originLng} />
+    );
   }
 
   if (provider) {

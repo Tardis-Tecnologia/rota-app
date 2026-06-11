@@ -123,7 +123,7 @@ export function DemandsView() {
     return (
       <View style={styles.loadingWrap}>
         <ActivityIndicator size="large" color={AppColors.accent} />
-        <Text style={styles.loadingText}>Carregando demandas…</Text>
+        <Text style={styles.loadingText}>Carregando realizações…</Text>
       </View>
     );
   }

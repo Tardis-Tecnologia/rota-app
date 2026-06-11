@@ -419,7 +419,7 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
           )}
       </ScrollView>
 
-      {!isVisitante ? (
+      {/* {!isVisitante ? (
         <TouchableOpacity
           activeOpacity={0.85}
           style={styles.fab}
@@ -427,7 +427,7 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
         >
           <MaterialCommunityIcons name="whatsapp" size={28} color={AppColors.text.white} />
         </TouchableOpacity>
-      ) : null}
+      ) : null} */}
     </View>
   );
 }

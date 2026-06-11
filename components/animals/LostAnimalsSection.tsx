@@ -357,20 +357,8 @@ export default function LostAnimalsSection() {
     [commentDraftByItem, items, user],
   );
 
-  const userChip = user ? (
-    <View style={styles.userChip}>
-      <Text style={styles.userChipText}>
-        Você participa como{' '}
-        <Text style={styles.userChipBold}>{user.name || 'Morador(a)'}</Text> (
-        {forumDisplayHandle({ id: user.id, name: user.name })})
-      </Text>
-    </View>
-  ) : null;
-
   return (
     <View style={styles.wrap}>
-      {userChip}
-
       <View style={styles.searchRow}>
         <View style={styles.searchInputWrap}>
           <Ionicons name="search-outline" size={18} color="#94a3b8" style={styles.searchIcon} />
@@ -509,8 +497,7 @@ export default function LostAnimalsSection() {
             end={{ x: 1, y: 0.5 }}
             style={styles.publishBtnGradient}
           >
-            <Ionicons name="add" size={22} color={AppColors.text.white} />
-            <Text style={styles.publishBtnText}>Publicar animal perdido</Text>
+            <Ionicons name="add" size={30} color={AppColors.text.white} />
           </LinearGradient>
         </TouchableOpacity>
       ) : null}
@@ -666,22 +653,23 @@ const styles = StyleSheet.create({
   },
   publishBtn: {
     position: 'absolute',
-    right: 0,
-    bottom: 8,
-    borderRadius: 16,
-    shadowColor: AppColors.shadow,
+    right: 16,
+    bottom: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    overflow: 'hidden',
+    shadowColor: '#059669',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.24,
+    shadowOpacity: 0.38,
     shadowRadius: 14,
-    elevation: 8,
+    elevation: 10,
   },
   publishBtnGradient: {
-    height: 48,
-    paddingHorizontal: 16,
-    borderRadius: 24,
-    flexDirection: 'row',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
   },
-  publishBtnText: { color: AppColors.text.white, fontWeight: '800', fontSize: 14 },
 });

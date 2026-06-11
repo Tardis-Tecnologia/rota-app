@@ -90,7 +90,13 @@ export default function WorkDetailsScreen() {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.card}>
             <Text style={styles.title}>{item.title}</Text>
-            {item.description ? <Text style={styles.desc}>{item.description}</Text> : null}
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.section}>Descrição</Text>
+            <Text style={styles.descBody}>
+              {item.description?.trim() || 'Sem descrição cadastrada.'}
+            </Text>
           </View>
 
           <View style={styles.card}>
@@ -167,8 +173,8 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   title: { fontSize: 18, fontWeight: '900', color: '#0F172A' },
-  desc: { marginTop: 8, fontSize: 13, lineHeight: 18, color: '#475569' },
   section: { fontSize: 14, fontWeight: '900', color: '#0F172A', marginBottom: 10 },
+  descBody: { fontSize: 14, lineHeight: 21, color: '#334155', fontWeight: '500' },
   line: { fontSize: 13, lineHeight: 18, marginBottom: 6, color: '#0F172A' },
   k: { fontWeight: '900', color: '#0F172A' },
   v: { fontWeight: '600', color: '#334155' },

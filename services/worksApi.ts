@@ -49,7 +49,12 @@ function normalizeWork(raw: unknown): WorkResponseDto {
     hostId: r.hostId == null ? null : String(r.hostId),
     id: String(r.id ?? ''),
     title: String(r.title ?? '').trim(),
-    description: r.description == null ? null : String(r.description),
+    description: (() => {
+      const raw = r.description ?? r.descricao;
+      if (raw == null) return null;
+      const text = String(raw).trim();
+      return text || null;
+    })(),
     status: String(r.status ?? ''),
     neighborhood: String(r.neighborhood ?? '').trim(),
     address: String(r.address ?? '').trim(),

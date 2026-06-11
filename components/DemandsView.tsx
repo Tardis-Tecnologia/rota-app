@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 
 const PAGE_SIZE = 10;
-const DEMANDS_FETCH_SIZE = 500;
+const NEIGHBORHOODS_FETCH_SIZE = 500;
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -45,34 +45,22 @@ export function DemandsView() {
   const [selectedNeighborhood, setSelectedNeighborhood] = useState<string>('');
   const [neighborhoodOptions, setNeighborhoodOptions] = useState<string[]>([]);
 
-  const [allDemands, setAllDemands] = useState<DemandResponseDto[]>([]);
+  const [items, setItems] = useState<DemandResponseDto[]>([]);
   const [stats, setStats] = useState<DemandsStatsResponseDto>({ highlights: 0, lastMonth: 0, publishedPercent: 0 });
 
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const filtered = useMemo(() => {
-    const n = selectedNeighborhood.trim();
-    if (!n) return allDemands;
-    return allDemands.filter((d) => (d.neighborhood ?? '').trim() === n);
-  }, [allDemands, selectedNeighborhood]);
+  const neighborhoodParam = selectedNeighborhood.trim() ? selectedNeighborhood.trim() : undefined;
 
-  const visibleItems = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
-  const hasMore = visibleCount < filtered.length;
-
-  const loadAll = useCallback(async () => {
-    setError(null);
-    const [demandsRaw, statsRaw] = await Promise.all([
-      getDemands({ hostId, init: 0, end: DEMANDS_FETCH_SIZE }),
-      getDemandsStats({ hostId }).catch(() => ({ highlights: 0, lastMonth: 0, publishedPercent: 0 })),
-    ]);
-    setAllDemands(demandsRaw);
-    setStats(statsRaw);
+  const loadNeighborhoodOptions = useCallback(async () => {
+    const demandsForOptions = await getDemands({ hostId, init: 0, end: NEIGHBORHOODS_FETCH_SIZE });
     const uniq = Array.from(
       new Set(
-        demandsRaw
+        demandsForOptions
           .map((d) => (d.neighborhood ?? '').trim())
           .filter(Boolean),
       ),
@@ -80,12 +68,67 @@ export function DemandsView() {
     setNeighborhoodOptions(uniq);
   }, [hostId]);
 
+  const loadStats = useCallback(async () => {
+    const statsRaw = await getDemandsStats({ hostId, neighborhood: neighborhoodParam }).catch(() => ({
+      highlights: 0,
+      lastMonth: 0,
+      publishedPercent: 0,
+    }));
+    setStats(statsRaw);
+  }, [hostId, neighborhoodParam]);
+
+  const loadFirstPage = useCallback(async () => {
+    setError(null);
+    setHasMore(true);
+    const data = await getDemands({
+      hostId,
+      neighborhood: neighborhoodParam,
+      init: 0,
+      end: PAGE_SIZE,
+    });
+    setItems(data);
+    setHasMore(data.length >= PAGE_SIZE);
+  }, [hostId, neighborhoodParam]);
+
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+    try {
+      const nextInit = items.length;
+      const data = await getDemands({
+        hostId,
+        neighborhood: neighborhoodParam,
+        init: nextInit,
+        end: nextInit + PAGE_SIZE,
+      });
+      setItems((prev) => [...prev, ...data]);
+      setHasMore(data.length >= PAGE_SIZE);
+    } catch {
+      setHasMore(false);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [hasMore, hostId, isLoadingMore, items.length, neighborhoodParam]);
+
+  const reloadAll = useCallback(async () => {
+    setError(null);
+    setIsRefreshing(true);
+    try {
+      await Promise.all([loadNeighborhoodOptions(), loadStats(), loadFirstPage()]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao carregar demandas');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [loadFirstPage, loadNeighborhoodOptions, loadStats]);
+
   useEffect(() => {
     let mounted = true;
     const run = async () => {
       setIsLoading(true);
+      setError(null);
       try {
-        await loadAll();
+        await Promise.all([loadNeighborhoodOptions(), loadStats(), loadFirstPage()]);
       } catch (e) {
         if (!mounted) return;
         setError(e instanceof Error ? e.message : 'Erro ao carregar demandas');
@@ -97,27 +140,7 @@ export function DemandsView() {
     return () => {
       mounted = false;
     };
-  }, [loadAll]);
-
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [selectedNeighborhood]);
-
-  const onRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      await loadAll();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao carregar demandas');
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [loadAll]);
-
-  const loadMore = useCallback(() => {
-    if (!hasMore) return;
-    setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filtered.length));
-  }, [filtered.length, hasMore]);
+  }, [loadFirstPage, loadNeighborhoodOptions, loadStats]);
 
   if (isLoading) {
     return (
@@ -131,7 +154,7 @@ export function DemandsView() {
   return (
     <View style={styles.container}>
       {error ? (
-        <Pressable style={styles.errorCard} onPress={onRefresh}>
+        <Pressable style={styles.errorCard} onPress={reloadAll}>
           <Text style={styles.errorTitle}>Não foi possível carregar</Text>
           <Text style={styles.errorText}>{error}</Text>
           <Text style={styles.errorHint}>Toque para tentar novamente.</Text>
@@ -139,10 +162,10 @@ export function DemandsView() {
       ) : null}
 
       <FlatList
-        data={visibleItems}
+        data={items}
         keyExtractor={(d) => d.id}
         contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={reloadAll} />}
         onEndReachedThreshold={0.35}
         onEndReached={loadMore}
         ListHeaderComponent={
@@ -200,7 +223,16 @@ export function DemandsView() {
             <Text style={styles.emptyText}>Tente mudar o bairro ou atualizar a lista.</Text>
           </View>
         }
-        ListFooterComponent={hasMore ? <View style={styles.footerSpace} /> : <View style={styles.footerSpace} />}
+        ListFooterComponent={
+          isLoadingMore ? (
+            <View style={styles.footerLoading}>
+              <ActivityIndicator size="small" color={AppColors.accent} />
+              <Text style={styles.footerLoadingText}>Carregando mais…</Text>
+            </View>
+          ) : (
+            <View style={styles.footerSpace} />
+          )
+        }
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
@@ -224,8 +256,12 @@ export function DemandsView() {
                 <Text style={styles.bodyVal}>{item.responsibleAgency || '-'}</Text>
               </Text>
               <Text style={styles.bodyLine}>
+                <Text style={styles.bodyKey}>Descrição: </Text>
+                <Text style={styles.bodyVal}>{item.description?.trim() || '-'}</Text>
+              </Text>
+              <Text style={styles.bodyLine}>
                 <Text style={styles.bodyKey}>Resumo: </Text>
-                <Text style={styles.bodyVal}>{item.summary || item.description || '-'}</Text>
+                <Text style={styles.bodyVal}>{item.summary?.trim() || '-'}</Text>
               </Text>
               <Text style={styles.bodyLine}>
                 <Text style={styles.bodyKey}>Impacto para a população: </Text>
@@ -334,5 +370,11 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
   emptyText: { fontSize: 13, color: AppColors.gray[500], textAlign: 'center' },
   footerSpace: { height: 16 },
+  footerLoading: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  footerLoadingText: { fontSize: 13, fontWeight: '600', color: AppColors.gray[500] },
 });
-

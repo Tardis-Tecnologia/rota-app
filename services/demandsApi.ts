@@ -45,11 +45,21 @@ function normalizeDemand(raw: unknown): DemandResponseDto {
     hostId: r.hostId == null ? null : String(r.hostId),
     id: String(r.id ?? ''),
     title: String(r.title ?? r.name ?? '').trim(),
-    description: r.description == null ? null : String(r.description),
+    description: (() => {
+      const raw = r.description ?? r.descricao;
+      if (raw == null) return null;
+      const text = String(raw).trim();
+      return text || null;
+    })(),
     neighborhood: String(r.neighborhood ?? '').trim(),
     date: String(dateRaw ?? ''),
     responsibleAgency: String(r.responsibleAgency ?? r.agency ?? '').trim(),
-    summary: r.summary == null ? null : String(r.summary),
+    summary: (() => {
+      const raw = r.summary ?? r.resumo;
+      if (raw == null) return null;
+      const text = String(raw).trim();
+      return text || null;
+    })(),
     impact: r.impact == null ? null : String(r.impact),
     highlight: Boolean(highlightRaw),
     createdAt: r.createdAt == null ? undefined : String(r.createdAt),
@@ -61,12 +71,14 @@ function normalizeDemand(raw: unknown): DemandResponseDto {
 
 export async function getDemands(options: {
   hostId?: string;
+  neighborhood?: string;
   init?: number;
   end?: number;
 }): Promise<DemandResponseDto[]> {
   const token = requireToken();
   const params = new URLSearchParams();
   if (options.hostId?.trim()) params.set('hostId', options.hostId.trim());
+  if (options.neighborhood?.trim()) params.set('neighborhood', options.neighborhood.trim());
   if (typeof options.init === 'number') params.set('init', String(options.init));
   if (typeof options.end === 'number') params.set('end', String(options.end));
   const url = `${getApiBaseUrl()}${BASE_PATH}/demands?${params.toString()}`;
@@ -82,10 +94,14 @@ export async function getDemands(options: {
   return data.map(normalizeDemand).filter((d) => d.id && d.title);
 }
 
-export async function getDemandsStats(options: { hostId?: string }): Promise<DemandsStatsResponseDto> {
+export async function getDemandsStats(options: {
+  hostId?: string;
+  neighborhood?: string;
+}): Promise<DemandsStatsResponseDto> {
   const token = requireToken();
   const params = new URLSearchParams();
   if (options.hostId?.trim()) params.set('hostId', options.hostId.trim());
+  if (options.neighborhood?.trim()) params.set('neighborhood', options.neighborhood.trim());
   const url = `${getApiBaseUrl()}${BASE_PATH}/demands/stats?${params.toString()}`;
   const res = await fetch(url, {
     headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },

@@ -8,7 +8,7 @@ import { ModalReportPrefeitura } from '@/components/ModalReportPrefeitura';
 import PlaceDetailsSheet from '@/components/PlaceDetailsSheet';
 import ReportButton, { REPORT_SUBJECT_BY_TYPE, type ReportType } from '@/components/ReportButton';
 import Toast from '@/components/Toast';
-import { EXPLORE_MAP_MAX_MARKERS } from '@/constants/exploreMap';
+import { EXPLORE_MAP_MAX_MARKERS, EXPLORE_MAP_3D_ZOOM_DELTA } from '@/constants/exploreMap';
 import { AppColors } from '@/constants/theme';
 import { useNotificationUnreadCount } from '@/hooks/useNotificationUnreadCount';
 import {
@@ -168,8 +168,8 @@ export default function MapScreen() {
           ? {
               latitude,
               longitude,
-              latitudeDelta: 0.018,
-              longitudeDelta: 0.018,
+              latitudeDelta: EXPLORE_MAP_3D_ZOOM_DELTA,
+              longitudeDelta: EXPLORE_MAP_3D_ZOOM_DELTA,
             }
           : {
               ...prev,
@@ -598,6 +598,7 @@ export default function MapScreen() {
         ref={mapRef}
         localizacao={localizacao}
         pontos={pontosForMap}
+        viewMode="3d"
         markerVariant={markerVariant}
         markersLayerKey={markersLayerKey}
         getMarkerColor={getMarkerColor}

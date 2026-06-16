@@ -1,6 +1,9 @@
+import ExploreMap3DBuildings from '@/components/ExploreMap3DBuildings';
 import MapPointMarkerCard from '@/components/MapPointMarkerCard';
+import { EXPLORE_MAP_3D_PITCH } from '@/constants/exploreMap';
 import { getMapLibreStyleUrl } from '@/constants/mapLibreStyle';
 import type { Localizacao, PontoInteresse, Region } from '@/types';
+import { enhanceExplore3DMapStyle } from '@/utils/mapLibre3dStyle';
 import MapLibreGL, {
   Camera,
   CircleLayer,
@@ -77,10 +80,13 @@ export interface MapLibreMapaViewRef {
 }
 
 export type MapMarkerVariant = 'card' | 'dot';
+export type MapViewMode = '2d' | '3d';
 
 interface MapLibreMapaViewProps {
   localizacao: Localizacao;
   pontos: PontoInteresse[];
+  /** `2d` = visão plana; `3d` = inclinação + prédios extrudados (Explorar). */
+  viewMode?: MapViewMode;
   /** `card` = preview com card; `dot` = leve e estável no Fabric (recomendado no Explorar). */
   markerVariant?: MapMarkerVariant;
   /** Troca a camada de dots ao mudar filtro/categoria (evita reciclagem de views no Fabric). */
@@ -96,6 +102,7 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
     {
       localizacao,
       pontos,
+      viewMode = '2d',
       markerVariant = 'card',
       markersLayerKey = 'default',
       getMarkerColor,
@@ -105,8 +112,10 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
     },
     ref,
   ) {
+    const is3dView = viewMode === '3d';
     const isDotMarker = markerVariant === 'dot';
     const defaultMarkerColor = '#7C3AED';
+    const defaultPitch = is3dView ? EXPLORE_MAP_3D_PITCH : 0;
     const [cardPontos, setCardPontos] = useState<PontoInteresse[]>([]);
     const [cardLayerKey, setCardLayerKey] = useState(markersLayerKey);
     const cardMountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -186,13 +195,16 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
     );
     const mapRef = useRef<MapViewRef>(null);
     const cameraRef = useRef<CameraRef>(null);
-    const mapStyleUrl = useMemo(() => getMapLibreStyleUrl(), []);
+    const mapStyleUrl = useMemo(() => getMapLibreStyleUrl({ threeD: is3dView }), [is3dView]);
     const [mapStyleJson, setMapStyleJson] = useState<string | null>(null);
+    const [buildingsBelowLayerId, setBuildingsBelowLayerId] = useState<string | undefined>();
+    const [mapLoaded, setMapLoaded] = useState(false);
 
    
     const initialViewAppliedRef = useRef(false);
     const lastAnchorRef = useRef<Anchor | null>(null);
     const lastZoomLevelRef = useRef<number>(zoomFromLatitudeDelta(0.05));
+    const lastPitchRef = useRef<number>(defaultPitch);
     const lastCenterRef = useRef<[number, number]>([
       localizacao.longitude,
       localizacao.latitude,
@@ -200,20 +212,52 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
     
     const lastPropLocRef = useRef<{ lat: number; lng: number } | null>(null);
 
+    useEffect(() => {
+      lastPitchRef.current = defaultPitch;
+    }, [defaultPitch]);
+
     const applyCameraToAnchor = useCallback((loc: Localizacao, duration: number) => {
       const z = zoomFromLatitudeDelta(loc.latitudeDelta);
       lastZoomLevelRef.current = z;
       lastCenterRef.current = [loc.longitude, loc.latitude];
+      if (is3dView && lastPitchRef.current < 20) {
+        lastPitchRef.current = defaultPitch;
+      }
       cameraRef.current?.setCamera({
         centerCoordinate: lastCenterRef.current,
         zoomLevel: z,
+        pitch: is3dView ? lastPitchRef.current : 0,
         animationDuration: duration,
         animationMode: 'easeTo',
       });
-    }, []);
+    }, [defaultPitch, is3dView]);
+
+    const applyInitial3DView = useCallback(() => {
+      const z = zoomFromLatitudeDelta(localizacao.latitudeDelta);
+      lastZoomLevelRef.current = z;
+      lastCenterRef.current = [localizacao.longitude, localizacao.latitude];
+      if (is3dView) {
+        lastPitchRef.current = defaultPitch;
+      }
+      cameraRef.current?.setCamera({
+        centerCoordinate: lastCenterRef.current,
+        zoomLevel: z,
+        pitch: is3dView ? defaultPitch : 0,
+        animationDuration: 0,
+        animationMode: 'easeTo',
+      });
+    }, [defaultPitch, is3dView, localizacao]);
+
+    useEffect(() => {
+      setMapLoaded(false);
+    }, [mapStyleJson, is3dView]);
 
     const handleDidFinishLoadingMap = useCallback(() => {
-      if (initialViewAppliedRef.current) return;
+      setMapLoaded(true);
+      if (initialViewAppliedRef.current) {
+        applyInitial3DView();
+        return;
+      }
       initialViewAppliedRef.current = true;
       const anchor: Anchor = {
         lat: localizacao.latitude,
@@ -221,7 +265,7 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
         d: localizacao.latitudeDelta,
       };
       lastAnchorRef.current = anchor;
-      const apply = () => applyCameraToAnchor(localizacao, 0);
+      const apply = () => applyInitial3DView();
       apply();
       requestAnimationFrame(apply);
       setTimeout(apply, 150);
@@ -229,7 +273,7 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
         lat: localizacao.latitude,
         lng: localizacao.longitude,
       };
-    }, [applyCameraToAnchor, localizacao]);
+    }, [applyInitial3DView, localizacao]);
 
     useEffect(() => {
       if (!initialViewAppliedRef.current) return;
@@ -279,13 +323,17 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
               style.layers = style.layers.filter((l: any) => !removed.has(l?.source));
             }
           }
-          setMapStyleJson(JSON.stringify(style));
+          const prepared = is3dView
+            ? enhanceExplore3DMapStyle(style)
+            : { style, meta: { labelLayerId: undefined } };
+          setBuildingsBelowLayerId(prepared.meta.labelLayerId);
+          setMapStyleJson(JSON.stringify(prepared.style));
         } catch {
         }
       })();
 
       return () => ac.abort();
-    }, [mapStyleUrl]);
+    }, [is3dView, mapStyleUrl]);
 
     const emitRegionFromPayload = useCallback(
       (p: RegionPayload) => {
@@ -295,6 +343,9 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
         const z = p.zoomLevel;
         if (z != null) {
           lastZoomLevelRef.current = z;
+        }
+        if (p.pitch != null) {
+          lastPitchRef.current = p.pitch;
         }
         const [ne, sw] = p.visibleBounds;
         const [neLng, neLat] = ne;
@@ -326,6 +377,7 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
           cameraRef.current?.setCamera({
             centerCoordinate: lastCenterRef.current,
             zoomLevel: z,
+            pitch: is3dView ? lastPitchRef.current : 0,
             animationDuration: duration,
             animationMode: 'easeTo',
           });
@@ -336,12 +388,13 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
           cameraRef.current?.setCamera({
             centerCoordinate: lastCenterRef.current,
             zoomLevel: next,
+            pitch: is3dView ? lastPitchRef.current : 0,
             animationDuration: duration,
             animationMode: 'easeTo',
           });
         },
       }),
-      [],
+      [is3dView],
     );
 
     const mapViewStyle = useMemo((): ViewStyle | ViewStyle[] => {
@@ -373,8 +426,20 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
           }
         }}
       >
-        <Camera ref={cameraRef} followUserLocation={false} />
+        <Camera
+          ref={cameraRef}
+          followUserLocation={false}
+          pitch={is3dView ? defaultPitch : 0}
+          defaultSettings={{
+            pitch: defaultPitch,
+            zoomLevel: zoomFromLatitudeDelta(localizacao.latitudeDelta),
+            centerCoordinate: [localizacao.longitude, localizacao.latitude],
+          }}
+        />
         <UserLocation visible androidRenderMode="gps" showsUserHeadingIndicator />
+        {is3dView && mapLoaded ? (
+          <ExploreMap3DBuildings belowLayerID={buildingsBelowLayerId} />
+        ) : null}
         {isDotMarker && dotsGeoJson ? (
           <ShapeSource
             key={`map-dots-${markersLayerKey}`}

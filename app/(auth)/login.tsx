@@ -3,6 +3,7 @@ import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import {
@@ -125,7 +126,11 @@ export default function LoginScreen() {
           <View style={styles.card}>
             <View style={styles.header}>
               <View style={styles.iconWrap}>
-                <Ionicons name="shield-checkmark" size={44} color={AppColors.primary} />
+                <Image
+                  source={require('@/assets/images/logo.png')}
+                  style={styles.logo}
+                  contentFit="contain"
+                />
               </View>
               <Text style={styles.title}>Entrar</Text>
               <Text style={styles.subtitle}>
@@ -322,15 +327,13 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   iconWrap: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: AppColors.palette.sky.light,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 18,
-    borderWidth: 2,
-    borderColor: 'rgba(0, 102, 204, 0.15)',
+  },
+  logo: {
+    width: 72,
+    height: 94,
   },
   title: {
     fontSize: 26,

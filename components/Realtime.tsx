@@ -6,15 +6,16 @@ import {
   type NeighborhoodTraffic,
 } from '@/services/trafficApi';
 import { getCurrentWeather, type CurrentWeather } from '@/services/weatherApi';
+import { resolveActiveCityConfig } from '@/utils/whitelabelHost';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 
-const DEFAULT_CENTER = {
-  latitude: -22.9189,
-  longitude: -42.8186,
-};
+const DEFAULT_CENTER = (() => {
+  const city = resolveActiveCityConfig();
+  return { latitude: city.latitude, longitude: city.longitude };
+})();
 
 const REALTIME_REFRESH_DISTANCE_METERS = 300;
 

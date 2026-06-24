@@ -173,7 +173,10 @@ export function storeProfileFromRouteParams(params: {
   };
 }
 
-/** Monta endereço completo para geocodificação (prioriza Maricá/RJ no app). */
+import { buildCityGeocodeQuery } from '@/constants/whitelabelCity';
+import { resolveActiveCityConfig } from '@/utils/whitelabelHost';
+
+/** Monta endereço completo para geocodificação (cidade do host whitelabel). */
 export function buildStoreGeocodeQuery(
   profile: Pick<CommercialStorePublicProfile, 'address' | 'cep' | 'locationDescription'>,
 ): string | null {
@@ -187,11 +190,7 @@ export function buildStoreGeocodeQuery(
     base = `${base}, CEP ${cep}`;
   }
 
-  const lower = base.toLowerCase();
-  if (!lower.includes('maricá') && !lower.includes('marica') && !lower.includes('brasil')) {
-    base = `${base}, Maricá, RJ, Brasil`;
-  }
-  return base;
+  return buildCityGeocodeQuery(base, resolveActiveCityConfig());
 }
 
 async function geocodeWithMapTiler(

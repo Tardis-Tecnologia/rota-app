@@ -20,6 +20,8 @@ export interface MarketplaceListing {
   sellerId: string;
   sellerName: string;
   sellerPhotoUrl?: string | null;
+  /** Anúncio de conta comercial (loja) vs cidadão */
+  sellerIsCommercial?: boolean;
   title: string;
   description: string;
   category: string;

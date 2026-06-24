@@ -82,6 +82,7 @@ export default function MarketplaceDetailScreen() {
         sellerId: item.sellerId,
         sellerName: item.sellerName,
         sellerImage: item.sellerPhotoUrl,
+        sellerIsCommercial: item.sellerIsCommercial,
         listingTitle: item.title,
         formattedPrice: formatMarketplacePrice(item.price),
         buyerDisplayName: user.name,

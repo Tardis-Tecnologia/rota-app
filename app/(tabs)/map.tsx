@@ -10,6 +10,7 @@ import ReportButton, { REPORT_SUBJECT_BY_TYPE, type ReportType } from '@/compone
 import Toast from '@/components/Toast';
 import { EXPLORE_MAP_MAX_MARKERS, EXPLORE_MAP_3D_ZOOM_DELTA } from '@/constants/exploreMap';
 import { AppColors } from '@/constants/theme';
+import { useWhitelabelCity, useWhitelabelMapCenter } from '@/hooks/useWhitelabelCity';
 import { useNotificationUnreadCount } from '@/hooks/useNotificationUnreadCount';
 import {
     communityToExplorePonto,
@@ -48,13 +49,6 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const MARICA_CENTER = {
-  latitude: -22.9189,
-  longitude: -42.8186,
-  latitudeDelta: 0.05,
-  longitudeDelta: 0.05,
-};
 
 const MAP_LOCATION_WATCH_DISTANCE_METERS = 15;
 const MAP_LOCATION_WATCH_TIME_MS = 5000;
@@ -117,12 +111,20 @@ function routeParamToChipId(raw: string): string | undefined {
 
 export default function MapScreen() {
   const { unreadCount } = useNotificationUnreadCount();
+  const city = useWhitelabelCity();
+  const cityMapCenter = useWhitelabelMapCenter();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const mapRef = useRef<MapLibreMapaViewRef | null>(null);
-  const [localizacao, setLocalizacao] = useState<Localizacao>(MARICA_CENTER);
+  const [localizacao, setLocalizacao] = useState<Localizacao>(() => ({
+    ...cityMapCenter,
+    latitudeDelta: city.fixedMapCenter ? EXPLORE_MAP_3D_ZOOM_DELTA : cityMapCenter.latitudeDelta,
+    longitudeDelta: city.fixedMapCenter ? EXPLORE_MAP_3D_ZOOM_DELTA : cityMapCenter.longitudeDelta,
+  }));
   const [mapRegion, setMapRegion] = useState<Region>(() => ({
-    ...MARICA_CENTER,
+    ...cityMapCenter,
+    latitudeDelta: city.fixedMapCenter ? EXPLORE_MAP_3D_ZOOM_DELTA : cityMapCenter.latitudeDelta,
+    longitudeDelta: city.fixedMapCenter ? EXPLORE_MAP_3D_ZOOM_DELTA : cityMapCenter.longitudeDelta,
   }));
   const [loading, setLoading] = useState<boolean>(true);
   const [locationReady, setLocationReady] = useState(false);
@@ -148,9 +150,51 @@ export default function MapScreen() {
   const hadLocationErrorRef = useRef(false);
   const filterRequestSeqRef = useRef(0);
 
+  const searchOrigin = useMemo(
+    (): Localizacao =>
+      city.fixedMapCenter
+        ? {
+            latitude: city.latitude,
+            longitude: city.longitude,
+            latitudeDelta: localizacao.latitudeDelta,
+            longitudeDelta: localizacao.longitudeDelta,
+          }
+        : localizacao,
+    [
+      city.fixedMapCenter,
+      city.latitude,
+      city.longitude,
+      localizacao.latitudeDelta,
+      localizacao.longitudeDelta,
+      localizacao.latitude,
+      localizacao.longitude,
+    ],
+  );
+
+  const applyCityAnchor = useCallback(() => {
+    const next: Localizacao = {
+      latitude: city.latitude,
+      longitude: city.longitude,
+      latitudeDelta: EXPLORE_MAP_3D_ZOOM_DELTA,
+      longitudeDelta: EXPLORE_MAP_3D_ZOOM_DELTA,
+    };
+    setLocalizacao(next);
+    setMapRegion(next);
+    pendingInitialGpsCenterRef.current = true;
+    setLocationReady(true);
+    setLocationError(null);
+    hadLocationErrorRef.current = false;
+    setLoading(false);
+  }, [city.latitude, city.longitude]);
+
   useEffect(() => {
     locationReadyRef.current = locationReady;
   }, [locationReady]);
+
+  useEffect(() => {
+    if (!city.fixedMapCenter) return;
+    applyCityAnchor();
+  }, [applyCityAnchor, city.fixedMapCenter, city.hostId]);
 
   const shouldSkipGpsRefresh = useCallback((force: boolean): boolean => {
     if (force) return false;
@@ -192,6 +236,11 @@ export default function MapScreen() {
 
   const solicitarPermissaoLocalizacao = useCallback(
     async (options?: { force?: boolean }): Promise<void> => {
+      if (city.fixedMapCenter) {
+        applyCityAnchor();
+        return;
+      }
+
       const force = options?.force ?? false;
       if (shouldSkipGpsRefresh(force)) {
         setLoading(false);
@@ -224,13 +273,18 @@ export default function MapScreen() {
         setLoading(false);
       }
     },
-    [applyGpsCoords, shouldSkipGpsRefresh],
+    [applyCityAnchor, applyGpsCoords, city.fixedMapCenter, shouldSkipGpsRefresh],
   );
 
   useFocusEffect(
     useCallback(() => {
       if (Platform.OS === 'web') {
         setLoading(false);
+        return;
+      }
+
+      if (city.fixedMapCenter) {
+        applyCityAnchor();
         return;
       }
 
@@ -267,7 +321,7 @@ export default function MapScreen() {
         cancelled = true;
         watchSub?.remove();
       };
-    }, [applyGpsCoords, solicitarPermissaoLocalizacao]),
+    }, [applyCityAnchor, applyGpsCoords, city.fixedMapCenter, solicitarPermissaoLocalizacao]),
   );
 
   const publishMapPontos = useCallback((items: PontoInteresse[]) => {
@@ -363,7 +417,7 @@ export default function MapScreen() {
 
       setFilterLoading(true);
       try {
-        const pos: [number, number] = [localizacao.longitude, localizacao.latitude];
+        const pos: [number, number] = [searchOrigin.longitude, searchOrigin.latitude];
         const places = await searchNearbyPlaces(placeType, pos, undefined, 20);
         if (isStale()) return;
         const basePontos = places.map((p) => placeToPonto(p, placeType));
@@ -393,7 +447,7 @@ export default function MapScreen() {
         }
       }
     },
-    [categoriaSelecionada, localizacao.latitude, localizacao.longitude, publishMapPontos],
+    [categoriaSelecionada, publishMapPontos, searchOrigin.latitude, searchOrigin.longitude],
   );
 
   useEffect(() => {
@@ -477,6 +531,19 @@ export default function MapScreen() {
   }, []);
 
   const handleCenterUser = useCallback(async () => {
+    if (city.fixedMapCenter) {
+      const region: Region = {
+        latitude: city.latitude,
+        longitude: city.longitude,
+        latitudeDelta: mapRegion.latitudeDelta,
+        longitudeDelta: mapRegion.longitudeDelta,
+      };
+      setLocalizacao(region);
+      setMapRegion(region);
+      mapRef.current?.animateToRegion(region, 500);
+      return;
+    }
+
     try {
       const ok = await ensureForegroundLocationPermission();
       if (!ok) {
@@ -508,7 +575,7 @@ export default function MapScreen() {
     } catch {
       Alert.alert('Mapa', 'Não foi possível obter sua localização.');
     }
-  }, [mapRegion.latitudeDelta, mapRegion.longitudeDelta]);
+  }, [city.fixedMapCenter, city.latitude, city.longitude, mapRegion.latitudeDelta, mapRegion.longitudeDelta]);
 
   const handleZoomIn = useCallback(() => {
     mapRef.current?.zoomBy(1, 220);
@@ -529,7 +596,7 @@ export default function MapScreen() {
         <ScrollView style={[styles.webContainer, { backgroundColor: AppColors.background.default }]}>
           <View style={styles.webHeader}>
             <Ionicons name="compass-outline" size={32} color={AppColors.primary} />
-            <Text style={styles.webTitle}>Pontos de Interesse - Maricá</Text>
+            <Text style={styles.webTitle}>Pontos de Interesse - {city.cityName}</Text>
             <Text style={styles.webSubtitle}>
               O mapa interativo está disponível apenas em dispositivos móveis.
               Use o app no celular para visualizar o mapa completo.
@@ -566,7 +633,7 @@ export default function MapScreen() {
     );
   }
 
-  if (!locationReady && locationError != null) {
+  if (!locationReady && locationError != null && !city.fixedMapCenter) {
     const msg =
       locationError === 'denied'
         ? 'Ative a localização nas configurações para ver o mapa na sua posição.'
@@ -648,8 +715,8 @@ export default function MapScreen() {
       <PlaceDetailsSheet
         visible={selectedPontoDetail != null}
         ponto={selectedPontoDetail}
-        userLng={localizacao.longitude}
-        userLat={localizacao.latitude}
+        userLng={searchOrigin.longitude}
+        userLat={searchOrigin.latitude}
         onClose={() => setSelectedPontoDetail(null)}
       />
       <Toast

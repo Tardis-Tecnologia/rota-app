@@ -79,9 +79,13 @@ export function mapMarketplaceDetail(dto: MarketplaceListingDetailDto): Marketpl
   if (!base) {
     throw new Error('Resposta de anúncio inválida.');
   }
+  const commercialAccountId = dto.commercialAccountId?.trim() || '';
+  const userId = dto.userId?.trim() || '';
+  const sellerId = base.sellerId || commercialAccountId || userId || '';
   return {
     ...base,
-    sellerId: base.sellerId || dto.commercialAccountId?.trim() || dto.userId?.trim() || '',
+    sellerId,
+    sellerIsCommercial: !!commercialAccountId || (!userId && !!sellerId),
     description: dto.description?.trim() || base.description,
     locationAddress: dto.locationAddress?.trim() || null,
     advertiserContact: dto.advertiserContact?.trim() || '',

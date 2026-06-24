@@ -21,9 +21,18 @@ export function formatDistanceMeters(meters: number): string {
   return `${(meters / 1000).toFixed(1).replace('.', ',')} km`;
 }
 
-export const GUIA_DEFAULT_CENTER = {
-  latitude: -22.9189,
-  longitude: -42.8186,
-  latitudeDelta: 0.06,
-  longitudeDelta: 0.06,
-};
+import { cityToMapCenter } from '@/constants/whitelabelCity';
+import { resolveActiveCityConfig } from '@/utils/whitelabelHost';
+
+/** Centro do Guia conforme host whitelabel (env ou JWT). */
+export function getGuiaDefaultCenter() {
+  const city = resolveActiveCityConfig();
+  return {
+    ...cityToMapCenter(city),
+    latitudeDelta: 0.06,
+    longitudeDelta: 0.06,
+  };
+}
+
+/** @deprecated Prefer getGuiaDefaultCenter() — mantido para imports legados. */
+export const GUIA_DEFAULT_CENTER = getGuiaDefaultCenter();

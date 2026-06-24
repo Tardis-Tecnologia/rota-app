@@ -1,3 +1,5 @@
+import { contactCommercialStore } from '@/services/commercialForumApi';
+import { getWhitelabelHostId } from '@/services/authApi';
 import { resolveChatPeerPhotoUrl } from '@/services/chatPeerPhotos';
 import { findOrCreateDirectStreamChannel } from '@/services/streamChatApi';
 import { buildMarketplaceInterestMessage } from '@/utils/marketplaceChat';
@@ -21,6 +23,7 @@ export interface MarketplaceChatNavigationPayload {
   channelId: string;
   cid: string;
   draftMessage: string;
+  autoSentDraftMessageId?: string;
 }
 
 export async function prepareMarketplaceSellerChat(
@@ -36,31 +39,50 @@ export async function prepareMarketplaceSellerChat(
   }
 
   const sellerName = params.sellerName.trim() || 'Loja';
-  const peerUserId =
-    params.sellerIsCommercial === false
-      ? sellerId
-      : toCommercialStreamUserId(sellerId);
+  const isCommercialSeller = params.sellerIsCommercial !== false;
+  const draftMessage = buildMarketplaceInterestMessage(
+    params.listingTitle,
+    params.formattedPrice,
+  );
   const sellerPhoto =
     params.sellerImage?.trim() ||
-    (params.sellerIsCommercial === false
-      ? await resolveChatPeerPhotoUrl(sellerId)
-      : undefined) ||
+    (!isCommercialSeller ? await resolveChatPeerPhotoUrl(sellerId) : undefined) ||
     undefined;
+
+  if (isCommercialSeller) {
+    const channel = await contactCommercialStore(
+      sellerId,
+      draftMessage,
+      getWhitelabelHostId(),
+    );
+    const peerUserId = toCommercialStreamUserId(sellerId);
+    return {
+      id: peerUserId,
+      name: sellerName,
+      image: sellerPhoto,
+      channelType: channel.channelType,
+      channelId: channel.channelId,
+      cid: channel.cid,
+      draftMessage,
+      autoSentDraftMessageId: channel.messageId?.trim() || undefined,
+    };
+  }
+
   const channel = await findOrCreateDirectStreamChannel({
     currentUserId: buyerUserId,
     currentUserDisplayName: params.buyerDisplayName?.trim() || 'Usuário',
-    peerUserId,
+    peerUserId: sellerId,
     peerName: sellerName,
     peerImage: sellerPhoto,
   });
 
   return {
-    id: peerUserId,
+    id: sellerId,
     name: sellerName,
     image: sellerPhoto,
     channelType: channel.channelType,
     channelId: channel.channelId,
     cid: channel.cid,
-    draftMessage: buildMarketplaceInterestMessage(params.listingTitle, params.formattedPrice),
+    draftMessage,
   };
 }

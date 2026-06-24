@@ -17,7 +17,7 @@ import {
 } from '@/services/locationPermission';
 import type { Localizacao, PontoInteresse } from '@/types';
 import { EXPLORE_GPS_STALE_MS } from '@/utils/appRefreshPolicy';
-import { GUIA_DEFAULT_CENTER } from '@/utils/guiaGeo';
+import { useWhitelabelCity, useWhitelabelMapCenter } from '@/hooks/useWhitelabelCity';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -47,8 +47,18 @@ export default function GuiaIndexScreen() {
   const { cadastroStatus } = useLocalSearchParams<{ cadastroStatus?: string }>();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<GuiaTab>('prestadores');
-  const [localizacao, setLocalizacao] = useState<Localizacao>(GUIA_DEFAULT_CENTER);
-  const [mapRegion, setMapRegion] = useState<Localizacao>(GUIA_DEFAULT_CENTER);
+  const city = useWhitelabelCity();
+  const cityMapCenter = useWhitelabelMapCenter();
+  const [localizacao, setLocalizacao] = useState<Localizacao>(() => ({
+    ...cityMapCenter,
+    latitudeDelta: 0.06,
+    longitudeDelta: 0.06,
+  }));
+  const [mapRegion, setMapRegion] = useState<Localizacao>(() => ({
+    ...cityMapCenter,
+    latitudeDelta: 0.06,
+    longitudeDelta: 0.06,
+  }));
   const [locationReady, setLocationReady] = useState(false);
   const [locating, setLocating] = useState(false);
   const mapRef = useRef<MapLibreMapaViewRef | null>(null);
@@ -82,11 +92,15 @@ export default function GuiaIndexScreen() {
   const listLoading = activeTab === 'prestadores' ? providersLoading : companiesLoading;
   const listError = activeTab === 'prestadores' ? providersError : companiesError;
   const userCoords = useMemo(
-    () =>
-      locationReady
+    () => {
+      if (city.fixedMapCenter) {
+        return { latitude: city.latitude, longitude: city.longitude };
+      }
+      return locationReady
         ? { latitude: localizacao.latitude, longitude: localizacao.longitude }
-        : null,
-    [locationReady, localizacao.latitude, localizacao.longitude],
+        : null;
+    },
+    [city.fixedMapCenter, city.latitude, city.longitude, locationReady, localizacao.latitude, localizacao.longitude],
   );
   const searchOrigin = useMemo((): Localizacao | null => {
     if (activeTab === 'empresas') return mapRegion;
@@ -96,6 +110,27 @@ export default function GuiaIndexScreen() {
   useEffect(() => {
     locationReadyRef.current = locationReady;
   }, [locationReady]);
+
+  const applyCityAnchor = useCallback(() => {
+    const next: Localizacao = {
+      latitude: city.latitude,
+      longitude: city.longitude,
+      latitudeDelta: GUIA_MAP_ZOOM_DELTA,
+      longitudeDelta: GUIA_MAP_ZOOM_DELTA,
+    };
+    setLocalizacao(next);
+    setMapRegion(next);
+    pendingInitialGpsCenterRef.current = true;
+    setLocationReady(true);
+    hadLocationErrorRef.current = false;
+    lastGpsAtRef.current = Date.now();
+    setLocating(false);
+  }, [city.latitude, city.longitude]);
+
+  useEffect(() => {
+    if (!city.fixedMapCenter) return;
+    applyCityAnchor();
+  }, [applyCityAnchor, city.fixedMapCenter, city.hostId]);
 
   const shouldSkipGpsRefresh = useCallback((force: boolean): boolean => {
     if (force) return false;
@@ -128,6 +163,11 @@ export default function GuiaIndexScreen() {
 
   const solicitarPermissaoLocalizacao = useCallback(
     async (options?: { force?: boolean }): Promise<void> => {
+      if (city.fixedMapCenter) {
+        applyCityAnchor();
+        return;
+      }
+
       const force = options?.force ?? false;
       if (shouldSkipGpsRefresh(force)) {
         setLocating(false);
@@ -156,7 +196,7 @@ export default function GuiaIndexScreen() {
         setLocating(false);
       }
     },
-    [applyGpsCoords, shouldSkipGpsRefresh],
+    [applyCityAnchor, applyGpsCoords, city.fixedMapCenter, shouldSkipGpsRefresh],
   );
 
   useFocusEffect(
@@ -169,6 +209,11 @@ export default function GuiaIndexScreen() {
   useFocusEffect(
     useCallback(() => {
       if (Platform.OS === 'web') return;
+
+      if (city.fixedMapCenter) {
+        applyCityAnchor();
+        return;
+      }
 
       let cancelled = false;
       let watchSub: Location.LocationSubscription | null = null;
@@ -203,7 +248,7 @@ export default function GuiaIndexScreen() {
         cancelled = true;
         watchSub?.remove();
       };
-    }, [applyGpsCoords, solicitarPermissaoLocalizacao]),
+    }, [applyCityAnchor, applyGpsCoords, city.fixedMapCenter, solicitarPermissaoLocalizacao]),
   );
 
   useEffect(() => {

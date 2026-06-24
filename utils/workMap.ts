@@ -1,4 +1,6 @@
+import { buildCityGeocodeQuery } from '@/constants/whitelabelCity';
 import type { WorkResponseDto } from '@/services/worksApi';
+import { resolveActiveCityConfig } from '@/utils/whitelabelHost';
 import { geocodeStoreLocation } from '@/utils/commercialStoreProfile';
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
@@ -15,11 +17,7 @@ function buildWorkGeocodeQuery(
     base = `${address}, ${neighborhood}`;
   }
 
-  const lower = base.toLowerCase();
-  if (!lower.includes('maricá') && !lower.includes('marica') && !lower.includes('brasil')) {
-    base = `${base}, Maricá, RJ, Brasil`;
-  }
-  return base;
+  return buildCityGeocodeQuery(base, resolveActiveCityConfig());
 }
 
 function hasWorkCoords(

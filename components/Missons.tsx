@@ -113,8 +113,12 @@ export function Missons() {
     }>({ visible: false, mission: null, uri: null, submitting: false });
 
     const handleBack = useCallback(() => {
-        router.replace('/(tabs)/home');
-      }, []);
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace('/(tabs)/services');
+        }
+      }, [router]);
 
     const closeRankingModal = useCallback(() => {
       setRankingModalVisible(false);

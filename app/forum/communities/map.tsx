@@ -8,7 +8,7 @@ import {
   parseCommunityCoords,
   type ForumCommunityDetail,
 } from '@/services/forumCommunityApi';
-import type { Localizacao, PontoInteresse } from '@/types';
+import { useWhitelabelMapCenter } from '@/hooks/useWhitelabelCity';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -48,6 +48,7 @@ function communityToPonto(
 }
 
 export default function CommunityMapScreen() {
+  const cityMapCenter = useWhitelabelMapCenter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id?: string }>();
   const communityId = String(params.id ?? '').trim();
@@ -95,12 +96,7 @@ export default function CommunityMapScreen() {
 
   const localizacao: Localizacao = useMemo(() => {
     if (!coords) {
-      return {
-        latitude: -22.9189,
-        longitude: -42.8186,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
-      };
+      return { ...cityMapCenter };
     }
     return {
       latitude: coords.lat,
@@ -108,7 +104,7 @@ export default function CommunityMapScreen() {
       latitudeDelta: 0.012,
       longitudeDelta: 0.012,
     };
-  }, [coords]);
+  }, [cityMapCenter, coords]);
 
   const pontos: PontoInteresse[] = useMemo(() => {
     if (!community || !coords) return [];

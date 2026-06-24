@@ -191,7 +191,11 @@ export function Pulso() {
   }, [neighborhoodId, ratings, voteStatus]);
 
   const handleBack = useCallback(() => {
-    router.replace('/(tabs)/home');
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/home');
+    }
   }, [router]);
 
   useEffect(() => {

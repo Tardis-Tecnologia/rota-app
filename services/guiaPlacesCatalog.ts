@@ -107,8 +107,6 @@ export function defaultGuiaPlacesCoords() {
   return { latitude: GUIA_DEFAULT_CENTER.latitude, longitude: GUIA_DEFAULT_CENTER.longitude };
 }
 
-const MARICA_RADIUS = 45_000;
-
 export function resolveGuiaPlacesFetchCoords(
   coords?: { latitude: number; longitude: number } | null,
 ) {

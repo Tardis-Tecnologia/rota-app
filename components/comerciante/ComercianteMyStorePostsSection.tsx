@@ -90,8 +90,12 @@ export default function ComercianteMyStorePostsSection({
 
       const commentEntries = await Promise.all(
         detailed.map(async (p) => {
-          const comments = await listForumComments(p.id, { init: 0, end: 50 });
-          return [p.id, comments] as const;
+          try {
+            const comments = await listForumComments(p.id, { init: 0, end: 50 });
+            return [p.id, comments] as const;
+          } catch {
+            return [p.id, []] as const;
+          }
         }),
       );
       setCommentsByPost(Object.fromEntries(commentEntries));

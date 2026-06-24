@@ -17,13 +17,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const MARICA_CENTER: Localizacao = {
-  latitude: -22.9189,
-  longitude: -42.8186,
-  latitudeDelta: 0.012,
-  longitudeDelta: 0.012,
-};
+import { useWhitelabelCity, useWhitelabelMapCenter } from '@/hooks/useWhitelabelCity';
 
 const MARKER_COLOR = '#0891b2';
 const FOOTER_HEIGHT = 88;
@@ -45,6 +39,8 @@ function regionFromCenter(lat: number, lng: number, delta = 0.012): Localizacao 
 
 export default function CommunityPickLocationScreen() {
   const insets = useSafeAreaInsets();
+  const city = useWhitelabelCity();
+  const cityMapCenter = useWhitelabelMapCenter();
   const params = useLocalSearchParams<{ lat?: string; lng?: string }>();
   const mapRef = useRef<MapLibreMapaViewRef | null>(null);
 
@@ -55,13 +51,21 @@ export default function CommunityPickLocationScreen() {
     if (initialLat != null && initialLng != null) {
       return regionFromCenter(initialLat, initialLng);
     }
-    return MARICA_CENTER;
+    return regionFromCenter(cityMapCenter.latitude, cityMapCenter.longitude);
   });
   const [booting, setBooting] = useState(initialLat == null || initialLng == null);
   const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     if (initialLat != null && initialLng != null) {
+      setBooting(false);
+      return;
+    }
+
+    if (city.fixedMapCenter) {
+      const next = regionFromCenter(city.latitude, city.longitude);
+      setMapCenter(next);
+      mapRef.current?.animateToRegion(next, 400);
       setBooting(false);
       return;
     }
@@ -82,7 +86,8 @@ export default function CommunityPickLocationScreen() {
         setMapCenter(next);
         mapRef.current?.animateToRegion(next, 400);
       } catch {
-        /* mantém Maricá */
+        const next = regionFromCenter(city.latitude, city.longitude);
+        setMapCenter(next);
       } finally {
         if (!cancelled) setBooting(false);
       }
@@ -91,7 +96,7 @@ export default function CommunityPickLocationScreen() {
     return () => {
       cancelled = true;
     };
-  }, [initialLat, initialLng]);
+  }, [city.fixedMapCenter, city.latitude, city.longitude, initialLat, initialLng]);
 
   const localizacao = useMemo(() => mapCenter, [mapCenter]);
 

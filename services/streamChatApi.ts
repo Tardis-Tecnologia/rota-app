@@ -261,41 +261,7 @@ export async function findOrCreateDirectStreamChannel(params: {
     image: params.peerImage?.trim() || undefined,
   };
 
-  try {
-    return await createStreamChannel(channelPayload);
-  } catch {
-    return createDirectStreamChannelViaSdk(currentUserId, params.currentUserDisplayName, peerUserId, {
-      peerName: params.peerName,
-      peerImage: params.peerImage,
-    });
-  }
-}
-
-async function createDirectStreamChannelViaSdk(
-  currentUserId: string,
-  currentUserDisplayName: string,
-  peerUserId: string,
-  options?: { peerName?: string; peerImage?: string },
-): Promise<ParsedStreamCid> {
-  const hostId = resolveStreamHostId();
-  const client = await ensureStreamChatConnected(currentUserId, currentUserDisplayName);
-  const channelId = buildDirectMessageChannelId(currentUserId, peerUserId);
-  const channel = client.channel('messaging', channelId, {
-    members: [currentUserId, peerUserId],
-    whitelabel_host_id: hostId,
-    ...(options?.peerName?.trim() ? { name: options.peerName.trim() } : {}),
-    ...(options?.peerImage?.trim() ? { image: options.peerImage.trim() } : {}),
-  });
-
-  try {
-    await channel.create();
-  } catch {
-    await channel.watch();
-  }
-
-  const cid = channel.cid?.trim();
-  if (!cid) throw new Error('Canal de chat criado sem identificador.');
-  return parseStreamCid(cid);
+  return createStreamChannel(channelPayload);
 }
 
 export async function createStreamChannel(

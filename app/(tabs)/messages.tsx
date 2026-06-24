@@ -3,7 +3,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useIsVisitante } from '@/hooks/useIsVisitante';
 import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import { Conversation, useConversations } from '@/contexts/ConversationsContext';
-import { mockSystemConversations } from '@/data/mockConversations';
 import { getAuthToken, getWhitelabelHostId } from '@/services/authApi';
 import { resolveChatPeerPhotoMap } from '@/services/chatPeerPhotos';
 import { ensureStreamChatConnected } from '@/services/streamChatApi';
@@ -57,15 +56,16 @@ function sortStreamConversationsByRecent(items: StreamConversation[]): StreamCon
   return [...items].sort((a, b) => b.lastMessageAt - a.lastMessageAt);
 }
 
-/** Assistentes virtuais (mock) — só na caixa do cidadão. */
-const systemAssistantConversations = mockSystemConversations;
-
+/** IDs de chats mockados (desativados na caixa de entrada). */
 const MOCK_CHAT_PROVIDER_IDS = new Set([
   'saude',
   'defesa-civil',
   'iptu',
   'comunicados-oficiais',
 ]);
+
+// /** Assistentes virtuais (mock) — desativados. */
+// const systemAssistantConversations = mockSystemConversations;
 
 type MensagensScreenProps = {
   /** Caixa da loja: só comunicados oficiais + chats reais com cidadãos. */
@@ -250,7 +250,7 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
     user?.profile,
   ]);
 
-  const assistantConversations = isCommercialInbox ? [] : systemAssistantConversations;
+  // const assistantConversations = isCommercialInbox ? [] : systemAssistantConversations;
 
   useFocusEffect(
     useCallback(() => {
@@ -364,7 +364,6 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Comunicados Oficiais — sempre no topo */}
         {fixedConversations.length > 0 && (
           <View style={styles.list}>
             {fixedConversations.map((conversation) => renderConversationCard(conversation, true))}
@@ -384,7 +383,6 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
           </View>
         )}
 
-        {/* Conversas reais (Stream) — mais recentes primeiro, acima dos mocks */}
         {conversations.length > 0 && (
           <View style={fixedConversations.length > 0 ? styles.commonList : undefined}>
             <Text style={styles.sectionLabel}>Conversas mais recentes</Text>
@@ -394,6 +392,7 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
           </View>
         )}
 
+        {/* Assistentes virtuais mockados — desativados
         {assistantConversations.length > 0 && (
           <View
             style={[
@@ -406,11 +405,11 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
             )}
           </View>
         )}
+        */}
 
         {!isLoading &&
           !loadError &&
           fixedConversations.length === 0 &&
-          assistantConversations.length === 0 &&
           conversations.length === 0 && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>Nenhuma conversa ainda</Text>

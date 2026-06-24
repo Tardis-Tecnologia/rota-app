@@ -26,10 +26,8 @@ export function ConversationsProvider({ children }: { children: ReactNode }) {
   const fixedConversations = mockFixedConversations;
 
   const addOrUpdateConversation = (provider: any, lastMessage: string) => {
-    // Verifica se é uma conversa fixa - não adiciona ao array de conversas comuns
-    const isFixedConversation = fixedConversations.some(fc => fc.providerId === provider.id);
+    const isFixedConversation = fixedConversations.some((fc) => fc.providerId === provider.id);
     if (isFixedConversation) {
-      // Conversas fixas não são adicionadas ao array de conversas comuns
       return;
     }
 

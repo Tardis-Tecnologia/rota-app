@@ -1,11 +1,6 @@
 import { Conversation } from '@/contexts/ConversationsContext';
 
-/**
- * Dados mockados de conversas iniciais do sistema
- * Este arquivo centraliza todas as conversas e mensagens mockadas para facilitar manutenção
- */
-
-// Chats fixos que sempre aparecem no topo
+/** Chat fixo no topo da caixa de mensagens do cidadão. */
 export const mockFixedConversations: Conversation[] = [
   {
     id: 'fixed-comunicados-oficiais',
@@ -23,33 +18,34 @@ export const mockFixedConversations: Conversation[] = [
   },
 ];
 
-// Conversas do sistema normais
-export const mockSystemConversations: Conversation[] = [
-  {
-    id: 'system-saude',
-    providerId: 'saude',
-    providerName: 'Secretaria de Saúde',
-    providerImage: 'https://i.pravatar.cc/150?u=saude',
-    lastMessage: 'Olá! Meu nome é Ana Paula. Como posso ajudar?',
-    date: '2d atrás',
-    providerData: {
-      id: 'saude',
-      name: 'Secretaria de Saúde',
-      image: 'https://i.pravatar.cc/150?u=saude',
-    },
-  },
-  {
-    id: 'system-defesa-civil',
-    providerId: 'defesa-civil',
-    providerName: 'Defesa Civil',
-    providerImage: 'https://i.pravatar.cc/150?u=defesa-civil',
-    lastMessage: 'Olá! Meu nome é Roberto. Como posso ajudar?',
-    date: '5d atrás',
-    providerData: {
-      id: 'defesa-civil',
-      name: 'Defesa Civil',
-      image: 'https://i.pravatar.cc/150?u=defesa-civil',
-    },
-  },
-];
+// Assistentes virtuais desativados (Secretaria de Saúde, Defesa Civil, etc.)
+// export const mockSystemConversations: Conversation[] = [
+//   {
+//     id: 'system-saude',
+//     providerId: 'saude',
+//     providerName: 'Secretaria de Saúde',
+//     providerImage: 'https://i.pravatar.cc/150?u=saude',
+//     lastMessage: 'Olá! Meu nome é Ana Paula. Como posso ajudar?',
+//     date: '2d atrás',
+//     providerData: {
+//       id: 'saude',
+//       name: 'Secretaria de Saúde',
+//       image: 'https://i.pravatar.cc/150?u=saude',
+//     },
+//   },
+//   {
+//     id: 'system-defesa-civil',
+//     providerId: 'defesa-civil',
+//     providerName: 'Defesa Civil',
+//     providerImage: 'https://i.pravatar.cc/150?u=defesa-civil',
+//     lastMessage: 'Olá! Meu nome é Roberto. Como posso ajudar?',
+//     date: '5d atrás',
+//     providerData: {
+//       id: 'defesa-civil',
+//       name: 'Defesa Civil',
+//       image: 'https://i.pravatar.cc/150?u=defesa-civil',
+//     },
+//   },
+// ];
 
+export const mockSystemConversations: Conversation[] = [];

@@ -62,13 +62,7 @@
           "cameraPermission": "O aplicativo precisa da câmera para escanear o QR Code do cupom do cliente."
         }
       ],
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          "iosUrlScheme": "com.googleusercontent.apps.845258052347-ah9dgfqh0dsjburvlcsr234qnacimf88"
-        }
-      ],
-      "@maplibre/maplibre-react-native"
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

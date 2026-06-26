@@ -19,11 +19,16 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 
@@ -160,50 +165,77 @@ export default function ForumScreen() {
         animationType="fade"
         onRequestClose={() => setPublishOpen(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Nova publicação</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Título"
-              value={title}
-              onChangeText={setTitle}
-              maxLength={255}
-            />
-            <TextInput
-              style={[styles.input, styles.textarea]}
-              placeholder="Sua mensagem..."
-              value={content}
-              onChangeText={setContent}
-              multiline
-              textAlignVertical="top"
-              maxLength={20000}
-            />
-            <Pressable style={styles.photoPickBtn} onPress={() => void pickImage()}>
-              <Ionicons name="image-outline" size={18} color={AppColors.text.secondary} />
-              <Text style={styles.photoPickText}>
-                {imageUri ? 'Trocar foto' : 'Selecionar foto'}
-              </Text>
-            </Pressable>
-            {imageUri ? <Image source={{ uri: imageUri }} style={styles.photoPreview} /> : null}
-            <View style={styles.modalActions}>
-              <Pressable onPress={() => setPublishOpen(false)} style={styles.cancelBtn}>
-                <Text style={styles.cancelText}>Cancelar</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => void onPublish()}
-                disabled={!canPublish}
-                style={[styles.confirmBtn, !canPublish && styles.confirmBtnDisabled]}
-              >
-                {publishing ? (
-                  <ActivityIndicator size="small" color={AppColors.text.white} />
-                ) : (
-                  <Text style={styles.confirmText}>Publicar</Text>
-                )}
-              </Pressable>
+        <KeyboardAvoidingView
+          style={styles.modalFlex}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={styles.modalOverlay}>
+              <TouchableWithoutFeedback accessible={false}>
+                <View style={styles.modalCard}>
+                  <Text style={styles.modalTitle}>Nova publicação</Text>
+                  <ScrollView
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.modalScrollContent}
+                  >
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Título"
+                      value={title}
+                      onChangeText={setTitle}
+                      maxLength={255}
+                      returnKeyType="next"
+                    />
+                    <TextInput
+                      style={[styles.input, styles.textarea]}
+                      placeholder="Sua mensagem..."
+                      value={content}
+                      onChangeText={setContent}
+                      multiline
+                      textAlignVertical="top"
+                      maxLength={20000}
+                    />
+                    <Pressable style={styles.photoPickBtn} onPress={() => void pickImage()}>
+                      <Ionicons name="image-outline" size={18} color={AppColors.text.secondary} />
+                      <Text style={styles.photoPickText}>
+                        {imageUri ? 'Trocar foto' : 'Selecionar foto'}
+                      </Text>
+                    </Pressable>
+                    {imageUri ? (
+                      <Image source={{ uri: imageUri }} style={styles.photoPreview} />
+                    ) : null}
+                  </ScrollView>
+                  <View style={styles.modalActions}>
+                    <Pressable
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        setPublishOpen(false);
+                      }}
+                      style={styles.cancelBtn}
+                    >
+                      <Text style={styles.cancelText}>Cancelar</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        void onPublish();
+                      }}
+                      disabled={!canPublish}
+                      style={[styles.confirmBtn, !canPublish && styles.confirmBtnDisabled]}
+                    >
+                      {publishing ? (
+                        <ActivityIndicator size="small" color={AppColors.text.white} />
+                      ) : (
+                        <Text style={styles.confirmText}>Publicar</Text>
+                      )}
+                    </Pressable>
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-          </View>
-        </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -225,6 +257,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239,68,68,0.95)',
   },
   errorToastText: { color: '#fff', fontWeight: '700', fontSize: 13, textAlign: 'center' },
+  modalFlex: { flex: 1 },
   modalOverlay: {
     flex: 1,
     backgroundColor: AppColors.background.overlayStrong,
@@ -236,7 +269,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 16,
     gap: 10,
+    maxHeight: '85%',
   },
+  modalScrollContent: { gap: 10, paddingBottom: 4 },
   modalTitle: { fontSize: 24, fontWeight: '900', color: AppColors.text.secondary },
   input: {
     borderWidth: 1,

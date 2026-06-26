@@ -80,12 +80,17 @@ function applyModernExplorePalette(layers: MapStyleLayer[]): MapStyleLayer[] {
       return next;
     }
 
-    if (id === 'Water' || id === 'Water shadow' || id === 'River') {
+    if (layer.type === 'fill' && (id === 'Water' || id === 'Water shadow')) {
       next.paint = { ...next.paint, 'fill-color': EXPLORE_WATER };
       return next;
     }
 
-    if (id === 'Residential' || id === 'Landcover' || id === 'Land') {
+    if (layer.type === 'line' && id === 'River') {
+      next.paint = { ...next.paint, 'line-color': EXPLORE_WATER };
+      return next;
+    }
+
+    if (layer.type === 'fill' && (id === 'Residential' || id === 'Landcover' || id === 'Land')) {
       next.paint = { ...next.paint, 'fill-color': EXPLORE_LAND, 'fill-opacity': 0.85 };
       return next;
     }

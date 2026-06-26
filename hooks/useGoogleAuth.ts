@@ -1,7 +1,11 @@
 import { loginWithGoogle } from '@/services/authApi';
-import { GoogleSignin, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
-import { useCallback } from 'react';
+import { getGoogleIosClientId, getGoogleWebClientId } from '@/services/googleAuth';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+import { useCallback, useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
+
+WebBrowser.maybeCompleteAuthSession();
 
 type GoogleAuthSuccess = {
   user: {
@@ -22,45 +26,64 @@ export function useGoogleAuth(
   onSuccess: (result: GoogleAuthSuccess) => Promise<void> | void,
   onError?: (message: string) => void,
 ) {
-  const login = useCallback(async () => {
-    try {
-      if (Platform.OS === 'android') {
-        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      }
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+  onSuccessRef.current = onSuccess;
+  onErrorRef.current = onError;
 
-      const response = await GoogleSignin.signIn();
-      if (response.type !== 'success') {
-        throw new Error('Login Google cancelado.');
-      }
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    webClientId: getGoogleWebClientId(),
+    iosClientId: getGoogleIosClientId(),
+    androidClientId: getGoogleWebClientId(),
+  });
 
-      const idToken = response.data.idToken?.trim();
-      if (!idToken) {
-        throw new Error('Google não retornou idToken.');
-      }
+  useEffect(() => {
+    if (!response) return;
 
-      const session = await loginWithGoogle(idToken);
-      await onSuccess({ token: session.token, user: session.user });
-    } catch (error) {
-      if (isErrorWithCode(error)) {
-        if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-          onError?.('Login com Google cancelado.');
-          return;
-        }
-        if (error.code === statusCodes.IN_PROGRESS) {
-          onError?.('Login com Google já está em andamento.');
-          return;
-        }
-        if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-          onError?.('Google Play Services indisponível neste dispositivo.');
-          return;
-        }
-      }
-
-      const message =
-        error instanceof Error ? error.message : 'Não foi possível entrar com o Google.';
-      onError?.(message);
+    if (response.type === 'cancel' || response.type === 'dismiss') {
+      onErrorRef.current?.('Login com Google cancelado.');
+      return;
     }
-  }, [onError, onSuccess]);
 
-  return { loginWithGoogle: login, isGoogleAuthAvailable: Platform.OS !== 'web' };
+    if (response.type !== 'success') {
+      onErrorRef.current?.('Não foi possível entrar com o Google.');
+      return;
+    }
+
+    void (async () => {
+      try {
+        const idToken = response.params.id_token?.trim();
+        if (!idToken) {
+          throw new Error('Google não retornou idToken.');
+        }
+
+        const session = await loginWithGoogle(idToken);
+        await onSuccessRef.current({ token: session.token, user: session.user });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Não foi possível entrar com o Google.';
+        onErrorRef.current?.(message);
+      }
+    })();
+  }, [response]);
+
+  const login = useCallback(async () => {
+    if (!request) {
+      onErrorRef.current?.('Login com Google indisponível no momento.');
+      return;
+    }
+
+    try {
+      await promptAsync();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Não foi possível abrir o login do Google.';
+      onErrorRef.current?.(message);
+    }
+  }, [promptAsync, request]);
+
+  return {
+    loginWithGoogle: login,
+    isGoogleAuthAvailable: Platform.OS !== 'web' && request != null,
+  };
 }

@@ -64,9 +64,6 @@ const MOCK_CHAT_PROVIDER_IDS = new Set([
   'comunicados-oficiais',
 ]);
 
-// /** Assistentes virtuais (mock) — desativados. */
-// const systemAssistantConversations = mockSystemConversations;
-
 type MensagensScreenProps = {
   /** Caixa da loja: só comunicados oficiais + chats reais com cidadãos. */
   variant?: 'citizen' | 'commercial';
@@ -94,7 +91,7 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
   const isCommercialInbox = variant === 'commercial';
   const { user } = useAuth();
   const isVisitante = useIsVisitante();
-  const { fixedConversations } = useConversations();
+  const { fixedConversations, conversations: assistantConversations } = useConversations();
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const [conversations, setConversations] = useState<StreamConversation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -250,7 +247,7 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
     user?.profile,
   ]);
 
-  // const assistantConversations = isCommercialInbox ? [] : systemAssistantConversations;
+  const visibleAssistantConversations = isCommercialInbox ? [] : assistantConversations;
 
   useFocusEffect(
     useCallback(() => {
@@ -392,25 +389,28 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
           </View>
         )}
 
-        {/* Assistentes virtuais mockados — desativados
-        {assistantConversations.length > 0 && (
+        {visibleAssistantConversations.length > 0 && (
           <View
             style={[
-              styles.list,
-              (fixedConversations.length > 0 || conversations.length > 0) && styles.commonList,
+              fixedConversations.length > 0 || conversations.length > 0
+                ? styles.commonList
+                : undefined,
             ]}
           >
-            {assistantConversations.map((conversation) =>
-              renderConversationCard(conversation, false),
-            )}
+            <Text style={styles.sectionLabel}>Atendimento virtual</Text>
+            <View style={styles.list}>
+              {visibleAssistantConversations.map((conversation) =>
+                renderConversationCard(conversation, false),
+              )}
+            </View>
           </View>
         )}
-        */}
 
         {!isLoading &&
           !loadError &&
           fixedConversations.length === 0 &&
-          conversations.length === 0 && (
+          conversations.length === 0 &&
+          visibleAssistantConversations.length === 0 && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>Nenhuma conversa ainda</Text>
               <Text style={styles.emptyStateSubtext}>Suas conversas aparecerão aqui</Text>

@@ -36,8 +36,9 @@ const PIRAI: WhitelabelCityConfig = {
   hostId: HOST_ID_PIRAI,
   cityName: 'Piraí',
   uf: 'RJ',
-  latitude: -22.6274,
-  longitude: -43.8853,
+  // Centro de Piraí (Praça Getúlio Vargas, Centro).
+  latitude: -22.6289,
+  longitude: -43.898,
   latitudeDelta: 0.05,
   longitudeDelta: 0.05,
   geocodeSuffix: 'Piraí, RJ, Brasil',

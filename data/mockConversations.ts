@@ -18,34 +18,31 @@ export const mockFixedConversations: Conversation[] = [
   },
 ];
 
-// Assistentes virtuais desativados (Secretaria de Saúde, Defesa Civil, etc.)
-// export const mockSystemConversations: Conversation[] = [
-//   {
-//     id: 'system-saude',
-//     providerId: 'saude',
-//     providerName: 'Secretaria de Saúde',
-//     providerImage: 'https://i.pravatar.cc/150?u=saude',
-//     lastMessage: 'Olá! Meu nome é Ana Paula. Como posso ajudar?',
-//     date: '2d atrás',
-//     providerData: {
-//       id: 'saude',
-//       name: 'Secretaria de Saúde',
-//       image: 'https://i.pravatar.cc/150?u=saude',
-//     },
-//   },
-//   {
-//     id: 'system-defesa-civil',
-//     providerId: 'defesa-civil',
-//     providerName: 'Defesa Civil',
-//     providerImage: 'https://i.pravatar.cc/150?u=defesa-civil',
-//     lastMessage: 'Olá! Meu nome é Roberto. Como posso ajudar?',
-//     date: '5d atrás',
-//     providerData: {
-//       id: 'defesa-civil',
-//       name: 'Defesa Civil',
-//       image: 'https://i.pravatar.cc/150?u=defesa-civil',
-//     },
-//   },
-// ];
-
-export const mockSystemConversations: Conversation[] = [];
+export const mockSystemConversations: Conversation[] = [
+  {
+    id: 'system-saude',
+    providerId: 'saude',
+    providerName: 'Secretaria de Saúde',
+    providerImage: 'https://i.pravatar.cc/150?u=saude',
+    lastMessage: 'Olá! Meu nome é Ana Paula. Como posso ajudar?',
+    date: '2d atrás',
+    providerData: {
+      id: 'saude',
+      name: 'Secretaria de Saúde',
+      image: 'https://i.pravatar.cc/150?u=saude',
+    },
+  },
+  {
+    id: 'system-defesa-civil',
+    providerId: 'defesa-civil',
+    providerName: 'Defesa Civil',
+    providerImage: 'https://i.pravatar.cc/150?u=defesa-civil',
+    lastMessage: 'Olá! Meu nome é Roberto. Como posso ajudar?',
+    date: '5d atrás',
+    providerData: {
+      id: 'defesa-civil',
+      name: 'Defesa Civil',
+      image: 'https://i.pravatar.cc/150?u=defesa-civil',
+    },
+  },
+];

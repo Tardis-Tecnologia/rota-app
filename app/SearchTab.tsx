@@ -1,8 +1,12 @@
 import { AppColors } from '@/constants/theme';
+import { buildCityGeocodeQuery } from '@/constants/whitelabelCity';
+import { useWhitelabelCity } from '@/hooks/useWhitelabelCity';
+import { searchAddresses, type AddressSearchResult } from '@/services/placesService';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+    ActivityIndicator,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -14,9 +18,71 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SearchTab() {
+  const city = useWhitelabelCity();
   const [search, setSearch] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [results, setResults] = useState<AddressSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  const trimmedQuery = search.trim();
+  const showResults = trimmedQuery.length >= 3;
+
+  useEffect(() => {
+    if (trimmedQuery.length < 3) {
+      setResults([]);
+      setSearching(false);
+      setSearchError(null);
+      setHasSearched(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setSearching(true);
+    setSearchError(null);
+
+    const handle = setTimeout(async () => {
+      try {
+        const query = buildCityGeocodeQuery(trimmedQuery, city);
+        const found = await searchAddresses(query, {
+          proximity: [city.longitude, city.latitude],
+          cityName: city.cityName,
+          limit: 15,
+          signal: controller.signal,
+        });
+        setResults(found);
+        setHasSearched(true);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setResults([]);
+        setHasSearched(true);
+        setSearchError('Não foi possível buscar endereços agora.');
+      } finally {
+        if (!controller.signal.aborted) {
+          setSearching(false);
+        }
+      }
+    }, 450);
+
+    return () => {
+      controller.abort();
+      clearTimeout(handle);
+    };
+  }, [trimmedQuery, city]);
+
+  const handleSelectAddress = (item: AddressSearchResult) => {
+    router.replace({
+      pathname: '/(tabs)/map',
+      params: {
+        focusLat: String(item.latitude),
+        focusLng: String(item.longitude),
+        focusLabel: item.title,
+        focusAddress: item.subtitle ?? '',
+      },
+    });
+  };
 
   const categories = useMemo(
     () => [
@@ -91,8 +157,62 @@ export default function SearchTab() {
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
         >
+          {showResults ? (
+            <View style={styles.resultsBlock}>
+              <Text style={styles.categoriesTitle}>Endereços e locais</Text>
 
+              {searching ? (
+                <View style={styles.resultsStatusRow}>
+                  <ActivityIndicator size="small" color={AppColors.accent} />
+                  <Text style={styles.resultsStatusText}>Buscando endereços…</Text>
+                </View>
+              ) : searchError ? (
+                <View style={styles.resultsStatusRow}>
+                  <Ionicons name="alert-circle-outline" size={18} color={AppColors.status.error} />
+                  <Text style={styles.resultsStatusText}>{searchError}</Text>
+                </View>
+              ) : results.length === 0 && hasSearched ? (
+                <View style={styles.resultsStatusRow}>
+                  <Ionicons name="search-outline" size={18} color={AppColors.text.quaternary} />
+                  <Text style={styles.resultsStatusText}>
+                    Nenhum endereço encontrado para “{trimmedQuery}”.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.resultsList}>
+                  {results.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.resultRow}
+                      activeOpacity={0.85}
+                      onPress={() => handleSelectAddress(item)}
+                    >
+                      <View style={styles.resultIconWrapper}>
+                        <Ionicons name="location-outline" size={20} color={AppColors.accent} />
+                      </View>
+                      <View style={styles.resultTextWrapper}>
+                        <Text style={styles.resultTitle} numberOfLines={1}>
+                          {item.title}
+                        </Text>
+                        {item.subtitle ? (
+                          <Text style={styles.resultSubtitle} numberOfLines={2}>
+                            {item.subtitle}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color={AppColors.text.quaternary}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          ) : (
           <View style={styles.categoriesContainer}>
             <Text style={styles.categoriesTitle}>Categorias</Text>
             <View style={styles.categoriesGrid}>
@@ -155,6 +275,7 @@ export default function SearchTab() {
               })}
             </View>
           </View>
+          )}
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -235,6 +356,56 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(226, 232, 240, 0.6)',
     minHeight: 8,
+  },
+  resultsBlock: {
+    paddingTop: 8,
+  },
+  resultsStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 16,
+  },
+  resultsStatusText: {
+    flex: 1,
+    fontSize: 14,
+    color: AppColors.text.tertiary,
+  },
+  resultsList: {
+    gap: 8,
+  },
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: AppColors.background.default,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(203, 213, 225, 0.7)',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  resultIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e0f2fe',
+  },
+  resultTextWrapper: {
+    flex: 1,
+    gap: 2,
+  },
+  resultTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: AppColors.text.secondary,
+  },
+  resultSubtitle: {
+    fontSize: 13,
+    color: AppColors.text.tertiary,
   },
   categoriesContainer: {
     paddingTop: 8,

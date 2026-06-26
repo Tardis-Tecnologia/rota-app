@@ -34,7 +34,6 @@ export default function Header({
 }: HeaderProps) {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const displayName = user?.name?.trim() ? user.name : 'Faça login';
   const resolvedAvatarUri = user?.photoUrl?.trim() || avatarUrl;
   const isVisitante = user?.profile === 'VISITANTE';
 
@@ -80,11 +79,8 @@ export default function Header({
             </TouchableOpacity>
 
             <View style={styles.greetingContainer}>
-              <Text style={styles.greetingOnBrand} numberOfLines={1} ellipsizeMode="tail">
-                Bem-vindo(a) de volta,
-              </Text>
-              <Text style={styles.nomeOnBrand} numberOfLines={1} ellipsizeMode="tail">
-                {displayName}
+              <Text style={styles.welcomeMessage} numberOfLines={2} ellipsizeMode="tail">
+                Bem-vindo de volta à nova fase Piraí Digital
               </Text>
             </View>
 
@@ -145,17 +141,12 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  greetingOnBrand: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 4,
-  },
-  nomeOnBrand: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  welcomeMessage: {
+    fontSize: 18,
+    fontWeight: '700',
     color: AppColors.text.white,
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
+    lineHeight: 24,
   },
   actionsRow: {
     flexDirection: 'row',

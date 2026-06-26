@@ -142,8 +142,15 @@ export default function MapScreen() {
   const [showDragHint, setShowDragHint] = useState(true);
   const [prefeituraModalVisible, setPrefeituraModalVisible] = useState(false);
   const [prefeituraAssuntoInicial, setPrefeituraAssuntoInicial] = useState<string | undefined>();
-  const { category } = useLocalSearchParams<{ category?: string }>();
+  const { category, focusLat, focusLng, focusLabel, focusAddress } = useLocalSearchParams<{
+    category?: string;
+    focusLat?: string;
+    focusLng?: string;
+    focusLabel?: string;
+    focusAddress?: string;
+  }>();
   const appliedCategoryFromRoute = useRef(false);
+  const appliedFocusKeyRef = useRef<string | null>(null);
   const pendingInitialGpsCenterRef = useRef(false);
   const lastGpsAtRef = useRef(0);
   const locationReadyRef = useRef(false);
@@ -458,6 +465,53 @@ export default function MapScreen() {
     appliedCategoryFromRoute.current = true;
     void applyFilterChip(chip);
   }, [loading, locationReady, category, applyFilterChip]);
+
+  useEffect(() => {
+    if (loading || Platform.OS === 'web') return;
+    if (typeof focusLat !== 'string' || typeof focusLng !== 'string') return;
+
+    const lat = Number(focusLat);
+    const lng = Number(focusLng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    const focusKey = `${focusLat}|${focusLng}`;
+    if (appliedFocusKeyRef.current === focusKey) return;
+    appliedFocusKeyRef.current = focusKey;
+
+    const label = typeof focusLabel === 'string' && focusLabel.trim() ? focusLabel.trim() : 'Local encontrado';
+    const address =
+      typeof focusAddress === 'string' && focusAddress.trim() ? focusAddress.trim() : undefined;
+
+    const focusPonto: PontoInteresse = {
+      id: `focus-${focusKey}`,
+      titulo: label,
+      descricao: address ?? 'Endereço selecionado na busca',
+      latitude: lat,
+      longitude: lng,
+      tipo: 'turismo',
+      formattedAddress: address,
+    };
+
+    setCategoriaSelecionada(undefined);
+    setPontos([focusPonto]);
+    publishMapPontos([focusPonto]);
+    setMarkersLayerKey((k) => k + 1);
+
+    const region: Region = {
+      latitude: lat,
+      longitude: lng,
+      latitudeDelta: EXPLORE_MAP_3D_ZOOM_DELTA,
+      longitudeDelta: EXPLORE_MAP_3D_ZOOM_DELTA,
+    };
+    setLocalizacao(region);
+    setMapRegion(region);
+    setSelectedPontoDetail(focusPonto);
+
+    const id = setTimeout(() => {
+      mapRef.current?.animateToRegion(region, 600);
+    }, 200);
+    return () => clearTimeout(id);
+  }, [loading, focusLat, focusLng, focusLabel, focusAddress, publishMapPontos]);
 
   useEffect(() => {
     if (loading || Platform.OS === 'web' || !locationReady) return;

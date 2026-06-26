@@ -18,7 +18,7 @@ import {
   getExploreFeedCacheKey,
   setCachedExploreFeed,
 } from '@/services/forumCommunityCache';
-import { listFollowingForumCommunities } from '@/services/forumCommunityApi';
+import { listMyRelatedForumCommunities } from '@/services/forumCommunityApi';
 import { shouldAppRefetch } from '@/utils/appRefreshPolicy';
 import { loadPostsForChannels } from '@/utils/forumChannelPosts';
 import { Ionicons } from '@expo/vector-icons';
@@ -107,12 +107,13 @@ export default function ForumCommunityExploreFeed({
           });
           if (communityName) nameMap[communityId] = communityName;
         } else {
-          const following = await listFollowingForumCommunities({ init: 0, end: 50 });
-          nextFollowingCount = following.length;
-          for (const ch of following) {
+          // Inclui comunidades que sou dona/membro além das que sigo.
+          const related = await listMyRelatedForumCommunities({ init: 0, end: 50 });
+          nextFollowingCount = related.length;
+          for (const ch of related) {
             nameMap[ch.id] = ch.name;
           }
-          rows = await loadPostsForChannels(following.map((c) => c.id));
+          rows = await loadPostsForChannels(related.map((c) => c.id));
         }
 
         if (requestId !== loadRequestRef.current) return;

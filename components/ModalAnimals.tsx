@@ -20,6 +20,8 @@ export function ModalAnimals({ visible, onClose }: ModalAnimalsProps) {
             onPress={onClose}
             style={({ pressed }) => [styles.headerBtn, pressed && styles.headerBtnPressed]}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Voltar"
           >
             <Ionicons name="arrow-back-outline" size={24} color={AppColors.text.secondary} />
           </Pressable>
@@ -61,22 +63,18 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 8,
     minHeight: 44,
     backgroundColor: AppColors.background.default,
   },
   headerBtn: {
     width: 40,
-    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerBtnPressed: { opacity: 0.7 },
   headerTitle: {
-    position: 'absolute',
-    left: 48,
-    right: 48,
+    flex: 1,
     textAlign: 'center',
     fontSize: 17,
     fontWeight: '700',

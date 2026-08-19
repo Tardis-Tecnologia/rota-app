@@ -1,6 +1,7 @@
 import PointsBadge from '@/components/PointsBadge';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWhitelabelCity } from '@/hooks/useWhitelabelCity';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -33,6 +34,7 @@ export default function Header({
   hasNotifications = false,
 }: HeaderProps) {
   const { user } = useAuth();
+  const city = useWhitelabelCity();
   const insets = useSafeAreaInsets();
   const resolvedAvatarUri = user?.photoUrl?.trim() || avatarUrl;
   const isVisitante = user?.profile === 'VISITANTE';
@@ -80,7 +82,7 @@ export default function Header({
 
             <View style={styles.greetingContainer}>
               <Text style={styles.welcomeMessage} numberOfLines={2} ellipsizeMode="tail">
-                Bem-vindo de volta à nova fase Piraí Digital
+                Bem-vindo a nova fase {city.cityName} Digital
               </Text>
             </View>
 

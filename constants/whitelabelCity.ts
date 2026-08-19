@@ -2,6 +2,7 @@ import type { Localizacao } from '@/types';
 
 export const HOST_ID_MARICA = '36578ec5-ff28-4885-aa5f-1b383ff9c525';
 export const HOST_ID_PIRAI = 'f0000002-0000-4000-8000-000000000002';
+export const HOST_ID_NILOPOLIS = 'c1000002-0000-4000-8000-000000000002';
 
 export type WhitelabelCityConfig = {
   hostId: string;
@@ -46,9 +47,24 @@ const PIRAI: WhitelabelCityConfig = {
   fixedMapCenter: true,
 };
 
+const NILOPOLIS: WhitelabelCityConfig = {
+  hostId: HOST_ID_NILOPOLIS,
+  cityName: 'Nilópolis',
+  uf: 'RJ',
+  // Centro de Nilópolis (Praça da Matriz).
+  latitude: -22.8078,
+  longitude: -43.4142,
+  latitudeDelta: 0.04,
+  longitudeDelta: 0.04,
+  geocodeSuffix: 'Nilópolis, RJ, Brasil',
+  placesSearchRadiusMeters: 12_000,
+  fixedMapCenter: true,
+};
+
 const BY_HOST_ID: Record<string, WhitelabelCityConfig> = {
   [HOST_ID_MARICA.toLowerCase()]: MARICA,
   [HOST_ID_PIRAI.toLowerCase()]: PIRAI,
+  [HOST_ID_NILOPOLIS.toLowerCase()]: NILOPOLIS,
 };
 
 export function getWhitelabelCityConfig(hostId?: string | null): WhitelabelCityConfig {

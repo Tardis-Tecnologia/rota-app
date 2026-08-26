@@ -23,7 +23,7 @@ import {
 } from '@/services/locationPermission';
 import { placeToPonto } from '@/services/mapPlaceToPonto';
 import { enrichPontosWithPhotos } from '@/services/placePhotoService';
-import { searchNearbyPlaces } from '@/services/placesService';
+import { NEARBY_PLACES_RADIUS_METERS, searchNearbyPlaces } from '@/services/placesService';
 import type { Region } from '@/types';
 import { Localizacao, PontoInteresse } from '@/types';
 import { EXPLORE_GPS_STALE_MS } from '@/utils/appRefreshPolicy';
@@ -149,7 +149,7 @@ export default function MapScreen() {
     focusLabel?: string;
     focusAddress?: string;
   }>();
-  const appliedCategoryFromRoute = useRef(false);
+  const appliedCategoryFromRoute = useRef<string | null>(null);
   const appliedFocusKeyRef = useRef<string | null>(null);
   const pendingInitialGpsCenterRef = useRef(false);
   const lastGpsAtRef = useRef(0);
@@ -425,7 +425,8 @@ export default function MapScreen() {
       setFilterLoading(true);
       try {
         const pos: [number, number] = [searchOrigin.longitude, searchOrigin.latitude];
-        const places = await searchNearbyPlaces(placeType, pos, undefined, 20);
+        const radius = city.placesSearchRadiusMeters || NEARBY_PLACES_RADIUS_METERS;
+        const places = await searchNearbyPlaces(placeType, pos, radius, 20);
         if (isStale()) return;
         const basePontos = places.map((p) => placeToPonto(p, placeType));
         setPontos(basePontos);
@@ -454,15 +455,21 @@ export default function MapScreen() {
         }
       }
     },
-    [categoriaSelecionada, publishMapPontos, searchOrigin.latitude, searchOrigin.longitude],
+    [
+      categoriaSelecionada,
+      city.placesSearchRadiusMeters,
+      publishMapPontos,
+      searchOrigin.latitude,
+      searchOrigin.longitude,
+    ],
   );
 
   useEffect(() => {
     if (loading || Platform.OS === 'web' || !locationReady) return;
     if (!category || typeof category !== 'string') return;
     const chip = routeParamToChipId(category);
-    if (!chip || appliedCategoryFromRoute.current) return;
-    appliedCategoryFromRoute.current = true;
+    if (!chip || appliedCategoryFromRoute.current === category) return;
+    appliedCategoryFromRoute.current = category;
     void applyFilterChip(chip);
   }, [loading, locationReady, category, applyFilterChip]);
 

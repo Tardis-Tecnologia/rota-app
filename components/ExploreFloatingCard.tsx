@@ -33,7 +33,6 @@ interface ExploreFloatingCardProps {
   quickAccessItems?: QuickAccessItem[];
   activeItemId?: string;
   onSelectQuickAccess?: (itemId: string) => void;
-  /** Carregando resultados do filtro (mock searchNearbyPlaces) */
   filterLoading?: boolean;
   style?: ViewStyle;
 }

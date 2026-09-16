@@ -1,5 +1,5 @@
 import MarketplaceProductForm, {
-  type MarketplaceFormValues,
+    type MarketplaceFormValues,
 } from '@/components/marketplace/MarketplaceProductForm';
 import { getMarketplaceListingById, updateMarketplaceListing } from '@/services/marketplaceApi';
 import type { MarketplaceCategoryId, MarketplaceListingInput } from '@/types/marketplace';
@@ -82,9 +82,8 @@ export default function ComercianteMarketplaceEditScreen() {
         params: { id: listingId },
       });
     } catch (e) {
-      Alert.alert('Erro', e instanceof Error ? e.message : 'Não foi possível salvar.');
-    } finally {
       setSaving(false);
+      Alert.alert('Erro', e instanceof Error ? e.message : 'Não foi possível salvar.');
     }
   };
 

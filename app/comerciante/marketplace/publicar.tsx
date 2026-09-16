@@ -18,17 +18,18 @@ export default function ComercianteMarketplacePublishScreen() {
     setLoading(true);
     try {
       const created = await createMarketplaceListing(input);
+      // Não zerar loading após replace: setState no unmount causa crash Fabric
+      // (addViewAt / child already has a parent).
       router.replace({
         pathname: '/comerciante/marketplace/[id]',
         params: { id: created.id },
       });
     } catch (e) {
+      setLoading(false);
       Alert.alert(
         'Erro',
         e instanceof Error ? e.message : 'Não foi possível publicar o anúncio.',
       );
-    } finally {
-      setLoading(false);
     }
   };
 

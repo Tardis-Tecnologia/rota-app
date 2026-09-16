@@ -513,14 +513,14 @@ export default function MarketplaceProductForm({
             end={{ x: 1, y: 0.5 }}
             style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
+            <View style={styles.submitInner}>
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
                 <Ionicons name="checkmark-circle-outline" size={22} color="#fff" />
-                <Text style={styles.submitText}>{submitLabel}</Text>
-              </>
-            )}
+              )}
+              {!loading ? <Text style={styles.submitText}>{submitLabel}</Text> : null}
+            </View>
           </LinearGradient>
         </Pressable>
       </View>
@@ -744,6 +744,13 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 16,
     borderRadius: 14,
+  },
+  submitInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 24,
   },
   submitBtnDisabled: { opacity: 0.85 },
   submitPressed: { opacity: 0.92 },

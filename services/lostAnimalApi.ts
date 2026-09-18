@@ -11,6 +11,25 @@ import { getApiBaseUrl, getAuthToken, getWhitelabelHostId } from '@/services/aut
 
 const PAGE_SIZE = 20;
 
+async function fetchLostAnimalApi(url: string, options: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60_000);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(
+        options.method === 'POST' && !url.includes('/upload/')
+          ? 'O servidor demorou para confirmar a publicação. Confira a lista antes de tentar publicar novamente.'
+          : 'O servidor demorou para responder. Verifique sua conexão e tente novamente.',
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function readJsonBody(res: Response): Promise<unknown> {
   const raw = await res.text();
   if (!raw.trim()) return null;
@@ -75,7 +94,7 @@ export async function listLostAnimals(options?: {
   if (options?.missingDateFrom?.trim()) params.set('missingDateFrom', options.missingDateFrom.trim());
   if (options?.missingDateTo?.trim()) params.set('missingDateTo', options.missingDateTo.trim());
   const url = `${base}/api/v1/lost-animals/hosts/${encodeURIComponent(hostId)}?${params.toString()}`;
-  const res = await fetch(url, { method: 'GET', headers: authHeadersJson() });
+  const res = await fetchLostAnimalApi(url, { method: 'GET', headers: authHeadersJson() });
   if (!res.ok) throw new Error(await readErrorMessage(res));
   const data = (await res.json()) as unknown;
   return normalizeLostAnimalList(data);
@@ -90,8 +109,8 @@ export async function uploadLostAnimalImageFromUri(
   const name = options?.fileName?.trim() || 'lost-animal.jpg';
   const form = new FormData();
   form.append('file', { uri, name, type: mime } as unknown as Blob);
-  const url = `${base}/api/v1/upload/image`;
-  const res = await fetch(url, { method: 'POST', headers: authHeadersFormData(), body: form });
+  const url = `${base}/api/v1/upload/supabase/image`;
+  const res = await fetchLostAnimalApi(url, { method: 'POST', headers: authHeadersFormData(), body: form });
   if (!res.ok) throw new Error(await readErrorMessage(res));
   return (await res.json()) as UploadImageResponse;
 }
@@ -119,14 +138,14 @@ export async function createLostAnimal(
     description: prepared.description,
     mediaId: upload.id,
   };
-  const res = await fetch(url, { method: 'POST', headers: authHeadersJson(), body: JSON.stringify(body) });
+  const res = await fetchLostAnimalApi(url, { method: 'POST', headers: authHeadersJson(), body: JSON.stringify(body) });
   if (!res.ok) throw new Error(await readErrorMessage(res));
 }
 
 export async function getLostAnimal(id: string): Promise<LostAnimalDto> {
   const base = getApiBaseUrl();
   const url = `${base}/api/v1/lost-animals/${encodeURIComponent(id)}`;
-  const res = await fetch(url, { method: 'GET', headers: authHeadersJson() });
+  const res = await fetchLostAnimalApi(url, { method: 'GET', headers: authHeadersJson() });
   if (!res.ok) throw new Error(await readErrorMessage(res));
   const data = (await res.json()) as unknown;
   const normalized = normalizeLostAnimalDto(data);
@@ -175,7 +194,7 @@ export async function updateLostAnimal(
   }
   const url = `${base}/api/v1/lost-animals/${encodeURIComponent(id)}`;
   const body = buildLostAnimalBody(prepared, mediaId);
-  const res = await fetch(url, {
+  const res = await fetchLostAnimalApi(url, {
     method: 'PATCH',
     headers: authHeadersJson(),
     body: JSON.stringify(body),
@@ -243,4 +262,3 @@ export async function enrichLostAnimalsMedia(items: LostAnimalDto[]): Promise<Lo
 }
 
 export { PAGE_SIZE };
-

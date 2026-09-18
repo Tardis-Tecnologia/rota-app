@@ -242,6 +242,7 @@ export default function CadastroPrestadorScreen() {
   };
 
   const onSubmit = async () => {
+    if (loading) return;
     const err = validate();
     if (err) {
       Alert.alert('Atenção', err);
@@ -590,11 +591,14 @@ export default function CadastroPrestadorScreen() {
 
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <Pressable
+            collapsable={false}
             onPress={() => void onSubmit()}
             disabled={loading}
             style={({ pressed }) => [pressed && styles.submitPressed]}
           >
             <LinearGradient
+              // Keep the native gradient attached to the same parent as opacity changes.
+              collapsable={false}
               colors={loading ? ['#93c5fd', '#7dd3fc'] : ['#2563eb', '#0ea5e9']}
               start={{ x: 0, y: 0.5 }}
               end={{ x: 1, y: 0.5 }}

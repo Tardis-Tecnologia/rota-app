@@ -31,6 +31,7 @@ import {
 interface LostAnimalPublishModalProps {
   visible: boolean;
   publishing: boolean;
+  publishError?: string | null;
   mode: 'create' | 'edit';
   editingItem?: LostAnimalDto | null;
   onClose: () => void;
@@ -40,6 +41,7 @@ interface LostAnimalPublishModalProps {
 export default function LostAnimalPublishModal({
   visible,
   publishing,
+  publishError,
   mode,
   editingItem,
   onClose,
@@ -130,10 +132,10 @@ export default function LostAnimalPublishModal({
     patch('contact', formatContactInput(value));
   }, [patch]);
 
-  const hasPhoto = !!imageUri || !!existingPhotoUrl;
   const canSubmit = useMemo(() => !publishing, [publishing]);
 
   const handleSubmit = useCallback(() => {
+    if (publishing) return;
     const errors = validateLostAnimalForm(form, Boolean(imageUri || existingPhotoUrl), {
       requirePhoto: !isEdit,
     });
@@ -151,7 +153,7 @@ export default function LostAnimalPublishModal({
     const uriToSend = pickedNewPhoto ? imageUri : isEdit ? null : imageUri;
     if (!isEdit && !uriToSend) return;
     onSubmit(form, uriToSend);
-  }, [form, hasPhoto, imageUri, isEdit, onSubmit, pickedNewPhoto]);
+  }, [form, existingPhotoUrl, imageUri, isEdit, onSubmit, pickedNewPhoto, publishing]);
 
   const inputStyle = (key: keyof LostAnimalFormState | 'photo') => [
     styles.input,
@@ -272,6 +274,9 @@ export default function LostAnimalPublishModal({
             {fieldErrors.contact ? <Text style={styles.fieldError}>{fieldErrors.contact}</Text> : null}
 
             {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
+            {publishError ? (
+              <Text accessibilityRole="alert" style={styles.submitError}>{publishError}</Text>
+            ) : null}
 
             <View style={styles.actions}>
               <Pressable onPress={handleClose} style={styles.cancelBtn} disabled={publishing}>

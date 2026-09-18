@@ -30,6 +30,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "./plugins/withModalKeyboardFix",
       "expo-router",
       [
         "expo-splash-screen",

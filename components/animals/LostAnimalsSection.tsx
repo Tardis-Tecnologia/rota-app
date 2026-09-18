@@ -65,6 +65,7 @@ export default function LostAnimalsSection() {
   const [actionMenuItem, setActionMenuItem] = useState<LostAnimalDto | null>(null);
   const [markFoundConfirmItem, setMarkFoundConfirmItem] = useState<LostAnimalDto | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
   const [commentsByItem, setCommentsByItem] = useState<
     Record<string, ForumPostCommentListItemDto[]>
   >({});
@@ -140,12 +141,14 @@ export default function LostAnimalsSection() {
   }, [hasMore, load, loading, loadingMore, items.length]);
 
   const openCreateModal = useCallback(() => {
+    setPublishError(null);
     setPublishMode('create');
     setEditingItem(null);
     setPublishOpen(true);
   }, []);
 
   const openEditModal = useCallback((item: LostAnimalDto) => {
+    setPublishError(null);
     setActionMenuItem(null);
     setPublishMode('edit');
     setEditingItem(item);
@@ -155,7 +158,7 @@ export default function LostAnimalsSection() {
   const onFormSubmit = useCallback(
     async (form: LostAnimalFormState, imageUri: string | null) => {
       setPublishing(true);
-      setError(null);
+      setPublishError(null);
       try {
         if (publishMode === 'edit' && editingItem) {
           const updated = await updateLostAnimal(editingItem.id, form, {
@@ -171,10 +174,10 @@ export default function LostAnimalsSection() {
           }
           await createLostAnimal(form, imageUri);
           setPublishOpen(false);
-          await load(false, 0);
+          void load(false, 0);
         }
       } catch (e) {
-        setError(
+        setPublishError(
           e instanceof Error
             ? e.message
             : publishMode === 'edit'
@@ -505,6 +508,7 @@ export default function LostAnimalsSection() {
       <LostAnimalPublishModal
         visible={publishOpen}
         publishing={publishing}
+        publishError={publishError}
         mode={publishMode}
         editingItem={editingItem}
         onClose={() => {

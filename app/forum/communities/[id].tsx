@@ -6,7 +6,7 @@ import {
 import { forumListItemToFeedPost } from '@/components/forum/forumUtils';
 import ForumPostCard from '@/components/forum/ForumPostCard';
 import ForumPublishFab from '@/components/forum/ForumPublishFab';
-import { parseCommunityCoords } from '@/services/forumCommunityApi';
+import { communityCoverUrl, parseCommunityCoords } from '@/services/forumCommunityApi';
 import {
   createForumComment,
   createForumPost,
@@ -42,7 +42,7 @@ import { confirmAndSubmitForumReport } from '@/utils/forumReportFlow';
 import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams, router } from 'expo-router';
+import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -60,13 +60,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export default function CommunityChannelScreen() {
+export default function CommunityChannelScreen({ feedMode = false }: { feedMode?: boolean }) {
   const insets = useSafeAreaInsets();
   const { handleForumApiError } = useForumModeration();
   const { user } = useAuth();
   const isVisitante = useIsVisitante();
   const canInteract = useCanInteractAsCitizen();
   const params = useLocalSearchParams<{ id?: string }>();
+  const isFeed = feedMode;
   const communityId = String(params.id ?? '').trim();
   const initialDetailCache = communityId ? getCachedCommunityDetail(communityId) : null;
 
@@ -424,6 +425,7 @@ export default function CommunityChannelScreen() {
 
   return (
     <View style={styles.flex}>
+      <Stack.Screen options={{ title: isFeed ? community.name : 'Perfil da comunidade' }} />
       <ScrollView
         refreshControl={
           <RefreshControl
@@ -434,7 +436,29 @@ export default function CommunityChannelScreen() {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        <CommunityChannelDetailHeader
+        {isFeed ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Ver perfil de ${community.name}`}
+            style={styles.feedHeader}
+            onPress={() => router.push({ pathname: '/forum/communities/[id]', params: { id: communityId } })}
+          >
+            {communityCoverUrl(community) ? (
+              <Image source={{ uri: communityCoverUrl(community)! }} style={styles.feedCover} />
+            ) : (
+              <View style={[styles.feedCover, styles.feedCoverPlaceholder]}>
+                <Ionicons name="people" size={48} color="#fff" />
+              </View>
+            )}
+            <View style={styles.feedHeading}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.feedName}>{community.name}</Text>
+                <Text style={styles.feedProfileHint}>Ver perfil da comunidade</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={22} color={AppColors.text.tertiary} />
+            </View>
+          </Pressable>
+        ) : <CommunityChannelDetailHeader
           community={community}
           imageEpoch={imageEpoch}
           postsCount={posts.length}
@@ -448,9 +472,9 @@ export default function CommunityChannelScreen() {
             )
           }
           onOpenMap={coords ? openMap : undefined}
-        />
+        />}
 
-        {canReportCommunity ? (
+        {!isFeed && canReportCommunity ? (
           <Pressable
             style={({ pressed }) => [
               styles.reportChannelBtn,
@@ -473,13 +497,13 @@ export default function CommunityChannelScreen() {
           </View>
         ) : null}
 
-        <CommunityFeedSectionHeader
+        {isFeed ? <CommunityFeedSectionHeader
           postsCount={posts.length}
           canPost={canPost}
           postHint={postHint}
-        />
+        /> : null}
 
-        {posts.length === 0 ? (
+        {isFeed && (posts.length === 0 ? (
           <CommunityFeedEmpty />
         ) : (
           <View style={styles.postsList}>
@@ -503,10 +527,10 @@ export default function CommunityChannelScreen() {
                 />
             ))}
           </View>
-        )}
+        ))}
       </ScrollView>
 
-      {canPost ? (
+      {isFeed && canPost ? (
         <ForumPublishFab
           onOpenPublish={() => setPublishOpen(true)}
           bottomOffset={Math.max(insets.bottom, 12)}
@@ -572,6 +596,12 @@ export default function CommunityChannelScreen() {
 }
 
 const styles = StyleSheet.create({
+  feedHeader: { marginHorizontal: 16, marginBottom: 12, borderRadius: 16, overflow: 'hidden', backgroundColor: '#f1f5f9' },
+  feedCover: { width: '100%', height: 160 },
+  feedCoverPlaceholder: { backgroundColor: '#0891b2', alignItems: 'center', justifyContent: 'center' },
+  feedHeading: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
+  feedName: { fontSize: 22, fontWeight: '800', color: AppColors.text.primary },
+  feedProfileHint: { marginTop: 4, fontSize: 13, color: AppColors.text.tertiary },
   flex: { flex: 1, backgroundColor: '#ffffff' },
   scroll: { paddingTop: 8, paddingBottom: 100 },
   centerFull: {

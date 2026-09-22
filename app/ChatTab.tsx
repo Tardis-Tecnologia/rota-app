@@ -21,6 +21,8 @@ import { streamAndUiDisplayName } from '@/utils/userDisplayName';
 import { type Href, router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StreamChat } from 'stream-chat';
+import { useFocusEffect } from '@react-navigation/native';
+import { AppState } from 'react-native';
 
 const { stream: streamCopy, errors: errCopy, handoff: handoffCopy, mock: mockCopy } = chatCopy;
 
@@ -114,7 +116,7 @@ async function postWaitMessage(channelType: string, channelId: string): Promise<
 }
 
 function mapChannelStateToMessages(
-  state: { messages?: Array<{ id?: string; text?: string; created_at?: string; user?: { id?: string } }> },
+  state: { messages?: Array<{ id?: string; text?: string; created_at?: string | Date; user?: { id?: string } | null }> },
   currentUserId: string,
 ): ChatMessage[] {
   return (state.messages || []).map<ChatMessage>((msg) => ({
@@ -199,22 +201,24 @@ export default function ChatTab() {
     }
 
     const displayName = streamAndUiDisplayName(user);
-    const client = await ensureStreamChatConnected(user.id, displayName);
+    const client = await ensureStreamChatConnected(user.id, displayName || 'Usuário');
     streamClientRef.current = client;
     return client;
   }, [user?.id, user?.name, user?.email]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (!streamChannelInfo || !user?.id) {
       return;
     }
 
     let cancelled = false;
+    const subscriptions: { unsubscribe: () => void }[] = [];
 
     const load = async () => {
       try {
         setIsStreamReady(false);
         const client = await ensureStreamClient();
+        if (cancelled) return;
         const ch = client.channel(streamChannelInfo.channelType, streamChannelInfo.channelId);
         const state = await ch.watch();
         if (cancelled) return;
@@ -224,7 +228,7 @@ export default function ChatTab() {
           user.id,
           `${streamChannelInfo.channelType}:${streamChannelInfo.channelId}`,
         );
-        let mapped = mapChannelStateToMessages(state, user.id);
+        let mapped = mapChannelStateToMessages(ch.state, user.id);
         const autoSentId = data.autoSentDraftMessageId?.trim();
         if (autoSentId) {
           try {
@@ -236,6 +240,24 @@ export default function ChatTab() {
         }
         if (cancelled) return;
         setMessages(filterMessagesAfterClear(mapped, clearedAt));
+        const syncMessages = () => {
+          if (cancelled) return;
+          void getStreamChannelClearedAt(user.id, ch.cid).then((cutoff) => {
+            if (cancelled) return;
+            const current = filterMessagesAfterClear(mapChannelStateToMessages(ch.state, user.id), cutoff);
+            setMessages((previous) => [...current, ...previous.filter((message) => message.id.startsWith('tmp-'))]);
+          });
+        };
+        subscriptions.push(ch.on('message.new', () => {
+          syncMessages();
+          if (AppState.currentState === 'active') {
+            void markStreamChannelRead(streamChannelInfo.channelType, streamChannelInfo.channelId).catch(() => {});
+          }
+        }));
+        subscriptions.push(ch.on('message.updated', syncMessages));
+        subscriptions.push(ch.on('message.deleted', syncMessages));
+        subscriptions.push(client.on('connection.recovered', syncMessages));
+        syncMessages();
         setIsStreamReady(true);
         void markStreamChannelRead(
           streamChannelInfo.channelType,
@@ -251,8 +273,9 @@ export default function ChatTab() {
     void load();
     return () => {
       cancelled = true;
+      subscriptions.forEach((subscription) => subscription.unsubscribe());
     };
-  }, [ensureStreamClient, streamChannelInfo, user?.id]);
+  }, [ensureStreamClient, streamChannelInfo, user?.id, data.autoSentDraftMessageId]));
 
   useEffect(() => {
     if (!isStreamConversation) return;
@@ -502,7 +525,7 @@ export default function ChatTab() {
           );
           const res = await channel.sendMessage({ text });
           setMessages((prev) =>
-            prev.map((m) =>
+            prev.filter((m) => m.id !== res.message.id).map((m) =>
               m.id === optimisticMessage.id
                 ? {
                     ...m,

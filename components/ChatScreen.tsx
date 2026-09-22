@@ -2,7 +2,7 @@ import { chatCopy } from '@/constants/chatCopy';
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -157,6 +157,8 @@ export default function ChatScreen({
 }: ChatScreenProps) {
   const [message, setMessage] = useState(draftMessage?.trim() ?? '');
   const [clearLoading, setClearLoading] = useState(false);
+  const messagesScrollRef = useRef<ScrollView>(null);
+  const scrollFrameRef = useRef<number | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     if (initialMessages.length > 0) {
       return initialMessages;
@@ -190,6 +192,24 @@ export default function ChatScreen({
   }, [initialMessages]);
 
   const [imageError, setImageError] = useState(false);
+  const latestMessageId = messages[messages.length - 1]?.id;
+
+  const scrollToLatestMessage = useCallback(() => {
+    if (scrollFrameRef.current !== null) {
+      cancelAnimationFrame(scrollFrameRef.current);
+    }
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      messagesScrollRef.current?.scrollToEnd({ animated: false });
+      scrollFrameRef.current = null;
+    });
+  }, []);
+
+  useEffect(() => {
+    scrollToLatestMessage();
+    return () => {
+      if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current);
+    };
+  }, [latestMessageId, scrollToLatestMessage]);
 
   const getInitials = (name?: string) => {
     if (!name) return '';
@@ -329,13 +349,17 @@ export default function ChatScreen({
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         <ScrollView
+          ref={messagesScrollRef}
           style={styles.messagesContainer}
           contentContainerStyle={styles.messagesContent}
           showsVerticalScrollIndicator={false}
+          onContentSizeChange={scrollToLatestMessage}
+          onLayout={scrollToLatestMessage}
         >
-          {messages.map((msg) => (
+          {messages.map((msg, index) => (
             <AnimatedMessage key={msg.id} messageId={msg.id}>
               <View
+                onLayout={index === messages.length - 1 ? scrollToLatestMessage : undefined}
                 style={[
                   styles.messageBubble,
                   msg.isFromOther ? styles.otherBubble : styles.userBubble,
@@ -514,6 +538,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messagesContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
     padding: 16,
     paddingBottom: 8,
   },

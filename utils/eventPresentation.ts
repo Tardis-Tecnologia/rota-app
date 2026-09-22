@@ -1,7 +1,7 @@
 import type { EventItem } from '@/services/eventsService';
 import type { Evento } from '@/types';
 import { resolveEventImageUrl } from '@/utils/eventImage';
-import { eventItemToEvento } from '@/utils/eventsCarousel';
+import { EVENT_TIME_ZONE, eventItemToEvento } from '@/utils/eventsCarousel';
 
 export type EventListItem = Evento & {
   hostId?: string;
@@ -107,13 +107,13 @@ export function formatListDateParts(iso: string | null): { day: string; month: s
     return { day: '--', month: '---', weekday: '---' };
   }
   return {
-    day: d.toLocaleDateString('pt-BR', { day: '2-digit' }),
+    day: d.toLocaleDateString('pt-BR', { timeZone: EVENT_TIME_ZONE, day: '2-digit' }),
     month: d
-      .toLocaleDateString('pt-BR', { month: 'short' })
+      .toLocaleDateString('pt-BR', { timeZone: EVENT_TIME_ZONE, month: 'short' })
       .replace('.', '')
       .toUpperCase(),
     weekday: d
-      .toLocaleDateString('pt-BR', { weekday: 'short' })
+      .toLocaleDateString('pt-BR', { timeZone: EVENT_TIME_ZONE, weekday: 'short' })
       .replace('.', '')
       .toUpperCase(),
   };
@@ -126,12 +126,12 @@ export function formatFeaturedDateLine(item: EventListItem): string {
   if (item.endDateIso) {
     const end = new Date(item.endDateIso);
     if (!Number.isNaN(end.getTime()) && end.getTime() !== start.getTime()) {
-      const startPart = start.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
-      const endPart = end.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
+      const startPart = start.toLocaleDateString('pt-BR', { timeZone: EVENT_TIME_ZONE, day: 'numeric', month: 'long' });
+      const endPart = end.toLocaleDateString('pt-BR', { timeZone: EVENT_TIME_ZONE, day: 'numeric', month: 'long' });
       return `${startPart} a ${endPart}`;
     }
   }
-  return start.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
+  return start.toLocaleDateString('pt-BR', { timeZone: EVENT_TIME_ZONE, day: 'numeric', month: 'long' });
 }
 
 export function formatDetailDate(item: EventListItem): { main: string; sub: string } {
@@ -143,8 +143,8 @@ export function formatDetailDate(item: EventListItem): { main: string; sub: stri
     return { main: item.data, sub: '' };
   }
   return {
-    main: start.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' }),
-    sub: start.toLocaleDateString('pt-BR', { weekday: 'long' }),
+    main: start.toLocaleDateString('pt-BR', { timeZone: EVENT_TIME_ZONE, day: 'numeric', month: 'long' }),
+    sub: start.toLocaleDateString('pt-BR', { timeZone: EVENT_TIME_ZONE, weekday: 'long' }),
   };
 }
 

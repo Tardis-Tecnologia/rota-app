@@ -412,8 +412,8 @@ export default function GuiaIndexScreen() {
     <View style={styles.container}>
       <View style={styles.mapContainer}>
         {MapContent}
-        <SafeAreaView style={styles.mapOverlay} edges={['top']}>
-          <View style={styles.mapControls}>
+        <SafeAreaView style={styles.mapOverlay} edges={['top']} pointerEvents="box-none">
+          <View style={styles.mapControls} pointerEvents="box-none">
             {Platform.OS !== 'web' && (
               <>
                 <Pressable

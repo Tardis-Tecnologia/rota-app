@@ -2,6 +2,15 @@ import type { EventItem } from '@/services/eventsService';
 import type { Evento } from '@/types';
 import { resolveEventImageUrl } from '@/utils/eventImage';
 
+export const EVENT_TIME_ZONE = 'America/Sao_Paulo';
+
+function eventDateKey(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: EVENT_TIME_ZONE,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(date);
+}
+
 export function startOfLocalDay(): Date {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -9,21 +18,18 @@ export function startOfLocalDay(): Date {
 }
 
 export function isSameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
+  return eventDateKey(a) === eventDateKey(b);
 }
 
 export function formatEventDateLabel(start: Date | null): string {
   if (!start || Number.isNaN(start.getTime())) return 'Data a definir';
-  const today = startOfLocalDay();
+  const today = new Date();
   if (isSameDay(start, today)) return 'Hoje';
   const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setTime(tomorrow.getTime() + 24 * 60 * 60 * 1000);
   if (isSameDay(start, tomorrow)) return 'Amanhã';
   return start.toLocaleDateString('pt-BR', {
+    timeZone: EVENT_TIME_ZONE,
     weekday: 'short',
     day: '2-digit',
     month: 'short',
@@ -33,7 +39,7 @@ export function formatEventDateLabel(start: Date | null): string {
 export function formatTimeRange(start: Date | null, end: Date | null): string {
   if (!start || Number.isNaN(start.getTime())) return '';
   const fmt = (d: Date) =>
-    d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    d.toLocaleTimeString('pt-BR', { timeZone: EVENT_TIME_ZONE, hour: '2-digit', minute: '2-digit' });
   if (!end || Number.isNaN(end.getTime())) return fmt(start);
   if (!isSameDay(start, end)) {
     const endLabel = formatEventDateLabel(end);

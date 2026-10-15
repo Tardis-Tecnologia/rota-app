@@ -28,6 +28,20 @@ type ServiceCard = {
 
 const servicesCards: ServiceCard[] = [
   {
+    id: 'education',
+    title: 'Educação',
+    icon: 'school-outline',
+    iconColor: '#0891B2',
+    iconBg: '#CFFAFE',
+  },
+  {
+    id: 'health',
+    title: 'Saúde',
+    icon: 'medkit-outline',
+    iconColor: '#DC2626',
+    iconBg: '#FEE2E2',
+  },
+  {
     id: 'municipalContact',
     title: 'Contato com Prefeitura',
     titleLines: ['Contato com', 'Prefeitura'],
@@ -87,6 +101,16 @@ export default function ServicosScreen() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
   const handleCardPress = (serviceId: string, title: string) => {
+    if (serviceId === 'education') {
+      router.push('/EducationTab');
+      return;
+    }
+
+    if (serviceId === 'health') {
+      router.push('/HealthService');
+      return;
+    }
+
     if (serviceId === 'servicesPro') {
       router.push('/guia');
       return;

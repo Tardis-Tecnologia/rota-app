@@ -20,7 +20,7 @@ import {
 } from '@/services/viacep';
 import { consumeCommunityLocationPick } from '@/services/forumCommunityLocationPick';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -838,7 +838,7 @@ const styles = StyleSheet.create({
   },
   coverPreview: { width: '100%', height: '100%' },
   coverGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   coverEmpty: {
     flex: 1,

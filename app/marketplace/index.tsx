@@ -6,7 +6,7 @@ import { AppColors } from '@/constants/theme';
 import { listMarketplaceListings } from '@/services/marketplaceApi';
 import type { MarketplaceListFilter, MarketplaceListing } from '@/types/marketplace';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { router } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {

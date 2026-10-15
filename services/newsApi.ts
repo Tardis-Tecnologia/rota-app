@@ -596,8 +596,8 @@ const TIPO_LABEL: Record<FeedNovidadeTipo, string> = {
 function pollDtoToFeedPoll(poll: NewsPollEmbeddedDto): FeedPollData {
   return {
     id: poll.id,
-    options: poll.options,
-    optionCounts: poll.optionCounts,
+    options: poll.options as string[],
+    optionCounts: poll.optionCounts as number[],
     userVoted: poll.userVoted ?? false,
     selectedOptionIndex:
       poll.selectedOptionIndex != null && poll.selectedOptionIndex >= 0

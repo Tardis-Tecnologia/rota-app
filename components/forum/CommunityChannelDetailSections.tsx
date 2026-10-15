@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0e7490',
   },
   heroImage: { width: '100%', height: '100%' },
-  heroOverlay: { ...StyleSheet.absoluteFillObject },
+  heroOverlay: { ...StyleSheet.absoluteFill },
   heroTopBadges: {
     position: 'absolute',
     top: 12,

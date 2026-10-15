@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.gray[300],
   },
   heroImage: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 0,
     width: '100%',
     height: '100%',
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1,
   },
   heroTopBar: {

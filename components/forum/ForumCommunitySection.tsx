@@ -5,7 +5,7 @@ import { useIsVisitante } from '@/hooks/useIsVisitante';
 import { listForumCommunities, listMyForumCommunities, listFollowingForumCommunities, mergeMyAndFollowingCommunities, type ForumCommunityListItem } from '@/services/forumCommunityApi';
 import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { router } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';

@@ -28,12 +28,12 @@ export function AuthNavigationSync() {
     }
 
     const group = segments[0];
-    const hasForumSegment = segments.includes('forum');
+    const hasForumSegment = (segments as string[]).includes('forum');
     const inAuthGroup = group === '(auth)';
     const onLogin = inAuthGroup && segments[1] === 'login';
     const inComercianteGroup = group === 'comerciante';
     const onCommercialChat = group === 'ChatTab';
-    const onForumStoreProfile = hasForumSegment && segments.includes('store');
+    const onForumStoreProfile = hasForumSegment && (segments as string[]).includes('store');
     const inForumFlow = hasForumSegment;
 
     if (!user) {

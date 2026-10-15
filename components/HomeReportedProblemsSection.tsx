@@ -199,7 +199,7 @@ export default function HomeReportedProblemsSection({
       >
         <View style={styles.modalRoot}>
           <Pressable
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
             onPress={() => setPickerOpen(false)}
             accessibilityLabel="Fechar seleção de região"
           />

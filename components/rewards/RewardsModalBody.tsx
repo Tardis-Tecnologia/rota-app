@@ -93,7 +93,7 @@ export default function RewardsModalBody({
     [commercialCoupons, rewards, storeCouponHoldIds],
   );
 
-  const listData: StoreCouponsListEntry[] | CatalogReward[] =
+  const listData: (StoreCouponsListEntry | CatalogReward)[] =
     filterTab === 'cupons_lojas' ? storeCouponsList : filteredRewards;
 
   const isStoreTab = filterTab === 'cupons_lojas';

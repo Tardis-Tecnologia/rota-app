@@ -102,7 +102,7 @@ export default function GuiaIndexScreen() {
     },
     [city.fixedMapCenter, city.latitude, city.longitude, locationReady, localizacao.latitude, localizacao.longitude],
   );
-  const searchOrigin = useMemo((): Localizacao | null => {
+  const searchOrigin = useMemo((): { latitude: number; longitude: number } | null => {
     if (activeTab === 'empresas') return mapRegion;
     return userCoords;
   }, [activeTab, mapRegion, userCoords]);
@@ -622,7 +622,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   mapOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     paddingHorizontal: 16,
     paddingTop: 8,
     flexDirection: 'row',

@@ -13,7 +13,7 @@ import {
 import { resolveStreamConversationDisplay } from '@/utils/streamChatPeer';
 import { streamAndUiDisplayName } from '@/utils/userDisplayName';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { router } from 'expo-router';
 import { shouldAppRefetch } from '@/utils/appRefreshPolicy';
 import React, { useCallback, useRef, useState } from 'react';
@@ -155,7 +155,8 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
   );
 
   const loadStreamConversations = useCallback(async (force = false) => {
-    if (!user?.id) {
+    const userId = user?.id;
+    if (!user || !userId) {
       setConversations([]);
       return;
     }
@@ -186,10 +187,10 @@ export default function MensagensScreen({ variant = 'citizen' }: MensagensScreen
     setLoadError(null);
     try {
       const displayName = streamAndUiDisplayName(user);
-      const client = await ensureStreamChatConnected(user.id, displayName);
-      const streamUserId = client.userID?.trim() || user.id;
+      const client = await ensureStreamChatConnected(userId, displayName || 'Usuário');
+      const streamUserId = client.userID?.trim() || userId;
 
-      const clearedAtByCid = await getStreamChannelClearedMap(user.id);
+      const clearedAtByCid = await getStreamChannelClearedMap(userId);
 
       const hostId = getWhitelabelHostId();
       const channels = await client.queryChannels(

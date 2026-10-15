@@ -83,7 +83,7 @@ export default function ForumPostOverflowMenu({
 
 const styles = StyleSheet.create({
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'transparent',
   },
   menu: {

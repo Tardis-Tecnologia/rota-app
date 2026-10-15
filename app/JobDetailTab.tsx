@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(15, 23, 42, 0.5)',
   },
   heroContent: {

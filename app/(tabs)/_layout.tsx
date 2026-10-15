@@ -20,7 +20,6 @@ export default function TabLayout() {
 
     return {
       backgroundColor: AppColors.tab.background,
-      borderTopWidth: 0,
       elevation: 0,
       shadowOpacity: 0,
       height: baseHeight + effectiveInset,

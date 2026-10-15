@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   coverOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   badge: {
     position: 'absolute',

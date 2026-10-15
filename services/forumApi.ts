@@ -319,7 +319,7 @@ export async function contactForumStorePost(
     body.hostId = hid;
   } else {
     try {
-      const resolved = resolveHostId();
+      const resolved = resolveForumHostId();
       if (resolved) body.hostId = resolved;
     } catch {
       // JWT pode já trazer hostId no backend

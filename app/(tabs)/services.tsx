@@ -42,6 +42,13 @@ const servicesCards: ServiceCard[] = [
     iconBg: '#FEE2E2',
   },
   {
+    id: 'jobs',
+    title: 'Emprego',
+    icon: 'briefcase-outline',
+    iconColor: '#0F766E',
+    iconBg: '#CCFBF1',
+  },
+  {
     id: 'municipalContact',
     title: 'Contato com Prefeitura',
     titleLines: ['Contato com', 'Prefeitura'],
@@ -71,13 +78,6 @@ const servicesCards: ServiceCard[] = [
     icon: 'bag-outline',
     iconColor: '#EA580C',
     iconBg: '#FFEDD5',
-  },
-  {
-    id: 'workInProgess',
-    title: 'Obras em Andamento',
-    icon: 'business-outline',
-    iconColor: '#1D4ED8',
-    iconBg: '#DBEAFE',
   },
   {
     id: 'demands',
@@ -121,8 +121,8 @@ export default function ServicosScreen() {
       return;
     }
 
-    if (serviceId === 'workInProgess') {
-      router.push('/works');
+    if (serviceId === 'jobs') {
+      router.push('/JobsTab');
       return;
     }
 

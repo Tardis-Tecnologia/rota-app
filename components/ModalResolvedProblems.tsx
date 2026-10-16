@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   backdropTouchableArea: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   modalCard: {
     backgroundColor: '#FFFFFF',

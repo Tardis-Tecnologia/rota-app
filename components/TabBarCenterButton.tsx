@@ -1,7 +1,7 @@
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
-import { PlatformPressable } from '@react-navigation/elements';
+import { BottomTabBarButtonProps } from 'expo-router/js-tabs';
+import { PlatformPressable } from 'expo-router/react-navigation';
 import * as Haptics from 'expo-haptics';
 import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';

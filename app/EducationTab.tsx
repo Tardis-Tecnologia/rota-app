@@ -1,9 +1,10 @@
+import CoursesSection from '@/components/education/CoursesSection';
 import EnrollmentsComponent, { mockEnrollments } from '@/components/EnrollmentsComponent';
 import ModalCompleteEnrollment from '@/components/ModalCompleteEnrollment';
 import SearchEnrollmentComponent from '@/components/SearchEnrollmentComponent';
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Pressable,
@@ -14,10 +15,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type EducationTabKey = 'search' | 'enrollments';
+type EducationTabKey = 'search' | 'enrollments' | 'courses';
 
 export default function EducationTab() {
-  const [activeTab, setActiveTab] = useState<EducationTabKey>('search');
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [activeTab, setActiveTab] = useState<EducationTabKey>(
+    params.tab === 'courses' ? 'courses' : 'search',
+  );
   const [selectedEnrollment, setSelectedEnrollment] = useState<typeof mockEnrollments[number] | null>(null);
 
   return (
@@ -59,15 +63,25 @@ export default function EducationTab() {
               Minhas Matrículas
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'courses' && styles.tabButtonActive]}
+            activeOpacity={0.85}
+            onPress={() => setActiveTab('courses')}
+          >
+            <Text style={[styles.tabLabel, activeTab === 'courses' && styles.tabLabelActive]}>
+              Cursos
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.content}>
-        {activeTab === 'search' ? (
-          <SearchEnrollmentComponent />
-        ) : (
+        {activeTab === 'search' ? <SearchEnrollmentComponent /> : null}
+        {activeTab === 'enrollments' ? (
           <EnrollmentsComponent onSelectEnrollment={setSelectedEnrollment} />
-        )}
+        ) : null}
+        {activeTab === 'courses' ? <CoursesSection /> : null}
       </View>
 
       {selectedEnrollment && (
@@ -138,6 +152,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: AppColors.text.tertiary,
+    textAlign: 'center',
   },
   tabLabelActive: {
     color: AppColors.accent,
@@ -147,7 +162,7 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.background.default,
   },
   modalOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',

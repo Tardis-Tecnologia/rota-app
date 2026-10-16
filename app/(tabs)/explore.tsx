@@ -11,7 +11,7 @@ import { enrichPontosWithPhotos, mergePontoPhotoUpdate } from '@/services/placeP
 import { placeToPonto } from '@/services/mapPlaceToPonto';
 import { searchNearbyPlaces } from '@/services/placesService';
 import type { Localizacao, PontoInteresse, Region } from '@/types';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useLocalSearchParams } from 'expo-router';

@@ -118,6 +118,6 @@ export function isForumBanError(error: unknown): boolean {
   return isForumInactiveUserError(error);
 }
 
-export function isForumPostingSuspendedError(error: unknown): boolean {
+export function isForumPostingSuspendedError(error: unknown): error is ForumApiError {
   return error instanceof ForumApiError && error.code === 'FORUM_POSTING_SUSPENDED';
 }

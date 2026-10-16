@@ -6,7 +6,7 @@ import { ForumModerationProvider } from '@/contexts/ForumModerationContext';
 import { VisitanteLoginDialogProvider } from '@/contexts/VisitanteLoginDialogContext';
 import { ConversationsProvider } from '@/contexts/ConversationsContext';
 import { configureGoogleSignIn } from '@/services/googleAuth';
-import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DefaultTheme, ThemeProvider } from 'expo-router';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -53,6 +53,11 @@ export default function RootLayout() {
           <Stack.Screen name="guia" options={{ headerShown: false }} />
           <Stack.Screen name="directions" options={{ headerShown: false }} />
           <Stack.Screen name="EducationTab" options={{ headerShown: false }} />
+          <Stack.Screen name="saude/agendar" options={{ headerShown: false }} />
+          <Stack.Screen name="saude/agendamentos" options={{ headerShown: false }} />
+          <Stack.Screen name="saude/exames" options={{ headerShown: false }} />
+          <Stack.Screen name="saude/fila" options={{ headerShown: false }} />
+          <Stack.Screen name="saude/teleconsulta" options={{ headerShown: false }} />
           <Stack.Screen name="JobsTab" options={{ headerShown: false }} />
           <Stack.Screen name="JobDetailTab" options={{ headerShown: false }} />
           <Stack.Screen name="ProfileProviderTab" options={{ headerShown: false }} />

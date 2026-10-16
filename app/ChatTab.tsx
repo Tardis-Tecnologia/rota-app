@@ -21,7 +21,7 @@ import { streamAndUiDisplayName } from '@/utils/userDisplayName';
 import { type Href, router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StreamChat } from 'stream-chat';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { AppState } from 'react-native';
 
 const { stream: streamCopy, errors: errCopy, handoff: handoffCopy, mock: mockCopy } = chatCopy;

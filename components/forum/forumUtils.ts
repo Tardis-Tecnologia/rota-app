@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from '@/services/authApi';
+import type { ImperativeRouter } from 'expo-router';
 import type {
   ForumAuthorDto,
   ForumPostListItemDto,
@@ -112,7 +113,7 @@ export type ForumAuthorLike = ForumAuthorDto;
 
 export function openForumAuthorProfile(
   author: ForumAuthorLike | null | undefined,
-  router: { push: (args: { pathname: string; params: Record<string, string> }) => void },
+  router: Pick<ImperativeRouter, 'push'>,
 ): void {
   if (!author?.id?.trim()) return;
   router.push({
@@ -130,7 +131,7 @@ export function openForumCommercialStoreProfile(
     ForumPostResponseDto,
     'id' | 'title' | 'locationDescription' | 'authorCommercial'
   >,
-  router: { push: (args: { pathname: string; params: Record<string, string> }) => void },
+  router: Pick<ImperativeRouter, 'push'>,
 ): void {
   const commercial = post.authorCommercial;
   if (!commercial?.id?.trim()) return;
@@ -159,7 +160,7 @@ export function openForumCommercialStoreProfile(
 /** Abre o perfil público da loja logada (painel comercial ou ícone no fórum). */
 export function openMyCommercialStoreProfile(
   user: { id?: string; name?: string | null; photoUrl?: string | null },
-  router: { push: (args: { pathname: string; params: Record<string, string> }) => void },
+  router: Pick<ImperativeRouter, 'push'>,
 ): void {
   const commercialId = user.id?.trim();
   if (!commercialId) return;

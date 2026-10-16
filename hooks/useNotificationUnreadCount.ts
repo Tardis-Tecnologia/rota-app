@@ -2,7 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getAuthToken } from '@/services/authApi';
 import { getNotificationsUnreadCount } from '@/services/notificationApi';
 import { shouldAppRefetch } from '@/utils/appRefreshPolicy';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 
 export function useNotificationUnreadCount() {

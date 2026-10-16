@@ -3,7 +3,7 @@ import { eventImageSource } from '@/utils/eventImage';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type ImageStyle, type StyleProp, type ViewStyle } from 'react-native';
 
 type EventCoverImageProps = {
   uri?: string;
@@ -34,7 +34,7 @@ export default function EventCoverImage({
   return (
     <Image
       source={source}
-      style={[styles.image, style]}
+      style={[styles.image, style as StyleProp<ImageStyle>]}
       contentFit="cover"
       transition={200}
       cachePolicy="memory-disk"

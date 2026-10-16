@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     opacity: 0.65,
   },
   iconLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,

@@ -9,6 +9,7 @@ import {
   type ForumCommunityDetail,
 } from '@/services/forumCommunityApi';
 import { useWhitelabelMapCenter } from '@/hooks/useWhitelabelCity';
+import type { Localizacao, PontoInteresse } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';

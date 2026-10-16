@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   pinLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 5,

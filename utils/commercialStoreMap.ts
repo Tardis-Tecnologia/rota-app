@@ -3,6 +3,7 @@ import {
   type CommercialStoreMapItem,
 } from '@/services/commercialStoreApi';
 import type { PontoInteresse } from '@/types';
+import type { ImperativeRouter } from 'expo-router';
 import {
   buildStoreGeocodeQuery,
   geocodeStoreLocation,
@@ -44,7 +45,7 @@ export function explorePontoCommercialStoreId(
 
 export function openCommercialStoreFromMapPonto(
   ponto: PontoInteresse,
-  router: { push: (args: { pathname: string; params: Record<string, string> }) => void },
+  router: Pick<ImperativeRouter, 'push'>,
 ): void {
   const commercialId = explorePontoCommercialStoreId(ponto);
   if (!commercialId) return;

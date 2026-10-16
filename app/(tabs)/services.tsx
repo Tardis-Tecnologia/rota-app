@@ -28,6 +28,27 @@ type ServiceCard = {
 
 const servicesCards: ServiceCard[] = [
   {
+    id: 'education',
+    title: 'Educação',
+    icon: 'school-outline',
+    iconColor: '#0891B2',
+    iconBg: '#CFFAFE',
+  },
+  {
+    id: 'health',
+    title: 'Saúde',
+    icon: 'medkit-outline',
+    iconColor: '#DC2626',
+    iconBg: '#FEE2E2',
+  },
+  {
+    id: 'jobs',
+    title: 'Emprego',
+    icon: 'briefcase-outline',
+    iconColor: '#0F766E',
+    iconBg: '#CCFBF1',
+  },
+  {
     id: 'municipalContact',
     title: 'Contato com Prefeitura',
     titleLines: ['Contato com', 'Prefeitura'],
@@ -59,13 +80,6 @@ const servicesCards: ServiceCard[] = [
     iconBg: '#FFEDD5',
   },
   {
-    id: 'workInProgess',
-    title: 'Obras em Andamento',
-    icon: 'business-outline',
-    iconColor: '#1D4ED8',
-    iconBg: '#DBEAFE',
-  },
-  {
     id: 'demands',
     title: 'Realizações',
     icon: 'clipboard-outline',
@@ -87,6 +101,16 @@ export default function ServicosScreen() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
   const handleCardPress = (serviceId: string, title: string) => {
+    if (serviceId === 'education') {
+      router.push('/EducationTab');
+      return;
+    }
+
+    if (serviceId === 'health') {
+      router.push('/HealthService');
+      return;
+    }
+
     if (serviceId === 'servicesPro') {
       router.push('/guia');
       return;
@@ -97,8 +121,8 @@ export default function ServicosScreen() {
       return;
     }
 
-    if (serviceId === 'workInProgess') {
-      router.push('/works');
+    if (serviceId === 'jobs') {
+      router.push('/JobsTab');
       return;
     }
 

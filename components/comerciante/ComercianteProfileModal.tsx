@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   photoOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center',
     justifyContent: 'center',

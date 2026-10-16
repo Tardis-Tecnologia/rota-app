@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(15, 23, 42, 0.45)',
   },
   panel: {

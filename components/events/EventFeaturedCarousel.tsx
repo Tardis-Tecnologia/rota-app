@@ -159,11 +159,11 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.gray[300],
   },
   image: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 0,
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1,
   },
   badge: {

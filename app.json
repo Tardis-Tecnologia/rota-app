@@ -63,7 +63,11 @@
           "cameraPermission": "O aplicativo precisa da câmera para escanear o QR Code do cupom do cliente."
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-font",
+      "expo-image",
+      "expo-secure-store",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true,

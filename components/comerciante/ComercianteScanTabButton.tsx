@@ -1,5 +1,5 @@
 import TabBarCenterButton from '@/components/TabBarCenterButton';
-import { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
+import { BottomTabBarButtonProps } from 'expo-router/js-tabs';
 import React from 'react';
 
 type ComercianteScanTabButtonProps = BottomTabBarButtonProps;

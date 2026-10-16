@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scannerOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.35)',
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(255,255,255,0.85)',
     alignItems: 'center',
     justifyContent: 'center',

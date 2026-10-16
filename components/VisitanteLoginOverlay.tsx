@@ -57,17 +57,17 @@ export function VisitanteLoginOverlay({ visible = true, message }: VisitanteLogi
 
 const styles = StyleSheet.create({
   root: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 50,
     elevation: 24,
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 0,
     backgroundColor: AppColors.background.overlayStrong,
   },
   center: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1,
     justifyContent: 'center',
     alignItems: 'center',

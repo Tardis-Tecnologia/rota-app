@@ -75,7 +75,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: AppColors.palette.purple.light,
     alignSelf: 'center',
     marginBottom: 12,
   },

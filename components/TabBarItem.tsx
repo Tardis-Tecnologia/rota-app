@@ -1,14 +1,14 @@
 import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ColorValue, StyleSheet, Text, View } from 'react-native';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
 interface TabBarItemProps {
   label: string;
   icon: IconName;
-  color: string;
+  color: ColorValue;
   focused: boolean;
 }
 
@@ -22,7 +22,6 @@ export default function TabBarItem({ label, icon, color, focused }: TabBarItemPr
         style={[styles.label, { color }, focused && styles.labelFocused]}
         numberOfLines={1}
         allowFontScaling={false}
-        includeFontPadding={false}
       >
         {label}
       </Text>
@@ -44,6 +43,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     paddingHorizontal: 1,
+    includeFontPadding: false,
   },
   labelFocused: {
     fontWeight: '800',

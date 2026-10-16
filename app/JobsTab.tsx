@@ -5,13 +5,15 @@ import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
+  Alert,
   ImageBackground,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,6 +28,8 @@ const heroBanner = {
 
 export default function JobsTab() {
   const [activeCategory, setActiveCategory] = useState<JobCategoryId>('todos');
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<TextInput>(null);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -49,7 +53,9 @@ export default function JobsTab() {
           <Text style={styles.headerTitle}>Oportunidades</Text>
 
           <Pressable
+            onPress={() => searchInputRef.current?.focus()}
             hitSlop={12}
+            accessibilityLabel="Filtrar por profissão"
             style={({ pressed }) => [
               styles.filterButton,
               pressed && styles.backButtonPressed,
@@ -98,6 +104,30 @@ export default function JobsTab() {
           </ImageBackground>
         </View>
 
+        <View style={styles.searchBox}>
+          <Ionicons name="search-outline" size={20} color={AppColors.text.tertiary} />
+          <TextInput
+            ref={searchInputRef}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Qual profissão você procura?"
+            placeholderTextColor={AppColors.text.tertiary}
+            style={styles.searchInput}
+            returnKeyType="search"
+            autoCorrect={false}
+            accessibilityLabel="Buscar vaga por profissão"
+          />
+          {searchQuery.length > 0 && (
+            <Pressable
+              onPress={() => setSearchQuery('')}
+              hitSlop={10}
+              accessibilityLabel="Limpar busca"
+            >
+              <Ionicons name="close-circle" size={20} color={AppColors.text.tertiary} />
+            </Pressable>
+          )}
+        </View>
+
         <View style={styles.filtersContainer}>
           {JOB_CATEGORIES.map((item) => {
             const isActive = activeCategory === item.id;
@@ -124,12 +154,22 @@ export default function JobsTab() {
         </View>
 
         <View style={styles.jobsOpportunitiesContainer}>
-          <JobsOpportunities variant="list" activeCategory={activeCategory} />
+          <JobsOpportunities
+            variant="list"
+            activeCategory={activeCategory}
+            searchQuery={searchQuery}
+          />
         </View>
       </ScrollView>
 
       <View style={styles.bottomCtaFixed}>
         <Pressable
+          onPress={() =>
+            Alert.alert(
+              'Em breve',
+              'Em breve as empresas da cidade poderão anunciar vagas por aqui.',
+            )
+          }
           style={({ pressed }) => [
             styles.bottomCta,
             pressed && styles.bottomCtaPressed,
@@ -243,6 +283,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: AppColors.background.darkBlue,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: AppColors.background.muted,
+    borderWidth: 1,
+    borderColor: AppColors.border.muted,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: AppColors.text.secondary,
   },
   filtersContainer: {
     flexDirection: 'row',

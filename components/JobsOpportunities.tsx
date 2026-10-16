@@ -212,22 +212,52 @@ function filterJobsByCategory(jobs: JobCard[], categoryId: JobCategoryId): JobCa
   return contract ? jobs.filter((j) => j.contractType === contract) : jobs;
 }
 
+/** Minúsculas e sem acento, para "tecnico" achar "Técnico". */
+function normalizeSearch(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+/** Busca por profissão: procura no cargo, empresa, tags e descrição da vaga. */
+function filterJobsBySearch(jobs: JobCard[], query: string): JobCard[] {
+  const terms = normalizeSearch(query).split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return jobs;
+  return jobs.filter((job) => {
+    const haystack = normalizeSearch(
+      [job.title, job.company, job.description ?? '', ...(job.tags ?? [])].join(' '),
+    );
+    return terms.every((term) => haystack.includes(term));
+  });
+}
+
 interface JobsOpportunitiesProps {
   variant?: 'carousel' | 'list';
   activeCategory?: JobCategoryId;
+  /** Texto digitado no filtro de profissão (só na variante lista). */
+  searchQuery?: string;
 }
 
 export default function JobsOpportunities({
   variant = 'carousel',
   activeCategory = 'todos',
+  searchQuery = '',
 }: JobsOpportunitiesProps) {
-  const filteredForList = filterJobsByCategory(sortedJobs, activeCategory);
+  const filteredForList = filterJobsBySearch(
+    filterJobsByCategory(sortedJobs, activeCategory),
+    searchQuery,
+  );
 
   if (variant === 'list') {
     if (filteredForList.length === 0) {
+      const query = searchQuery.trim();
       return (
         <View style={styles.emptyStateContainer}>
-          <Text style={styles.emptyStateText}>Sem novas vagas no momento</Text>
+          <Text style={styles.emptyStateText}>
+            {query ? `Nenhuma vaga encontrada para "${query}"` : 'Sem novas vagas no momento'}
+          </Text>
         </View>
       );
     }

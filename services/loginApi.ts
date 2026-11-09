@@ -9,13 +9,16 @@ export type LoginWithEmailPasswordResult = LoginSuccess & {
   commercialCnpj?: string | null;
 };
 
-function isCommercialLoginCredentialFailure(message: string): boolean {
-  const m = message.trim().toLowerCase();
+function shouldFallbackToCitizenLogin(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const m = error.message.trim().toLowerCase();
   return (
     m === 'email_ou_senha_incorretos' ||
-    m === 'credenciais inválidas' ||
     m.includes('credenciais inválidas') ||
-    m.includes('email ou senha')
+    m.includes('credenciais invalidas') ||
+    m.includes('email ou senha') ||
+    m.includes('unauthorized') ||
+    /\b401\b/.test(m)
   );
 }
 
@@ -24,15 +27,17 @@ export async function loginWithEmailPassword(
   email: string,
   password: string,
 ): Promise<LoginWithEmailPasswordResult> {
+  const emailNorm = email.trim().toLowerCase();
   try {
-    const commercial = await loginCommercial(email, password);
+    const commercial = await loginCommercial(emailNorm, password);
     return { ...commercial, accountKind: 'commercial' };
   } catch (err) {
-    if (!(err instanceof Error) || !isCommercialLoginCredentialFailure(err.message)) {
+    // Conta só de cidadão: o comércio responde 401 e seguimos para /auth/login.
+    if (!shouldFallbackToCitizenLogin(err)) {
       throw err;
     }
   }
 
-  const citizen = await login(email, password);
+  const citizen = await login(emailNorm, password);
   return { ...citizen, accountKind: 'citizen' };
 }

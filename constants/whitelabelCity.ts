@@ -1,6 +1,8 @@
 import type { Localizacao } from '@/types';
 
 export const HOST_ID_MARICA = '36578ec5-ff28-4885-aa5f-1b383ff9c525';
+/** Host real de Maricá no banco de produção (domínio marica.rj.gov.br). */
+export const HOST_ID_MARICA_PRODUCTION = '2cf2b25c-747e-4d79-862c-8960e0b659cc';
 export const HOST_ID_PIRAI = 'f0000002-0000-4000-8000-000000000002';
 export const HOST_ID_NILOPOLIS = 'c1000002-0000-4000-8000-000000000002';
 
@@ -63,6 +65,7 @@ const NILOPOLIS: WhitelabelCityConfig = {
 
 const BY_HOST_ID: Record<string, WhitelabelCityConfig> = {
   [HOST_ID_MARICA.toLowerCase()]: MARICA,
+  [HOST_ID_MARICA_PRODUCTION.toLowerCase()]: MARICA,
   [HOST_ID_PIRAI.toLowerCase()]: PIRAI,
   [HOST_ID_NILOPOLIS.toLowerCase()]: NILOPOLIS,
 };

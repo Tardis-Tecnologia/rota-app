@@ -24,6 +24,7 @@ import { useFocusEffect } from 'expo-router';
 
 type FieldKey =
   | 'name'
+  | 'bio'
   | 'email'
   | 'uf'
   | 'govbrSub'
@@ -34,6 +35,7 @@ type FieldKey =
 export default function EditInfoUser() {
   const { user, updateProfile, uploadProfilePhoto, refreshUserFromApi } = useAuth();
   const [name, setName] = useState('');
+  const [bio, setBio] = useState('');
   const [email, setEmail] = useState('');
   const [uf, setUf] = useState('');
   const [govbrSub, setGovbrSub] = useState('');
@@ -66,6 +68,7 @@ export default function EditInfoUser() {
       return;
     }
     setName(user.name ?? '');
+    setBio(user.bio ?? '');
     setEmail(user.email ?? '');
     setUf(user.uf ?? '');
     setGovbrSub(user.govbrSub ?? '');
@@ -158,6 +161,9 @@ export default function EditInfoUser() {
     if (!name.trim()) {
       next.name = 'O nome é obrigatório.';
     }
+    if (bio.trim().length > 280) {
+      next.bio = 'A bio pode ter no máximo 280 caracteres.';
+    }
     if (!email.trim()) {
       next.email = 'O e-mail é obrigatório.';
     } else if (!email.trim().includes('@')) {
@@ -193,6 +199,7 @@ export default function EditInfoUser() {
     try {
       await updateProfile({
         name: name.trim(),
+        bio: bio.trim() || null,
         email: email.trim().toLowerCase(),
         uf: ufTrim ? ufTrim : null,
         govbrSub: govbrSub.trim() || null,
@@ -275,6 +282,26 @@ export default function EditInfoUser() {
           />
           {fieldErrors.name ? (
             <Text style={styles.fieldErrorText}>{fieldErrors.name}</Text>
+          ) : null}
+
+          <Text style={[styles.label, styles.labelMargin]}>Bio</Text>
+          <TextInput
+            style={[styles.input, styles.bioInput, fieldErrors.bio && styles.inputError]}
+            placeholder="Uma frase sobre você"
+            placeholderTextColor={AppColors.gray[500]}
+            value={bio}
+            onChangeText={(t) => {
+              setBio(t.slice(0, 280));
+              clearFieldError('bio');
+              setServerError('');
+            }}
+            multiline
+            maxLength={280}
+            editable={!loading}
+          />
+          <Text style={styles.bioCount}>{bio.trim().length}/280</Text>
+          {fieldErrors.bio ? (
+            <Text style={styles.fieldErrorText}>{fieldErrors.bio}</Text>
           ) : null}
 
           <Text style={[styles.label, styles.labelMargin]}>E-mail</Text>
@@ -543,6 +570,16 @@ const styles = StyleSheet.create({
   },
   labelMargin: {
     marginTop: 16,
+  },
+  bioInput: {
+    minHeight: 96,
+    textAlignVertical: 'top',
+  },
+  bioCount: {
+    marginTop: 6,
+    fontSize: 12,
+    color: AppColors.gray[500],
+    textAlign: 'right',
   },
   input: {
     borderWidth: 1,

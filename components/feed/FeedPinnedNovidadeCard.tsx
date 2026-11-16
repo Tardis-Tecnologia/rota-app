@@ -16,23 +16,20 @@ export default function FeedPinnedNovidadeCard({
 }: FeedPinnedNovidadeCardProps) {
   return (
     <View style={[styles.card, showDivider && styles.cardDivider, style]}>
-      <View style={styles.inner}>
-        <FeedNovidadeCardBody {...bodyProps} showPinnedLabel />
-      </View>
+      <FeedNovidadeCardBody {...bodyProps} showPinnedLabel />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
+    width: '100%',
     backgroundColor: '#ffffff',
+    paddingBottom: 4,
   },
   cardDivider: {
-    borderBottomWidth: 8,
-    borderBottomColor: '#eef2f6',
-  },
-  inner: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e2e8f0',
+    marginBottom: 6,
   },
 });

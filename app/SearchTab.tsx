@@ -86,23 +86,16 @@ export default function SearchTab() {
 
   const categories = useMemo(
     () => [
-      { id: 'restaurant', label: 'Restaurantes', iconSet: 'ion', iconName: 'restaurant-outline', iconColor: '#dc2626', backgroundColor: '#dc262620' },
-      { id: 'fast_food', label: 'Fast-food', iconSet: 'ion', iconName: 'fast-food-outline', iconColor: '#f97316', backgroundColor: '#f9731620' },
-      { id: 'bakery', label: 'Padarias', iconSet: 'ion', iconName: 'pizza-outline', iconColor: '#b45309', backgroundColor: '#b4530920' },
-      { id: 'bar', label: 'Bares', iconSet: 'ion', iconName: 'beer-outline', iconColor: '#ef4444', backgroundColor: '#ef444420' },
-      { id: 'cafe', label: 'Cafés', iconSet: 'ion', iconName: 'cafe-outline', iconColor: '#92400e', backgroundColor: '#92400e20' },
-      { id: 'gas_station', label: 'Postos', iconSet: 'material', iconName: 'local-gas-station', iconColor: '#6b7280', backgroundColor: '#6b728020' },
-      { id: 'hospital', label: 'Hospital', iconSet: 'material', iconName: 'local-hospital', iconColor: '#db2777', backgroundColor: '#db277720' },
-      { id: 'pharmacy', label: 'Farmácias', iconSet: 'material', iconName: 'vaccines', iconColor: '#16a34a', backgroundColor: '#16a34a20' },
-      { id: 'bank', label: 'Bancos', iconSet: 'material', iconName: 'account-balance', iconColor: '#2563eb', backgroundColor: '#2563eb20' },
-      { id: 'atm', label: 'Caixas', iconSet: 'ion', iconName: 'card-outline', iconColor: '#059669', backgroundColor: '#05966920' },
-      { id: 'shopping_center', label: 'Shopping', iconSet: 'mci', iconName: 'shopping-outline', iconColor: '#ea580c', backgroundColor: '#ea580c20' },
-      { id: 'market', label: 'Mercados', iconSet: 'ion', iconName: 'basket-outline', iconColor: '#d97706', backgroundColor: '#d9770620' },
-      { id: 'supermarket', label: 'Supermercados', iconSet: 'ion', iconName: 'cart-outline', iconColor: '#16a34a', backgroundColor: '#16a34a20' },
-      { id: 'gym', label: 'Academias', iconSet: 'ion', iconName: 'barbell-outline', iconColor: '#7c3aed', backgroundColor: '#7c3aed20' },
-      { id: 'park', label: 'Parques', iconSet: 'ion', iconName: 'leaf-outline', iconColor: '#15803d', backgroundColor: '#15803d20' },
+      { id: 'hospital', label: 'Hospitais', iconSet: 'material', iconName: 'local-hospital', iconColor: '#db2777', backgroundColor: '#db277720' },
       { id: 'school', label: 'Escolas', iconSet: 'ion', iconName: 'school-outline', iconColor: '#1e40af', backgroundColor: '#1e40af20' },
-      { id: 'hotel', label: 'Hotéis', iconSet: 'ion', iconName: 'bed-outline', iconColor: '#c026d3', backgroundColor: '#c026d320' },
+      { id: 'restaurant', label: 'Restaurantes', iconSet: 'ion', iconName: 'restaurant-outline', iconColor: '#dc2626', backgroundColor: '#dc262620' },
+      { id: 'pharmacy', label: 'Farmácias', iconSet: 'material', iconName: 'vaccines', iconColor: '#16a34a', backgroundColor: '#16a34a20' },
+      { id: 'market', label: 'Mercados', iconSet: 'ion', iconName: 'basket-outline', iconColor: '#d97706', backgroundColor: '#d9770620' },
+      { id: 'prestador', label: 'Prestadores', iconSet: 'ion', iconName: 'construct-outline', iconColor: '#0d9488', backgroundColor: '#0d948820' },
+      { id: 'partner_stores', label: 'Parceiros', iconSet: 'ion', iconName: 'storefront-outline', iconColor: '#b45309', backgroundColor: '#b4530920' },
+      { id: 'communities', label: 'Comunidades', iconSet: 'ion', iconName: 'people-outline', iconColor: '#0891b2', backgroundColor: '#0891b220' },
+      { id: 'bakery', label: 'Padarias', iconSet: 'ion', iconName: 'pizza-outline', iconColor: '#b45309', backgroundColor: '#b4530920' },
+      { id: 'gas_station', label: 'Postos', iconSet: 'material', iconName: 'local-gas-station', iconColor: '#6b7280', backgroundColor: '#6b728020' },
     ],
     []
   );

@@ -26,21 +26,99 @@ import {
     ActivityIndicator,
     Alert,
     Dimensions,
-    InteractionManager,
     Platform,
     Pressable,
-    ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
+    type LayoutChangeEvent,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, {
+    Extrapolation,
+    interpolate,
+    runOnJS,
+    useAnimatedReaction,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MAP_LOCATION_WATCH_DISTANCE_METERS = 15;
 const MAP_LOCATION_WATCH_TIME_MS = 5000;
 const GUIA_MAP_ZOOM_DELTA = 0.04;
+/** Faixa de mapa que continua visível quando a lista está aberta. */
+const MAP_STRIP = 96;
+const SHEET_SPRING = {
+  damping: 26,
+  stiffness: 280,
+  mass: 0.72,
+  overshootClamping: false as const,
+  restDisplacementThreshold: 0.4,
+  restSpeedThreshold: 0.4,
+};
+
+function sheetSnaps(height: number) {
+  const travel = Math.max(height - MAP_STRIP, 320);
+  const mapSheet = Math.min(340, Math.max(250, Math.round(height * 0.4)));
+  const splitSheet = Math.min(
+    travel - 24,
+    Math.max(mapSheet + 96, Math.round(height * 0.72)),
+  );
+  return {
+    travel,
+    mapTranslate: Math.max(0, travel - mapSheet),
+    splitTranslate: Math.max(0, Math.min(travel - mapSheet, travel - splitSheet)),
+  };
+}
+
+function clampSheet(next: number, max: number) {
+  'worklet';
+  if (next < 0) return next * 0.2;
+  if (next > max) return max + (next - max) * 0.2;
+  return next;
+}
+
+function pickSnap(
+  current: number,
+  velocityY: number,
+  split: number,
+  map: number,
+  origin: number,
+) {
+  'worklet';
+  const points = [0, split, map];
+  const delta = current - origin;
+  if (velocityY < -1100) return 0;
+  if (velocityY > 1100) return map;
+  if (delta < -28 || velocityY < -420) {
+    for (let i = points.length - 1; i >= 0; i -= 1) {
+      if (points[i] < origin - 4) return points[i];
+    }
+    return 0;
+  }
+  if (delta > 28 || velocityY > 420) {
+    for (let i = 0; i < points.length; i += 1) {
+      if (points[i] > origin + 4) return points[i];
+    }
+    return map;
+  }
+  let best = points[0];
+  let bestDist = Math.abs(origin - best);
+  for (let i = 1; i < points.length; i += 1) {
+    const dist = Math.abs(origin - points[i]);
+    if (dist < bestDist) {
+      best = points[i];
+      bestDist = dist;
+    }
+  }
+  return best;
+}
+
+const INITIAL_SNAPS = sheetSnaps(Math.max(Dimensions.get('window').height - 160, 520));
 
 export default function GuiaIndexScreen() {
   const { user } = useAuth();
@@ -61,13 +139,123 @@ export default function GuiaIndexScreen() {
   }));
   const [locationReady, setLocationReady] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [sheetHeight, setSheetHeight] = useState(INITIAL_SNAPS.travel);
+  const [showAreaSearch, setShowAreaSearch] = useState(false);
+  const [controlsInteractive, setControlsInteractive] = useState(true);
   const mapRef = useRef<MapLibreMapaViewRef | null>(null);
   const pendingInitialGpsCenterRef = useRef(false);
   const lastGpsAtRef = useRef(0);
   const locationReadyRef = useRef(false);
   const hadLocationErrorRef = useRef(false);
+  const placedRef = useRef(false);
+  const insets = useSafeAreaInsets();
 
-  const providersEnabled = activeTab === 'prestadores';
+  const translateY = useSharedValue(INITIAL_SNAPS.splitTranslate);
+  const mapSnap = useSharedValue(INITIAL_SNAPS.mapTranslate);
+  const splitSnap = useSharedValue(INITIAL_SNAPS.splitTranslate);
+  const sheetTravel = useSharedValue(INITIAL_SNAPS.travel);
+  const dragOrigin = useSharedValue(0);
+  const dragging = useSharedValue(0);
+  const areaDirty = useSharedValue(0);
+
+  const sheetPan = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetY([-8, 8])
+        .failOffsetX([-24, 24])
+        .onStart(() => {
+          'worklet';
+          dragOrigin.value = translateY.value;
+          dragging.value = 1;
+        })
+        .onUpdate((event) => {
+          'worklet';
+          translateY.value = clampSheet(dragOrigin.value + event.translationY, mapSnap.value);
+        })
+        .onEnd((event) => {
+          'worklet';
+          dragging.value = 0;
+          const dest = pickSnap(
+            translateY.value,
+            event.velocityY,
+            splitSnap.value,
+            mapSnap.value,
+            dragOrigin.value,
+          );
+          translateY.value = withSpring(dest, SHEET_SPRING);
+        }),
+    [dragOrigin, dragging, mapSnap, splitSnap, translateY],
+  );
+
+  useAnimatedReaction(
+    () => areaDirty.value === 1 && translateY.value > splitSnap.value + 28,
+    (show, prev) => {
+      if (show !== prev) runOnJS(setShowAreaSearch)(show);
+    },
+  );
+
+  useAnimatedReaction(
+    () => translateY.value > 64,
+    (show, prev) => {
+      if (show !== prev) runOnJS(setControlsInteractive)(show);
+    },
+  );
+
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  const controlsStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(translateY.value, [36, 120], [0, 1], Extrapolation.CLAMP),
+  }));
+
+  const searchPillStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      translateY.value,
+      [splitSnap.value + 8, splitSnap.value + 56],
+      [0, areaDirty.value],
+      Extrapolation.CLAMP,
+    ),
+    bottom: sheetTravel.value - translateY.value + 14,
+  }));
+
+  const onStageLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const height = event.nativeEvent.layout.height;
+      if (height < 240) return;
+      const snaps = sheetSnaps(height);
+      const prevMap = mapSnap.value;
+      const prevSplit = splitSnap.value;
+      const current = translateY.value;
+      mapSnap.value = snaps.mapTranslate;
+      splitSnap.value = snaps.splitTranslate;
+      sheetTravel.value = snaps.travel;
+      setSheetHeight((prev) => (prev === snaps.travel ? prev : snaps.travel));
+      if (!placedRef.current) {
+        placedRef.current = true;
+        translateY.value = snaps.splitTranslate;
+        return;
+      }
+      if (dragging.value === 1) return;
+      const candidates = [
+        { prev: 0, next: 0 },
+        { prev: prevSplit, next: snaps.splitTranslate },
+        { prev: prevMap, next: snaps.mapTranslate },
+      ];
+      let best = candidates[0];
+      let bestDist = Math.abs(current - best.prev);
+      for (const candidate of candidates) {
+        const dist = Math.abs(current - candidate.prev);
+        if (dist < bestDist) {
+          best = candidate;
+          bestDist = dist;
+        }
+      }
+      if (Math.abs(current - best.next) > 0.5) translateY.value = best.next;
+    },
+    [dragging, mapSnap, sheetTravel, splitSnap, translateY],
+  );
+
   const companiesEnabled = activeTab === 'empresas';
 
   const {
@@ -75,7 +263,7 @@ export default function GuiaIndexScreen() {
     loading: providersLoading,
     error: providersError,
     reloadIfStale: reloadProvidersIfStale,
-  } = useGuiaProviders(providersEnabled, user?.id);
+  } = useGuiaProviders(true, user?.id);
 
   const {
     items: companyItems,
@@ -88,8 +276,22 @@ export default function GuiaIndexScreen() {
     reloadIfStale: reloadCompaniesIfStale,
   } = useGuiaCompanies(companiesEnabled, mapRegion, searchQuery);
 
-  const catalogItems = activeTab === 'prestadores' ? providerItems : companyItems;
-  const listLoading = activeTab === 'prestadores' ? providersLoading : companiesLoading;
+  const individualItems = useMemo(
+    () => providerItems.filter((item) => item.type !== 'COMPANY'),
+    [providerItems],
+  );
+  const registeredCompanies = useMemo(
+    () => providerItems.filter((item) => item.type === 'COMPANY'),
+    [providerItems],
+  );
+  const catalogItems =
+    activeTab === 'prestadores'
+      ? individualItems
+      : [...registeredCompanies, ...companyItems];
+  const listLoading =
+    activeTab === 'prestadores'
+      ? providersLoading
+      : companiesLoading && registeredCompanies.length === 0 && companyItems.length === 0;
   const listError = activeTab === 'prestadores' ? providersError : companiesError;
   const userCoords = useMemo(
     () => {
@@ -103,9 +305,12 @@ export default function GuiaIndexScreen() {
     [city.fixedMapCenter, city.latitude, city.longitude, locationReady, localizacao.latitude, localizacao.longitude],
   );
   const searchOrigin = useMemo((): { latitude: number; longitude: number } | null => {
-    if (activeTab === 'empresas') return mapRegion;
+    // Centra busca/ordenação no mapa (permite arrastar e pesquisar a região).
+    if (mapRegion?.latitude != null && mapRegion?.longitude != null) {
+      return { latitude: mapRegion.latitude, longitude: mapRegion.longitude };
+    }
     return userCoords;
-  }, [activeTab, mapRegion, userCoords]);
+  }, [mapRegion.latitude, mapRegion.longitude, userCoords]);
 
   useEffect(() => {
     locationReadyRef.current = locationReady;
@@ -301,14 +506,29 @@ export default function GuiaIndexScreen() {
 
   useEffect(() => {
     if (listLoading) return;
-    const task = InteractionManager.runAfterInteractions(() => {
+    let cancelled = false;
+    const schedule =
+      typeof requestIdleCallback === 'function'
+        ? (cb: () => void) => {
+            const id = requestIdleCallback(() => cb());
+            return () => cancelIdleCallback(id);
+          }
+        : (cb: () => void) => {
+            const id = setTimeout(cb, 0);
+            return () => clearTimeout(id);
+          };
+    const cancel = schedule(() => {
+      if (cancelled) return;
       setMapPointsForView((prev) => {
         const prevSignature = prev.map((ponto) => ponto.id).join('\u0001');
         if (prevSignature === mapPointsSignature) return prev;
         return computedMapPoints;
       });
     });
-    return () => task.cancel();
+    return () => {
+      cancelled = true;
+      cancel();
+    };
   }, [listLoading, mapPointsSignature, computedMapPoints]);
 
   useEffect(() => {
@@ -389,31 +609,53 @@ export default function GuiaIndexScreen() {
     router.push('/guia/cadastro-prestador');
   };
 
-  const MapContent =
-    Platform.OS === 'web' ? (
-      <View style={styles.mapPlaceholder}>
-        <Ionicons name="map-outline" size={40} color={AppColors.gray[400]} />
-        <Text style={styles.mapPlaceholderText}>Mapa disponível no app mobile</Text>
-      </View>
-    ) : (
-      <MapLibreMapaView
-        key={activeTab}
-        ref={mapRef}
-        localizacao={localizacao}
-        pontos={mapPointsForView}
-        markerVariant="dot"
-        getMarkerColor={() => '#7C3AED'}
-        onRegionChangeComplete={handleMapRegionChangeComplete}
-        onMarkerPress={handleMarkerPress}
-      />
-    );
+  const focusMap = useCallback(() => {
+    if (dragging.value === 1) return;
+    areaDirty.value = 1;
+    if (Math.abs(translateY.value - mapSnap.value) < 12) return;
+    translateY.value = withSpring(mapSnap.value, SHEET_SPRING);
+  }, [areaDirty, dragging, mapSnap, translateY]);
+
+  const focusList = useCallback(() => {
+    if (dragging.value === 1) return;
+    translateY.value = withSpring(0, SHEET_SPRING);
+  }, [dragging, translateY]);
+
+  const searchThisMapArea = useCallback(() => {
+    areaDirty.value = 0;
+    setShowAreaSearch(false);
+    if (activeTab === 'empresas') {
+      void reloadCompaniesIfStale(true);
+      return;
+    }
+    void reloadProvidersIfStale(true);
+  }, [activeTab, areaDirty, reloadCompaniesIfStale, reloadProvidersIfStale]);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.mapContainer}>
-        {MapContent}
-        <SafeAreaView style={styles.mapOverlay} edges={['top']} pointerEvents="box-none">
-          <View style={styles.mapControls} pointerEvents="box-none">
+    <GestureHandlerRootView style={styles.container} onLayout={onStageLayout}>
+      <View style={styles.mapStage} pointerEvents="box-none">
+        {Platform.OS === 'web' ? (
+          <View style={styles.mapPlaceholder}>
+            <Ionicons name="map-outline" size={40} color={AppColors.gray[400]} />
+            <Text style={styles.mapPlaceholderText}>Mapa disponível no app mobile</Text>
+          </View>
+        ) : (
+          <MapLibreMapaView
+            ref={mapRef}
+            localizacao={mapRegion}
+            pontos={mapPointsForView}
+            markerVariant="dot"
+            getMarkerColor={() => '#7C3AED'}
+            onRegionChangeComplete={handleMapRegionChangeComplete}
+            onUserGestureStart={focusMap}
+            onMarkerPress={handleMarkerPress}
+          />
+        )}
+        <View style={styles.mapOverlay} pointerEvents="box-none">
+          <Animated.View
+            style={[styles.mapControls, controlsStyle]}
+            pointerEvents={controlsInteractive ? 'box-none' : 'none'}
+          >
             {Platform.OS !== 'web' && (
               <>
                 <Pressable
@@ -440,26 +682,33 @@ export default function GuiaIndexScreen() {
                 </Pressable>
               </>
             )}
-          </View>
-        </SafeAreaView>
+          </Animated.View>
+        </View>
       </View>
 
-      <View style={styles.panel}>
-        <View style={styles.dragHandleRow}>
-          <View style={styles.dragHandle} />
-        </View>
+      <Animated.View
+        pointerEvents={showAreaSearch ? 'box-none' : 'none'}
+        style={[styles.searchAreaWrap, searchPillStyle]}
+      >
+        <Pressable
+          onPress={searchThisMapArea}
+          style={({ pressed }) => [styles.searchAreaBtn, pressed && styles.mapButtonPressed]}
+        >
+          <Ionicons name="search-outline" size={16} color="#fff" />
+          <Text style={styles.searchAreaBtnText}>Buscar nesta área</Text>
+        </Pressable>
+      </Animated.View>
 
-        <View style={styles.panelHeaderRow}>
-          <Text style={styles.panelTitle}>Guia da Cidade</Text>
-          <TouchableOpacity
-            onPress={handleMyLocation}
-            activeOpacity={0.8}
-            style={styles.nearMeBtn}
+      <Animated.View collapsable={false} style={[styles.panel, { height: sheetHeight }, sheetStyle]}>
+        <GestureDetector gesture={sheetPan}>
+          <View
+            collapsable={false}
+            style={styles.dragHandleRow}
+            accessibilityLabel="Arraste para ampliar o mapa ou a lista"
           >
-            <Ionicons name="locate-outline" size={14} color="#7C3AED" />
-            <Text style={styles.nearMeText}>Perto de mim</Text>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.dragHandle} />
+          </View>
+        </GestureDetector>
 
         <View style={styles.searchRow}>
           <View style={styles.searchInputWrap}>
@@ -475,6 +724,7 @@ export default function GuiaIndexScreen() {
               placeholderTextColor={AppColors.gray[500]}
               value={searchQuery}
               onChangeText={setSearchQuery}
+              onFocus={focusList}
               returnKeyType="search"
               autoCorrect={false}
             />
@@ -531,20 +781,28 @@ export default function GuiaIndexScreen() {
         ) : null}
 
         <View style={styles.resultsHeader}>
-          <View style={styles.sortRow}>
-            <Ionicons name="navigate-outline" size={18} color={AppColors.gray[600]} />
-            <Text style={styles.sortText}>Mais próximos primeiro</Text>
-          </View>
-          <Text style={styles.resultsCount}>
-            {results.length} encontrado{results.length !== 1 ? 's' : ''}
-          </Text>
+            <View style={styles.sortRow}>
+              <Ionicons name="navigate-outline" size={16} color={AppColors.gray[600]} />
+              <Text style={styles.sortText}>
+                Mais próximos · {results.length}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={handleMyLocation}
+              activeOpacity={0.8}
+              style={styles.nearMeBtn}
+            >
+              <Ionicons name="locate-outline" size={14} color="#7C3AED" />
+              <Text style={styles.nearMeText}>Perto de mim</Text>
+            </TouchableOpacity>
         </View>
 
-        <ScrollView
+        <Animated.ScrollView
           style={styles.listScroll}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 28 }]}
           showsVerticalScrollIndicator
           keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
         >
           {listLoading && results.length === 0 ? (
             <View style={styles.loadingCard}>
@@ -590,24 +848,53 @@ export default function GuiaIndexScreen() {
               ) : null}
             </>
           )}
-        </ScrollView>
-      </View>
-    </View>
+        </Animated.ScrollView>
+      </Animated.View>
+    </GestureHandlerRootView>
   );
 }
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const MAP_HEIGHT = Math.min(SCREEN_HEIGHT * 0.28, 220);
-const PANEL_TOP_RADIUS = 20;
+const PANEL_TOP_RADIUS = 22;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: AppColors.background.light,
+    overflow: 'hidden',
   },
-  mapContainer: {
-    height: MAP_HEIGHT,
+  mapStage: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     backgroundColor: AppColors.gray[200],
+  },
+  searchAreaWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 3,
+    alignItems: 'center',
+  },
+  searchAreaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#7C3AED',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  searchAreaBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
   },
   mapPlaceholder: {
     flex: 1,
@@ -622,9 +909,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   mapOverlay: {
-    ...StyleSheet.absoluteFill,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 12,
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'flex-start',
@@ -645,33 +936,32 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   panel: {
-    flex: 1,
+    position: 'absolute',
+    top: MAP_STRIP,
+    left: 0,
+    right: 0,
+    zIndex: 2,
     backgroundColor: '#fff',
     borderTopLeftRadius: PANEL_TOP_RADIUS,
     borderTopRightRadius: PANEL_TOP_RADIUS,
-    marginTop: -PANEL_TOP_RADIUS,
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 8,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 18,
   },
-  dragHandleRow: { alignItems: 'center', marginBottom: 4 },
-  dragHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: AppColors.gray[300],
-  },
-  panelHeaderRow: {
-    flexDirection: 'row',
+  dragHandleRow: {
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    marginBottom: 10,
+    paddingTop: 10,
+    paddingBottom: 12,
   },
-  panelTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#1F2937',
+  dragHandle: {
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: AppColors.gray[300],
   },
   nearMeBtn: {
     flexDirection: 'row',
@@ -758,11 +1048,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    paddingBottom: 10,
   },
-  sortRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sortRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
   sortText: { fontSize: 12, fontWeight: '600', color: AppColors.gray[600] },
-  resultsCount: { fontSize: 12, fontWeight: '700', color: AppColors.gray[500] },
   listScroll: { flex: 1 },
   listContent: { paddingBottom: 10 },
   emptyCard: {

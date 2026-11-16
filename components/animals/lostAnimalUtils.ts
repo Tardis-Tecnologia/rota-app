@@ -190,21 +190,23 @@ export function normalizeLostAnimalList(data: unknown): LostAnimalDto[] {
 }
 
 export function lostAnimalImageUrl(item: Pick<LostAnimalDto, 'imageUrl' | 'mediaId'>): string | null {
+  // Prefer absolute public URLs (Unsplash/CDN) — the /upload/files proxy often fails for them.
+  const direct = item.imageUrl?.trim();
+  if (direct) {
+    if (direct.startsWith('http://') || direct.startsWith('https://')) {
+      return rewriteLocalhostMediaUrl(direct);
+    }
+    if (direct.startsWith('/')) {
+      return `${getApiBaseUrl()}${direct}`;
+    }
+  }
+
   const mediaId = item.mediaId?.trim();
   if (mediaId) {
     return `${getApiBaseUrl()}/api/v1/upload/files/${encodeURIComponent(mediaId)}`;
   }
 
-  const direct = item.imageUrl?.trim();
-  if (!direct) return null;
-
-  if (direct.startsWith('http://') || direct.startsWith('https://')) {
-    return rewriteLocalhostMediaUrl(direct);
-  }
-  if (direct.startsWith('/')) {
-    return `${getApiBaseUrl()}${direct}`;
-  }
-  return direct;
+  return direct || null;
 }
 
 export function lostAnimalImageSource(

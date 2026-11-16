@@ -120,10 +120,10 @@ function ComercianteTabs() {
       <Tabs.Screen
         name="forum"
         options={{
-          title: 'Fórum',
+          title: 'Feed',
           tabBarIcon: ({ color, focused }) => (
             <TabBarItem
-              label="Fórum"
+              label="Feed"
               icon="chatbubbles-outline"
               color={color}
               focused={focused}

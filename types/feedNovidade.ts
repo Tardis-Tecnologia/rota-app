@@ -25,6 +25,8 @@ export interface FeedNovidade {
   resumo: string;
   conteudo: string;
   imagem: string | null;
+  /** MIME da mídia quando disponível (ex.: video/mp4). */
+  imagemContentType?: string | null;
   /** ISO 8601 — usado para ordenação */
   dataPublicacao: string;
   dataRelativa: string;
@@ -38,6 +40,10 @@ export interface FeedNovidade {
   autorHandle: string;
   /** Perfil do publicador (ex.: SUPERADMIN), quando a API enviar */
   autorPerfil?: string | null;
+  /** Comunicado oficial da Prefeitura / secretaria */
+  isOfficial?: boolean;
+  officialInstitution?: string | null;
+  officialRole?: string | null;
   curtidas: number;
   liked: boolean;
   comentarios: number;

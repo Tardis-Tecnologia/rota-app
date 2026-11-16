@@ -94,7 +94,7 @@ export function confirmAndSubmitForumReport(
   if (!id) return;
 
   if (options?.canInteract === false) {
-    promptVisitanteLogin(options.loginPrompt ?? 'denunciar no fórum');
+    promptVisitanteLogin(options.loginPrompt ?? 'denunciar no feed');
     return;
   }
 

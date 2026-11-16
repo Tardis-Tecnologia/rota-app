@@ -37,18 +37,18 @@ export default function RewardsModalHeader({
   return (
     <View style={styles.header}>
       <View style={styles.headerTop}>
-        <Text style={styles.title}>Loja de Recompensas</Text>
+        <Text style={styles.title}>Programa Cidadão</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={styles.iconBadge}
             onPress={onHistoryPress}
             accessibilityRole="button"
             accessibilityLabel={
-              isHistoryView ? 'Voltar para a loja de recompensas' : 'Ver histórico de resgates'
+              isHistoryView ? 'Voltar para o Programa Cidadão' : 'Ver histórico de resgates'
             }
             accessibilityHint={
               isHistoryView
-                ? 'Retorna à lista de recompensas e cupons'
+                ? 'Retorna à lista de benefícios e cupons'
                 : 'Abre o histórico de pontos e resgates'
             }
             activeOpacity={0.75}

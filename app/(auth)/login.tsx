@@ -1,6 +1,7 @@
 import ModalSolicitarLojaParceira from '@/components/ModalSolicitarLojaParceira';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCityBrand } from '@/contexts/CityBrandContext';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -31,6 +32,7 @@ const COMERCIO_GRADIENT_COLORS = ['#0097B2', '#2E67E1'] as const;
 
 export default function LoginScreen() {
   const { login, loginWithSession } = useAuth();
+  const brand = useCityBrand();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -127,11 +129,12 @@ export default function LoginScreen() {
             <View style={styles.header}>
               <View style={styles.iconWrap}>
                 <Image
-                  source={require('@/assets/images/logo.png')}
-                  style={styles.logo}
+                  source={brand.logoUrl ? { uri: brand.logoUrl } : require('@/assets/images/logo.png')}
+                  style={brand.logoUrl ? styles.cityLogo : styles.logo}
                   contentFit="contain"
                 />
               </View>
+              {brand.displayName ? <Text style={styles.brandName}>{brand.displayName}</Text> : null}
               <Text style={styles.title}>Entrar</Text>
               <Text style={styles.subtitle}>
                 Use seu e-mail e senha para acessar o app.
@@ -194,7 +197,13 @@ export default function LoginScreen() {
               ) : null}
 
               <TouchableOpacity
-                style={[styles.button, loading && styles.buttonDisabled]}
+                style={[
+                  styles.button,
+                  loading && styles.buttonDisabled,
+                  brand.primaryColor
+                    ? { backgroundColor: brand.primaryColor, shadowColor: brand.primaryColor }
+                    : null,
+                ]}
                 onPress={handleLogin}
                 activeOpacity={0.85}
                 disabled={loading}
@@ -334,6 +343,17 @@ const styles = StyleSheet.create({
   logo: {
     width: 72,
     height: 94,
+  },
+  cityLogo: {
+    width: 200,
+    height: 84,
+  },
+  brandName: {
+    marginBottom: 6,
+    fontSize: 16,
+    fontWeight: '700',
+    color: AppColors.text.primary,
+    textAlign: 'center',
   },
   title: {
     fontSize: 26,

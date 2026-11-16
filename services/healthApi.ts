@@ -1,4 +1,8 @@
-import { currentHostId, publicServicesRequest } from './publicServicesHttp';
+import {
+  currentHostId,
+  publicServicesOptionalAuthRequest,
+  publicServicesRequest,
+} from './publicServicesHttp';
 
 export type HealthUnitType = 'UBS' | 'UPA' | 'HOSPITAL' | 'CLINICA' | 'CAPS';
 export type HealthServiceKind = 'CONSULTATION' | 'EXAM';
@@ -131,7 +135,7 @@ export function getHealthUnits(filters?: {
   specialty?: string;
   exam?: string;
 }): Promise<HealthUnit[]> {
-  return publicServicesRequest<HealthUnit[]>('/health/units', {
+  return publicServicesOptionalAuthRequest<HealthUnit[]>('/health/units', {
     query: { hostId: currentHostId(), ...filters },
   });
 }
@@ -149,11 +153,18 @@ export function setReferenceUnit(unitId: string): Promise<HealthUnit> {
   });
 }
 
+export function clearReferenceUnit(): Promise<void> {
+  return publicServicesRequest<void>('/health/reference-unit', {
+    method: 'DELETE',
+    query: { hostId: currentHostId() },
+  });
+}
+
 export function getAvailableSlots(
   unitId: string,
   filters: { kind: HealthServiceKind; specialty?: string; days?: number },
 ): Promise<HealthSlot[]> {
-  return publicServicesRequest<HealthSlot[]>(`/health/units/${encodeURIComponent(unitId)}/slots`, {
+  return publicServicesOptionalAuthRequest<HealthSlot[]>(`/health/units/${encodeURIComponent(unitId)}/slots`, {
     query: { kind: filters.kind, specialty: filters.specialty, days: filters.days ?? 21 },
   });
 }
@@ -163,6 +174,7 @@ export function getAvailableSlots(
 export function bookAppointment(input: {
   slotId: string;
   patientName: string;
+  patientCpf?: string;
   reason?: string;
 }): Promise<Appointment> {
   return publicServicesRequest<Appointment>('/health/appointments', {

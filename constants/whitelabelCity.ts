@@ -1,6 +1,7 @@
 import type { Localizacao } from '@/types';
 
-export const HOST_ID_MARICA = '36578ec5-ff28-4885-aa5f-1b383ff9c525';
+/** UUID real do host marica.rj.gov.br no banco local/seed. */
+export const HOST_ID_MARICA = 'ca9384ab-a6f9-4005-a3c8-3e831657a23a';
 export const HOST_ID_PIRAI = 'f0000002-0000-4000-8000-000000000002';
 export const HOST_ID_NILOPOLIS = 'c1000002-0000-4000-8000-000000000002';
 
@@ -30,7 +31,8 @@ const MARICA: WhitelabelCityConfig = {
   longitudeDelta: 0.05,
   geocodeSuffix: 'Maricá, RJ, Brasil',
   placesSearchRadiusMeters: 45_000,
-  fixedMapCenter: false,
+  /** Centro da cidade: o teste fora de Maricá não puxa o GPS do aparelho. */
+  fixedMapCenter: true,
 };
 
 const PIRAI: WhitelabelCityConfig = {

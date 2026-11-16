@@ -32,15 +32,12 @@ export function useGuiaProviders(enabled: boolean, currentUserId?: string | null
       if (showSpinner) setLoading(true);
       setError(null);
       try {
-        const publicPromise = listPublicServiceProviders().catch(
-          () => [] as Awaited<ReturnType<typeof listPublicServiceProviders>>,
-        );
-        const myPromise = getAuthToken()
-          ? getMyServiceProviders().catch(
+        const publicItems = await listPublicServiceProviders();
+        const myItems = getAuthToken()
+          ? await getMyServiceProviders().catch(
               () => [] as Awaited<ReturnType<typeof getMyServiceProviders>>,
             )
-          : Promise.resolve([]);
-        const [publicItems, myItems] = await Promise.all([publicPromise, myPromise]);
+          : [];
         setItems(mergeGuiaProviderLists(publicItems, myItems, currentUserId));
         lastLoadedAtRef.current = Date.now();
       } catch (e) {

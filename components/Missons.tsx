@@ -75,7 +75,8 @@ function Chip({
 export function Missons() {
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
-    const isVisitante = user?.profile === 'VISITANTE';
+    // Sem user = precisa login (antes só VISITANTE bloqueava; null seguia e dava Unauthorized).
+    const isVisitante = !user || user.profile === 'VISITANTE';
     const [selectedCategory, setSelectedCategory] = useState<MissionCategory>('Todas');
     const [missions, setMissions] = useState<CitizenMissionListItem[]>([]);
     const [missionsHasMore, setMissionsHasMore] = useState(true);
@@ -733,7 +734,7 @@ export function Missons() {
         </Pressable>
 
         <View style={styles.headerText}>
-          <Text style={styles.title}>Missões Cidadãs</Text>
+          <Text style={styles.title}>Missões</Text>
         </View>
 
         <Pressable

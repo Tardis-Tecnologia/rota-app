@@ -65,10 +65,10 @@ function buildRecommendations(input: {
     );
   }
   if (input.contatosTotal > 0 && input.validadosNaLoja === 0) {
-    tips.push('Você recebe contatos pelo fórum, mas ainda não validou cupons — reforce o código na conversa.');
+    tips.push('Você recebe contatos pelo feed, mas ainda não validou cupons — reforce o código na conversa.');
   }
   if (input.postsForum === 0) {
-    tips.push('Publique no fórum com cupom vinculado para gerar interesse e contatos.');
+    tips.push('Publique no feed com cupom vinculado para gerar interesse e contatos.');
   } else if (input.contatosTotal === 0) {
     tips.push('Inclua um CTA claro (“Falar com a loja”) nos posts para transformar visualizações em contatos.');
   }
@@ -135,7 +135,7 @@ export default function ComercianteMetricasScreen() {
         <View style={styles.body}>
           <ComercianteSectionBanner
             title="INTELIGÊNCIA DA LOJA"
-            description="Acompanhe o funil: interesse no app → validação na loja → contatos pelo fórum."
+            description="Acompanhe o funil: interesse no app → validação na loja → contatos pelo feed."
           />
 
           <View style={styles.performanceCard}>
@@ -212,7 +212,7 @@ export default function ComercianteMetricasScreen() {
             <MetricSection
               icon="chatbubble-ellipses-outline"
               title="Contatos"
-              subtitle="Moradores que tocaram em “Falar com a loja” no fórum"
+              subtitle="Moradores que tocaram em “Falar com a loja” no feed"
             >
               <View style={styles.metricRow}>
                 <MetricTile
@@ -237,14 +237,14 @@ export default function ComercianteMetricasScreen() {
 
             <MetricSection
               icon="megaphone-outline"
-              title="Fórum"
+              title="Feed"
               subtitle="Presença e reação da comunidade às suas publicações"
             >
               <View style={styles.metricRowTwo}>
                 <MetricTile
                   label="PUBLICAÇÕES"
                   value={loading ?? metrics.postsForum}
-                  hint="posts da loja no fórum"
+                  hint="posts da loja no feed"
                 />
                 <MetricTile
                   label="ENGAJAMENTO"
@@ -268,7 +268,7 @@ export default function ComercianteMetricasScreen() {
               style={({ pressed }) => [styles.campaignBtn, pressed && styles.campaignBtnPressed]}
               onPress={() => router.push('/comerciante/forum')}
             >
-              <Text style={styles.campaignBtnText}>Criar campanha no fórum</Text>
+              <Text style={styles.campaignBtnText}>Criar campanha no feed</Text>
             </Pressable>
           </View>
         </View>

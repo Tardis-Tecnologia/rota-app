@@ -29,7 +29,7 @@ export default function RewardsModalBalance({
       {needsCpf ? (
         <View style={styles.cpfWarning}>
           <Text style={styles.cpfWarningText}>
-            Cadastre seu CPF para resgatar recompensas.
+            Cadastre seu CPF para resgatar benefícios.
           </Text>
           <TouchableOpacity
             style={styles.cpfButton}

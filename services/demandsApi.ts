@@ -31,10 +31,24 @@ function parseCoord(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function requireToken(): string {
+function authHeaders(): HeadersInit {
   const token = getAuthToken();
-  if (!token) throw new Error('Não autenticado');
-  return token;
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
+async function readError(res: Response): Promise<string> {
+  const text = await res.text().catch(() => '');
+  if (!text.trim()) return `Erro ao carregar (${res.status})`;
+  try {
+    const json = JSON.parse(text) as { message?: unknown };
+    if (typeof json.message === 'string' && json.message.trim()) return json.message.trim();
+    if (Array.isArray(json.message) && json.message.length) return String(json.message[0]);
+  } catch {
+    return text.slice(0, 220);
+  }
+  return text.slice(0, 220);
 }
 
 function normalizeDemand(raw: unknown): DemandResponseDto {
@@ -75,19 +89,15 @@ export async function getDemands(options: {
   init?: number;
   end?: number;
 }): Promise<DemandResponseDto[]> {
-  const token = requireToken();
   const params = new URLSearchParams();
   if (options.hostId?.trim()) params.set('hostId', options.hostId.trim());
   if (options.neighborhood?.trim()) params.set('neighborhood', options.neighborhood.trim());
   if (typeof options.init === 'number') params.set('init', String(options.init));
   if (typeof options.end === 'number') params.set('end', String(options.end));
   const url = `${getApiBaseUrl()}${BASE_PATH}/demands?${params.toString()}`;
-  const res = await fetch(url, {
-    headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
-  });
+  const res = await fetch(url, { headers: authHeaders() });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(text || `Erro ao carregar demandas: ${res.status}`);
+    throw new Error(await readError(res));
   }
   const data = await res.json();
   if (!Array.isArray(data)) return [];
@@ -98,17 +108,13 @@ export async function getDemandsStats(options: {
   hostId?: string;
   neighborhood?: string;
 }): Promise<DemandsStatsResponseDto> {
-  const token = requireToken();
   const params = new URLSearchParams();
   if (options.hostId?.trim()) params.set('hostId', options.hostId.trim());
   if (options.neighborhood?.trim()) params.set('neighborhood', options.neighborhood.trim());
   const url = `${getApiBaseUrl()}${BASE_PATH}/demands/stats?${params.toString()}`;
-  const res = await fetch(url, {
-    headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
-  });
+  const res = await fetch(url, { headers: authHeaders() });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(text || `Erro ao carregar contadores: ${res.status}`);
+    throw new Error(await readError(res));
   }
   const data = (await res.json()) as Partial<DemandsStatsResponseDto>;
   return {

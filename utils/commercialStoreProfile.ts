@@ -216,15 +216,57 @@ async function geocodeWithMapTiler(
   }
 }
 
+async function geocodeWithNominatim(
+  query: string,
+): Promise<{ latitude: number; longitude: number } | null> {
+  try {
+    const params = new URLSearchParams({
+      q: query,
+      format: 'jsonv2',
+      limit: '1',
+      countrycodes: 'br',
+    });
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+      headers: { Accept: 'application/json', 'User-Agent': 'RotaApp/1.0' },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as Array<{ lat?: string; lon?: string }>;
+    const first = data[0];
+    const latitude = Number(first?.lat);
+    const longitude = Number(first?.lon);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    return { latitude, longitude };
+  } catch {
+    return null;
+  }
+}
+
+function geocodeCandidates(query: string): string[] {
+  const full = query.trim();
+  const withoutCep = full.replace(/,?\s*CEP\s*[\d.-]+/i, '').replace(/,\s*$/, '').trim();
+  const parts = withoutCep
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const tail = parts.length > 1 ? parts.slice(1).join(', ') : '';
+  const city = parts.length > 2 ? parts.slice(-2).join(', ') : '';
+  return [...new Set([full, withoutCep, tail, city].filter(Boolean))];
+}
+
 export async function geocodeStoreLocation(
   query: string,
 ): Promise<{ latitude: number; longitude: number } | null> {
-  const q = query.trim();
-  if (!q) return null;
+  const candidates = geocodeCandidates(query);
+  if (candidates.length === 0) return null;
 
-  const fromMapTiler = await geocodeWithMapTiler(q);
-  if (fromMapTiler) return fromMapTiler;
+  for (const candidate of candidates) {
+    const fromMapTiler = await geocodeWithMapTiler(candidate);
+    if (fromMapTiler) return fromMapTiler;
+    const fromNominatim = await geocodeWithNominatim(candidate);
+    if (fromNominatim) return fromNominatim;
+  }
 
+  const q = candidates[0];
   try {
     const results = await Location.geocodeAsync(q);
     const first = results[0];

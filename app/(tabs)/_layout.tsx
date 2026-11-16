@@ -8,9 +8,12 @@ import { HapticTab } from '@/components/haptic-tab';
 import TabBarCenterButton from '@/components/TabBarCenterButton';
 import TabBarItem from '@/components/TabBarItem';
 import { AppColors } from '@/constants/theme';
+import { useCityBrand } from '@/contexts/CityBrandContext';
+import { emitTabReselect } from '@/utils/tabReselect';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const brand = useCityBrand();
 
   const tabBarStyle = useMemo(() => {
     const baseHeight = Platform.OS === 'ios' ? 58 : 44;
@@ -47,7 +50,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         lazy: true,
-        tabBarActiveTintColor: AppColors.tab.active,
+        tabBarActiveTintColor: brand.primaryColor || AppColors.tab.active,
         tabBarInactiveTintColor: AppColors.tab.inactive,
         headerShown: false, // Remover header padrão
         tabBarButton: HapticTab,
@@ -77,6 +80,13 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="home"
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            const state = navigation.getState();
+            const current = state.routes[state.index]?.name;
+            if (current === 'home') emitTabReselect('home');
+          },
+        })}
         options={{
           title: 'Início',
           tabBarIcon: ({ color, focused }) => (
@@ -221,11 +231,7 @@ export default function TabLayout() {
               activeOpacity={0.7}
               onPress={() => navigation.goBack()}
             >
-              <Ionicons
-                name="arrow-back-outline"
-                size={24}
-                color="#000"
-              />
+              <Ionicons name="arrow-back-outline" size={24} color="#000" />
             </TouchableOpacity>
           ),
           headerRight: () => <View style={styles.headerSpacer} />,
@@ -281,6 +287,13 @@ export default function TabLayout() {
       */}
       <Tabs.Screen
         name="forum"
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            const state = navigation.getState();
+            const current = state.routes[state.index]?.name;
+            if (current === 'forum') emitTabReselect('forum');
+          },
+        })}
         options={() => ({
           headerShown: true,
           headerTitleAlign: 'center',
@@ -303,9 +316,9 @@ export default function TabLayout() {
             </TouchableOpacity>
           ),
           headerRight: () => <View style={styles.headerSpacer} />,
-          title: 'Fórum do bairro',
+          title: 'Feed',
           tabBarIcon: ({ color, focused }) => (
-            <TabBarItem label="Fórum" icon="chatbubbles-outline" color={color} focused={focused} />
+            <TabBarItem label="Feed" icon="chatbubbles-outline" color={color} focused={focused} />
           ),
         })}
       />

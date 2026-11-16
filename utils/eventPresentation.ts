@@ -49,6 +49,7 @@ export const EVENT_CATEGORY_FILTERS: Array<{
   { key: 'festividade', label: 'Festividade', icon: 'gift-outline' },
   { key: 'show', label: 'Show', icon: 'musical-notes-outline' },
   { key: 'feira', label: 'Feira', icon: 'storefront-outline' },
+  { key: 'esporte', label: 'Esporte', icon: 'football-outline' },
 ];
 
 export function eventItemToListItem(item: EventItem): EventListItem {

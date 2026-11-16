@@ -23,6 +23,9 @@ export interface CreateUrbanReportBody {
   category: UrbanReportCategory;
   hostId?: string;
   mediaId?: string | null;
+  latitude?: number;
+  longitude?: number;
+  neighborhood?: string;
 }
 
 export interface UrbanReportResponseDto {
@@ -118,6 +121,12 @@ export async function createUrbanReport(
     hostId: body.hostId?.trim() || getWhitelabelHostId(),
   };
   if (mediaId) payload.mediaId = mediaId;
+  const neighborhood = body.neighborhood?.trim();
+  if (neighborhood) payload.neighborhood = neighborhood;
+  if (Number.isFinite(body.latitude) && Number.isFinite(body.longitude)) {
+    payload.latitude = body.latitude;
+    payload.longitude = body.longitude;
+  }
 
   const res = await fetch(url, {
     method: 'POST',

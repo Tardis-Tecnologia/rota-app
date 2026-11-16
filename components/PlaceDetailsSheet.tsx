@@ -3,24 +3,23 @@ import { explorePontoCommunityId } from '@/services/forumCommunityApi';
 import { distanceMeters } from '@/services/placesService';
 import { PontoInteresse } from '@/types';
 import {
-    explorePontoCommercialStoreId,
-    openCommercialStoreFromMapPonto,
+  explorePontoCommercialStoreId,
+  openCommercialStoreFromMapPonto,
 } from '@/utils/commercialStoreMap';
 import { navigateToDirections } from '@/utils/navigateDirections';
+import { enrichPlaceProfile } from '@/utils/placeProfileEnrichment';
 import { Ionicons } from '@expo/vector-icons';
-import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
-    Image,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface PlaceDetailsSheetProps {
   visible: boolean;
@@ -28,13 +27,12 @@ interface PlaceDetailsSheetProps {
   userLng: number;
   userLat: number;
   onClose: () => void;
+  /** Traça a rota no mapa atual, sem abrir app externo. */
+  onRequestDirections?: (ponto: PontoInteresse) => void;
 }
 
 function formatDistanceMeters(userLng: number, userLat: number, ponto: PontoInteresse): string {
-  const m = distanceMeters(
-    [userLng, userLat],
-    [ponto.longitude, ponto.latitude],
-  );
+  const m = distanceMeters([userLng, userLat], [ponto.longitude, ponto.latitude]);
   if (m < 1000) return `${Math.round(m)} m`;
   return `${(m / 1000).toFixed(1)} km`;
 }
@@ -45,153 +43,82 @@ export default function PlaceDetailsSheet({
   userLng,
   userLat,
   onClose,
+  onRequestDirections,
 }: PlaceDetailsSheetProps) {
-  if (!ponto) return null;
+  const insets = useSafeAreaInsets();
+  const profile = useMemo(() => (ponto ? enrichPlaceProfile(ponto) : null), [ponto]);
 
-  const communityId = explorePontoCommunityId(ponto);
-  const commercialStoreId = explorePontoCommercialStoreId(ponto);
+  if (!profile) return null;
+
+  const communityId = explorePontoCommunityId(profile);
+  const commercialStoreId = explorePontoCommercialStoreId(profile);
+  const isPartner = !!commercialStoreId;
 
   const openDirections = () => {
     onClose();
+    if (onRequestDirections) {
+      onRequestDirections(profile);
+      return;
+    }
     navigateToDirections({
-      destLat: ponto.latitude,
-      destLng: ponto.longitude,
-      destName: ponto.titulo,
+      destLat: profile.latitude,
+      destLng: profile.longitude,
+      destName: profile.titulo,
       originLat: userLat,
       originLng: userLng,
     });
   };
 
-  const callPhone = () => {
-    if (!ponto.telefone) return;
-    const digits = ponto.telefone.replace(/\D/g, '');
-    void Linking.openURL(`tel:${digits}`);
+  const openProfile = () => {
+    if (!commercialStoreId) return;
+    onClose();
+    openCommercialStoreFromMapPonto(profile, router);
+  };
+
+  const openCommunity = () => {
+    if (!communityId) return;
+    onClose();
+    router.push({
+      pathname: '/forum/communities/[id]',
+      params: { id: communityId },
+    });
   };
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
-          >
-            <View style={styles.sheetHeader}>
-              <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={12}>
-                <Ionicons name="close" size={22} color={AppColors.text.secondary} />
-              </TouchableOpacity>
+        <Pressable
+          style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 14) }]}
+          onPress={(e) => e.stopPropagation()}
+        >
+          <View style={styles.handle} />
+          <View style={styles.simpleHeader}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.title} numberOfLines={2}>
+                {profile.titulo}
+              </Text>
+              <Text style={styles.metaMuted}>{formatDistanceMeters(userLng, userLat, profile)}</Text>
             </View>
-            <View style={styles.imageWrap}>
-              <View style={styles.imageBox}>
-                {ponto.photoUrl ? (
-                  <Image source={{ uri: ponto.photoUrl }} style={styles.image} resizeMode="cover" />
-                ) : (
-                  <View style={styles.imagePlaceholder}>
-                    <Text style={styles.imagePlaceholderText}>{ponto.titulo.charAt(0)}</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            <Text style={styles.title}>{ponto.titulo}</Text>
-
-            {ponto.descricao ? (
-              <View style={styles.row}>
-                <Ionicons name="location-outline" size={18} color={AppColors.text.tertiary} />
-                <Text style={styles.rowText}>{ponto.descricao}</Text>
-              </View>
-            ) : null}
-
-            <View style={styles.metaRow}>
-              {ponto.rating != null ? (
-                <View style={styles.metaItem}>
-                  <Ionicons name="star" size={18} color="#fbbf24" />
-                  <Text style={styles.metaStrong}>{ponto.rating}</Text>
-                  {ponto.userRatingsTotal != null ? (
-                    <Text style={styles.metaMuted}>({ponto.userRatingsTotal})</Text>
-                  ) : null}
-                </View>
-              ) : null}
-              <View style={styles.metaItem}>
-                <Ionicons name="navigate-outline" size={16} color={AppColors.text.tertiary} />
-                <Text style={styles.metaMuted}>{formatDistanceMeters(userLng, userLat, ponto)}</Text>
-              </View>
-              {ponto.openNow !== undefined ? (
-                <View style={styles.metaItem}>
-                  <Ionicons
-                    name="time-outline"
-                    size={16}
-                    color={ponto.openNow ? AppColors.status.success : AppColors.status.error}
-                  />
-                  <Text
-                    style={[
-                      styles.metaMuted,
-                      { color: ponto.openNow ? AppColors.status.success : AppColors.status.error },
-                    ]}
-                  >
-                    {ponto.openNow ? 'Aberto' : 'Fechado'}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-
-            {ponto.formattedAddress ? (
-              <View style={styles.addressBox}>
-                <Ionicons name="location-outline" size={18} color={AppColors.text.tertiary} />
-                <Text style={styles.addressText}>{ponto.formattedAddress}</Text>
-              </View>
-            ) : null}
-
-            {ponto.telefone ? (
-              <View style={styles.row}>
-                <Ionicons name="call-outline" size={18} color={AppColors.text.tertiary} />
-                <Text style={styles.rowText}>{ponto.telefone}</Text>
-              </View>
-            ) : null}
-
-            {communityId ? (
-              <TouchableOpacity
-                style={styles.btnCommunity}
-                onPress={() => {
-                  onClose();
-                  router.push({
-                    pathname: '/forum/communities/[id]',
-                    params: { id: communityId },
-                  });
-                }}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="people-outline" size={20} color="#fff" />
-                <Text style={styles.btnPrimaryText}>Ver canal da comunidade</Text>
-              </TouchableOpacity>
-            ) : null}
-
-            {commercialStoreId ? (
-              <TouchableOpacity
-                style={styles.btnPartnerStore}
-                onPress={() => {
-                  onClose();
-                  openCommercialStoreFromMapPonto(ponto, router);
-                }}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="storefront-outline" size={20} color="#fff" />
-                <Text style={styles.btnPrimaryText}>Ver perfil da loja</Text>
-              </TouchableOpacity>
-            ) : null}
-
-            <TouchableOpacity style={styles.btnPrimary} onPress={openDirections} activeOpacity={0.85}>
-              <Ionicons name="paper-plane-outline" size={20} color={AppColors.text.white} />
-              <Text style={styles.btnPrimaryText}>Como chegar</Text>
+            <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={10}>
+              <Ionicons name="close" size={18} color={AppColors.text.secondary} />
             </TouchableOpacity>
-
-            {ponto.telefone ? (
-              <TouchableOpacity style={styles.btnSecondary} onPress={callPhone} activeOpacity={0.85}>
-                <Ionicons name="call-outline" size={20} color={AppColors.text.secondary} />
-                <Text style={styles.btnSecondaryText}>Ligar</Text>
-              </TouchableOpacity>
-            ) : null}
-          </ScrollView>
+          </View>
+          <TouchableOpacity style={styles.btnPrimaryFull} onPress={openDirections} activeOpacity={0.85}>
+            <Ionicons name="git-branch-outline" size={18} color={AppColors.text.white} />
+            <Text style={styles.btnPrimaryText}>Como chegar</Text>
+          </TouchableOpacity>
+          {isPartner ? (
+            <TouchableOpacity style={styles.btnSecondaryFull} onPress={openProfile} activeOpacity={0.85}>
+              <Ionicons name="storefront-outline" size={18} color="#b45309" />
+              <Text style={styles.btnSecondaryText}>Ver perfil</Text>
+            </TouchableOpacity>
+          ) : null}
+          {communityId ? (
+            <TouchableOpacity style={styles.btnSecondaryFull} onPress={openCommunity} activeOpacity={0.85}>
+              <Ionicons name="people-outline" size={18} color="#0891b2" />
+              <Text style={[styles.btnSecondaryText, { color: '#0891b2' }]}>Ver comunidade</Text>
+            </TouchableOpacity>
+          ) : null}
         </Pressable>
       </Pressable>
     </Modal>
@@ -201,167 +128,286 @@ export default function PlaceDetailsSheet({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
     justifyContent: 'flex-end',
   },
   sheet: {
     backgroundColor: AppColors.background.default,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '88%',
-    paddingBottom: 28,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    gap: 10,
   },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+  handle: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: AppColors.gray[300],
+    marginBottom: 2,
   },
-  imageWrap: {
+  simpleHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  topBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 2,
   },
-  sheetHeader: {
-    alignItems: 'flex-end',
-    marginBottom: 10,
-  },
-  imageBox: {
+  photoWrap: {
+    width: '100%',
+    height: 168,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: AppColors.gray[200],
     position: 'relative',
   },
-  image: {
-    width: 200,
-    height: 200,
-    borderRadius: 20,
-    backgroundColor: AppColors.gray[200],
+  photo: {
+    width: '100%',
+    height: '100%',
   },
-  imagePlaceholder: {
-    width: 200,
-    height: 200,
-    borderRadius: 20,
+  photoPlaceholder: {
+    width: '100%',
+    height: '100%',
     backgroundColor: AppColors.primary,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  imagePlaceholderText: {
-    fontSize: 48,
+  photoLetter: {
+    fontSize: 42,
     fontWeight: '700',
     color: AppColors.text.white,
   },
-  closeBtn: {
+  photoArrow: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -18,
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     alignItems: 'center',
-    shadowColor: AppColors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
+    justifyContent: 'center',
   },
+  photoArrowLeft: { left: 8 },
+  photoArrowRight: { right: 8 },
+  photoDots: {
+    position: 'absolute',
+    bottom: 8,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  photoDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+  },
+  photoDotActive: {
+    backgroundColor: '#fff',
+    width: 14,
+  },
+  photoExpandHint: {
+    position: 'absolute',
+    right: 10,
+    top: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerText: { gap: 4 },
   title: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '700',
     color: AppColors.text.secondary,
-    marginBottom: 10,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginBottom: 10,
-  },
-  rowText: {
-    flex: 1,
-    fontSize: 14,
-    color: AppColors.text.tertiary,
-    lineHeight: 20,
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: AppColors.background.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   metaRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 14,
-    marginBottom: 14,
     alignItems: 'center',
+    gap: 8,
+  },
+  ratingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#fffbeb',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
   },
   metaStrong: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: AppColors.text.secondary,
   },
   metaMuted: {
-    fontSize: 13,
+    fontSize: 12,
     color: AppColors.text.tertiary,
   },
-  addressBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    backgroundColor: AppColors.background.muted,
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 14,
+  addressLine: {
+    fontSize: 12,
+    color: AppColors.text.tertiary,
   },
-  addressText: {
-    flex: 1,
-    fontSize: 14,
-    color: AppColors.text.secondary,
-    lineHeight: 20,
+  aboutText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: AppColors.text.tertiary,
   },
-  btnCommunity: {
+  actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: '#0891b2',
-    paddingVertical: 14,
-    borderRadius: 14,
-    marginTop: 4,
-    marginBottom: 10,
-  },
-  btnPartnerStore: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: '#b45309',
-    paddingVertical: 14,
-    borderRadius: 14,
-    marginTop: 4,
-    marginBottom: 10,
+    gap: 8,
   },
   btnPrimary: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 8,
     backgroundColor: AppColors.tab.active,
-    paddingVertical: 14,
-    borderRadius: 14,
-    marginTop: 4,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  btnPrimaryFull: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: AppColors.tab.active,
+    paddingVertical: 12,
+    borderRadius: 12,
   },
   btnPrimaryText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: AppColors.text.white,
   },
-  btnSecondary: {
+  btnSecondaryFull: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    backgroundColor: AppColors.background.muted,
-    paddingVertical: 14,
-    borderRadius: 14,
-    marginTop: 10,
+    gap: 8,
+    backgroundColor: '#fff7ed',
+    paddingVertical: 12,
+    borderRadius: 12,
   },
   btnSecondaryText: {
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#b45309',
+  },
+  btnMessage: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#ccfbf1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnCall: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: AppColors.background.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  linkBtn: { paddingVertical: 2 },
+  linkBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0891b2',
+  },
+  reviewsBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  reviewsSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '55%',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+  },
+  reviewsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  reviewsTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: AppColors.text.secondary,
+  },
+  reviewsScroll: { maxHeight: 280 },
+  reviewCard: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 12,
+    marginBottom: 8,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  reviewAuthor: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: AppColors.text.secondary,
+  },
+  reviewStars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  reviewRating: {
+    fontSize: 12,
     fontWeight: '600',
     color: AppColors.text.secondary,
+  },
+  reviewComment: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: AppColors.text.tertiary,
+  },
+  reviewTime: {
+    marginTop: 4,
+    fontSize: 11,
+    color: AppColors.gray[400],
   },
 });

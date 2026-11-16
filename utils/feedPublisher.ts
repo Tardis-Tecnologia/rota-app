@@ -1,4 +1,5 @@
 import type { FeedNovidade } from '@/types/feedNovidade';
+import { isRoleLikeDisplayName, personDisplayName } from '@/utils/userDisplayName';
 
 export function formatPublisherHandleLine(handle: string, dataRelativa: string): string {
   const h = handle.startsWith('@') ? handle : `@${handle}`;
@@ -20,7 +21,6 @@ export function feedPublisherDisplayName(
   item: Pick<FeedNovidade, 'autorNome' | 'autorPerfil' | 'autorHandle'>,
 ): string {
   const name = item.autorNome?.trim();
-  if (name && name !== 'Prefeito') return name;
-  if (isSuperadminPublisherProfile(item.autorPerfil, item.autorHandle)) return 'Superadmin';
-  return name || 'Administrador';
+  if (name && !isRoleLikeDisplayName(name)) return name;
+  return personDisplayName(name, 'Prefeitura');
 }

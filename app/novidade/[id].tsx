@@ -1,5 +1,5 @@
 import FeedPollCard from '@/components/feed/FeedPollCard';
-import { formatOpinioesLabel, formatTimeAgo } from '@/components/forum/forumUtils';
+import { formatComentariosLabel, formatTimeAgo } from '@/components/forum/forumUtils';
 import { FEED_CATEGORIA_THEME, FEED_TIPO_THEME } from '@/constants/feedNovidadeTheme';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,6 +25,7 @@ import {
   feedPublisherDisplayName,
   isSuperadminPublisherProfile,
 } from '@/utils/feedPublisher';
+import { isRoleLikeDisplayName } from '@/utils/userDisplayName';
 import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -83,7 +84,9 @@ export default function NovidadeDetailScreen() {
   const displayName = useMemo(() => {
     if (!item) return 'Prefeitura';
     if (isFeedPollItem(item)) return feedPublisherDisplayName(item);
-    if (item.autorNome && item.autorNome !== 'Prefeito') return item.autorNome;
+    if (item.autorNome && !isRoleLikeDisplayName(item.autorNome)) return item.autorNome;
+    const fromAuthor = feedPublisherDisplayName(item);
+    if (fromAuthor !== 'Prefeitura') return fromAuthor;
     const themed = themeName?.trim();
     if (themed && themed !== 'Default') {
       return themed.toLowerCase().includes('prefeitura') ? themed : `Prefeitura de ${themed}`;
@@ -109,9 +112,7 @@ export default function NovidadeDetailScreen() {
           retryIfEmpty: true,
         });
         setComments((prev) => mergeNewsCommentsWithPending(rows, prev));
-        if (rows.length === 0 && (options?.expectedCount ?? 0) > 0) {
-          setCommentsError('A listagem de comentários veio vazia. Toque em recarregar.');
-        }
+        setItem((prev) => (prev ? { ...prev, comentarios: rows.length } : prev));
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'Não foi possível carregar os comentários.';
         setCommentsError(msg);
@@ -502,7 +503,17 @@ export default function NovidadeDetailScreen() {
           <View style={styles.authorRow}>
             <Image source={{ uri: item.autorAvatar }} style={styles.authorAvatar} />
             <View style={styles.authorText}>
-              <Text style={styles.authorName}>{displayName}</Text>
+              <View style={styles.authorNameRow}>
+                <Text style={styles.authorName}>{displayName}</Text>
+                {item.isOfficial ? (
+                  <Ionicons name="checkmark-circle" size={16} color="#1D9BF0" />
+                ) : null}
+              </View>
+              {item.isOfficial && (item.officialRole || item.officialInstitution) ? (
+                <Text style={styles.officialRoleText} numberOfLines={1}>
+                  {[item.officialRole, item.officialInstitution].filter(Boolean).join(' · ')}
+                </Text>
+              ) : null}
               <View style={styles.dateRow}>
                 <Ionicons name="calendar-outline" size={14} color="#64748b" />
                 <Text style={styles.dateText}>
@@ -532,7 +543,7 @@ export default function NovidadeDetailScreen() {
             </Pressable>
             <Pressable style={styles.statBtn} onPress={scrollToComments}>
               <Ionicons name="chatbubble-outline" size={22} color="#0891b2" />
-              <Text style={styles.statTextComments}>{formatOpinioesLabel(commentCount)}</Text>
+              <Text style={styles.statTextComments}>{formatComentariosLabel(commentCount)}</Text>
             </Pressable>
           </View>
         </View>
@@ -565,14 +576,41 @@ export default function NovidadeDetailScreen() {
               </Pressable>
             </View>
           ) : (
-            comments.map((c) => (
+            comments.map((c) => {
+              const authorName = commentAuthorName(c);
+              const openCommentAuthor = () => {
+                const userId = c.author?.id?.trim() || c.userId?.trim();
+                if (!userId) return;
+                router.push({
+                  pathname: '/forum/author',
+                  params: {
+                    userId,
+                    name: authorName,
+                    photoUrl: c.author?.photoUrl ?? '',
+                  },
+                });
+              };
+              return (
               <View key={c.id} style={styles.commentItem}>
-                <Image source={{ uri: commentAvatarUri(c) }} style={styles.commentAvatar} />
+                <Pressable
+                  onPress={openCommentAuthor}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ver perfil de ${authorName}`}
+                >
+                  <Image source={{ uri: commentAvatarUri(c) }} style={styles.commentAvatar} />
+                </Pressable>
                 <View style={styles.commentBody}>
                   <View style={styles.commentHeader}>
-                    <Text style={styles.commentAuthor} numberOfLines={1}>
-                      {commentAuthorName(c)}
-                    </Text>
+                    <Pressable
+                      onPress={openCommentAuthor}
+                      style={styles.commentAuthorBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Ver perfil de ${authorName}`}
+                    >
+                      <Text style={styles.commentAuthor} numberOfLines={1}>
+                        {authorName}
+                      </Text>
+                    </Pressable>
                     <Text style={styles.commentTime}>{formatTimeAgo(c.createdAt)}</Text>
                     {isNewsCommentAuthor(c) ? (
                       <Pressable
@@ -603,7 +641,8 @@ export default function NovidadeDetailScreen() {
                   </Pressable>
                 </View>
               </View>
-            ))
+              );
+            })
           )}
         </View>
       </ScrollView>
@@ -785,10 +824,22 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
+  authorNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    minWidth: 0,
+  },
   authorName: {
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: '800',
     color: '#0f172a',
+  },
+  officialRoleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
   },
   pollAuthorNameRow: {
     flexDirection: 'row',
@@ -914,8 +965,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  commentAuthor: {
+  commentAuthorBtn: {
     flex: 1,
+    minWidth: 0,
+  },
+  commentAuthor: {
     fontSize: 14,
     fontWeight: '800',
     color: '#0f172a',

@@ -30,6 +30,21 @@ export default function MarketplaceProductCard({ item, onPress }: MarketplacePro
       )}
 
       <View style={styles.body}>
+        <View style={styles.sellerRow}>
+          {item.sellerPhotoUrl ? (
+            <Image source={{ uri: item.sellerPhotoUrl }} style={styles.sellerPhoto} />
+          ) : (
+            <View style={styles.sellerFallback}>
+              <Text style={styles.sellerFallbackText}>
+                {item.sellerName.trim().charAt(0).toUpperCase() || 'L'}
+              </Text>
+            </View>
+          )}
+          <Text style={styles.sellerName} numberOfLines={1}>
+            {item.sellerName}
+          </Text>
+        </View>
+
         <View style={[styles.categoryBadge, { backgroundColor: cat.bg }]}>
           <Ionicons name={cat.icon} size={12} color={cat.color} />
           <Text style={[styles.categoryText, { color: cat.color }]}>{cat.label}</Text>
@@ -38,6 +53,12 @@ export default function MarketplaceProductCard({ item, onPress }: MarketplacePro
         <Text style={styles.title} numberOfLines={2}>
           {item.title}
         </Text>
+
+        {item.description ? (
+          <Text style={styles.description} numberOfLines={2}>
+            {item.description}
+          </Text>
+        ) : null}
 
         <Text style={styles.price}>{formatMarketplacePrice(item.price)}</Text>
 
@@ -48,12 +69,6 @@ export default function MarketplaceProductCard({ item, onPress }: MarketplacePro
               {locationLine}
             </Text>
           </View>
-        ) : null}
-
-        {item.description ? (
-          <Text style={styles.description} numberOfLines={2}>
-            {item.description}
-          </Text>
         ) : null}
       </View>
     </Pressable>
@@ -90,6 +105,36 @@ const styles = StyleSheet.create({
   body: {
     padding: 14,
     gap: 6,
+  },
+  sellerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  sellerPhoto: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: AppColors.gray[200],
+  },
+  sellerFallback: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#ede9fe',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sellerFallbackText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#6d28d9',
+  },
+  sellerName: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: AppColors.text.secondary,
   },
   categoryBadge: {
     alignSelf: 'flex-start',

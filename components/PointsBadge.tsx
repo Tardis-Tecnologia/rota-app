@@ -53,6 +53,10 @@ const PAGE_SIZE = 10;
 interface PointsBadgeProps {
   points?: number;
   onRedeem?: (rewardId: string, cost: number, newBalance: number) => void;
+  /** `card` = faixa no header; `icon` = botão circular ao lado de chat/notificações */
+  variant?: 'card' | 'icon';
+  /** `onColor` = ícone claro sobre o degradê; `plain` = ícone escuro no fundo branco */
+  appearance?: 'onColor' | 'plain';
 }
 
 interface PendingRedeemConfirmation {
@@ -69,6 +73,8 @@ interface InsufficientBalanceInfo {
 export default function PointsBadge({
   points: initialPoints = 0,
   onRedeem,
+  variant = 'card',
+  appearance = 'onColor',
 }: PointsBadgeProps) {
   const { user } = useAuth();
   const isVisitante = useIsVisitante();
@@ -165,7 +171,7 @@ export default function PointsBadge({
       setHasMoreRewards(list.length === PAGE_SIZE);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Não foi possível carregar recompensas';
+        error instanceof Error ? error.message : 'Não foi possível carregar benefícios';
       setRewardsError(message);
       setRewards([]);
       setHasMoreRewards(false);
@@ -185,7 +191,7 @@ export default function PointsBadge({
       setHasMoreRewards(list.length === PAGE_SIZE);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Não foi possível carregar mais recompensas';
+        error instanceof Error ? error.message : 'Não foi possível carregar mais benefícios';
       setRewardsError(message);
       setHasMoreRewards(false);
     } finally {
@@ -234,7 +240,7 @@ export default function PointsBadge({
 
   const openModal = () => {
     if (isVisitante) {
-      promptVisitanteLogin('resgatar pontos e cupons na loja de recompensas');
+      promptVisitanteLogin('resgatar pontos e cupons no Programa Cidadão');
       return;
     }
     setIsModalVisible(true);
@@ -309,22 +315,22 @@ export default function PointsBadge({
     } catch (error) {
       if (error instanceof RewardApiError) {
         if (error.code === 'INSUFFICIENT_BALANCE') {
-          const message = 'Saldo insuficiente para resgatar esta recompensa.';
+          const message = 'Saldo insuficiente para resgatar este benefício.';
           setRewardActionError(message);
           showActionToast(message, 'warning');
         } else if (error.code === 'USER_WITHOUT_CPF') {
           setShowCpfModal(true);
         } else if (error.code === 'REWARD_INACTIVE') {
-          const message = 'Esta recompensa está inativa no momento.';
+          const message = 'Este benefício está inativo no momento.';
           setRewardActionError(message);
           showActionToast(message, 'warning');
         } else {
-          const message = error.message || 'Falha ao resgatar recompensa.';
+          const message = error.message || 'Falha ao resgatar o benefício.';
           setRewardActionError(message);
           showActionToast(message, 'error');
         }
       } else {
-        const message = 'Falha ao resgatar recompensa.';
+        const message = 'Falha ao resgatar o benefício.';
         setRewardActionError(message);
         showActionToast(message, 'error');
       }
@@ -351,7 +357,7 @@ export default function PointsBadge({
 
     const reward = rewardPreview;
     if (reward?.disabled) {
-      const message = 'Esta recompensa está inativa no momento.';
+      const message = 'Este benefício está inativo no momento.';
       setRewardActionError(message);
       showActionToast(message, 'warning');
       return;
@@ -360,7 +366,7 @@ export default function PointsBadge({
     const requiredBalance = getRequiredBalanceForRedeem(cost);
     if (requiredBalance > 0 && currentPoints < requiredBalance) {
       setInsufficientBalanceInfo({
-        rewardName: reward?.name ?? 'esta recompensa',
+        rewardName: reward?.name ?? 'este benefício',
         requiredPoints: requiredBalance,
       });
       return;
@@ -370,7 +376,7 @@ export default function PointsBadge({
       setPendingRedeemConfirmation({
         rewardId,
         cost,
-        rewardName: reward?.name ?? 'esta recompensa',
+        rewardName: reward?.name ?? 'este benefício',
       });
       return;
     }
@@ -398,8 +404,32 @@ export default function PointsBadge({
     void loadPoints();
   }, []);
 
-  return (
-    <>
+  const isPlain = appearance === 'plain';
+  const trigger =
+    variant === 'icon' ? (
+      <TouchableOpacity
+        onPress={openModal}
+        activeOpacity={0.75}
+        style={[styles.iconButton, isPlain && styles.iconButtonPlain]}
+        accessibilityRole="button"
+        accessibilityLabel={`Abrir pontos. Saldo ${currentPoints.toLocaleString('pt-BR')}`}
+      >
+        <MaterialCommunityIcons
+          name="crown-outline"
+          size={isPlain ? 18 : 20}
+          color={isPlain ? '#1E293B' : AppColors.text.white}
+        />
+        {!isLoadingPoints && currentPoints > 0 ? (
+          <View style={styles.iconPointsBadge}>
+            <Text style={styles.iconPointsBadgeText} numberOfLines={1}>
+              {currentPoints >= 1000
+                ? `${Math.floor(currentPoints / 1000)}k`
+                : String(currentPoints)}
+            </Text>
+          </View>
+        ) : null}
+      </TouchableOpacity>
+    ) : (
       <TouchableOpacity onPress={openModal} activeOpacity={0.85} style={styles.container}>
         <LinearGradient
           colors={['rgba(255,255,255,0.22)', 'rgba(255,255,255,0.12)']}
@@ -428,6 +458,11 @@ export default function PointsBadge({
           </View>
         </LinearGradient>
       </TouchableOpacity>
+    );
+
+  return (
+    <>
+      {trigger}
 
       <Modal visible={isModalVisible} transparent animationType="none" onRequestClose={closeModal}>
         <View style={styles.modalContainer}>
@@ -528,7 +563,7 @@ export default function PointsBadge({
               </Text>{' '}
               para resgatar{' '}
               <Text style={styles.confirmRewardText}>
-                {pendingRedeemConfirmation?.rewardName ?? 'esta recompensa'}
+                {pendingRedeemConfirmation?.rewardName ?? 'este benefício'}
               </Text>
               .
             </Text>
@@ -582,7 +617,7 @@ export default function PointsBadge({
             </View>
             <Text style={styles.confirmTitle}>Resgate bloqueado</Text>
             <Text style={styles.confirmMessage}>
-              você não possui saldo suficiente para resgatar essa recompensa.
+              você não possui saldo suficiente para resgatar esse benefício.
             </Text>
             <Text style={styles.confirmBalanceHint}>
               Necessário:{' '}
@@ -616,7 +651,7 @@ export default function PointsBadge({
       <CpfRequiredModal
         visible={showCpfModal}
         title="CPF obrigatório"
-        message="Para resgatar recompensas, complete seu CPF no cadastro."
+        message="Para resgatar benefícios, complete seu CPF no cadastro."
         onClose={() => setShowCpfModal(false)}
         onCompleteProfile={() => {
           setShowCpfModal(false);
@@ -636,6 +671,44 @@ export default function PointsBadge({
 }
 
 const styles = StyleSheet.create({
+  iconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.65)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  iconButtonPlain: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+  },
+  iconPointsBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    minWidth: 18,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: '#F59E0B',
+    borderWidth: 1.5,
+    borderColor: AppColors.text.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconPointsBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#111827',
+    lineHeight: 11,
+  },
   container: {
     borderRadius: 18,
     overflow: 'hidden',

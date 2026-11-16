@@ -1,35 +1,21 @@
-import { formatOpinioesLabel, formatTimeAgo } from '@/components/forum/forumUtils';
-import { AppColors } from '@/constants/theme';
+import FeedMedia from '@/components/feed/FeedMedia';
+import { formatComentariosLabel } from '@/components/forum/forumUtils';
 import { useAppTheme } from '@/contexts/AppThemeContext';
-import type { NewsCommentListItemDto } from '@/services/newsApi';
 import type { FeedNovidade } from '@/types/feedNovidade';
+import { feedPublisherDisplayName } from '@/utils/feedPublisher';
 import { Ionicons } from '@expo/vector-icons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useMemo } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 export interface FeedNovidadeCardBodyProps {
   item: FeedNovidade;
   imageCacheEpoch: number;
-  comments: NewsCommentListItemDto[];
-  commentDraft: string;
-  commentsExpanded: boolean;
-  commentsLoading: boolean;
-  commentSending: boolean;
   canInteract: boolean;
   onOpenDetail: () => void;
   onLike: () => void;
-  onToggleComments: () => void;
-  onCommentDraftChange: (text: string) => void;
-  onSendComment: () => void;
+  onOpenLikes: () => void;
+  onOpenComments: () => void;
   showPinnedLabel?: boolean;
 }
 
@@ -39,36 +25,37 @@ function formatHandleLine(handle: string, dataRelativa: string): string {
   return `${h} · ${time}`;
 }
 
-function commentAuthorName(c: NewsCommentListItemDto): string {
-  return (c.author?.name || 'Morador(a)').trim();
-}
-
 export default function FeedNovidadeCardBody({
   item,
   imageCacheEpoch,
-  comments,
-  commentDraft,
-  commentsExpanded,
-  commentsLoading,
-  commentSending,
   canInteract,
   onOpenDetail,
   onLike,
-  onToggleComments,
-  onCommentDraftChange,
-  onSendComment,
+  onOpenLikes,
+  onOpenComments,
   showPinnedLabel = false,
 }: FeedNovidadeCardBodyProps) {
   const { name: themeName } = useAppTheme();
 
   const displayName = useMemo(() => {
-    if (item.autorNome && item.autorNome !== 'Prefeito') return item.autorNome;
+    const fromAuthor = feedPublisherDisplayName(item);
+    if (fromAuthor && fromAuthor !== 'Prefeitura') return fromAuthor;
     const themed = themeName?.trim();
     if (themed && themed !== 'Default') {
       return themed.toLowerCase().includes('prefeitura') ? themed : `Prefeitura de ${themed}`;
     }
     return 'Prefeitura';
-  }, [item.autorNome, themeName]);
+  }, [item, themeName]);
+
+  const metaLine = useMemo(() => {
+    if (item.isOfficial && (item.officialRole || item.officialInstitution)) {
+      const role = item.officialRole?.trim();
+      const institution = item.officialInstitution?.trim();
+      const rolePart = [role, institution].filter(Boolean).join(' · ');
+      return `${rolePart} · ${item.dataRelativa.replace(/^há\s+/i, '').trim() || item.dataRelativa}`;
+    }
+    return formatHandleLine(item.autorHandle, item.dataRelativa);
+  }, [item]);
 
   const imageUri = useMemo(() => {
     if (!item.imagem) return null;
@@ -78,134 +65,128 @@ export default function FeedNovidadeCardBody({
   }, [item.imagem, imageCacheEpoch]);
 
   const bodyText = useMemo(() => {
-    const resumo = item.resumo?.trim();
-    const titulo = item.titulo?.trim();
+    const resumo = item.resumo?.replace(/\s+/g, ' ').trim() ?? '';
+    const titulo = item.titulo?.replace(/\s+/g, ' ').trim() ?? '';
     if (resumo && titulo && resumo !== titulo && !resumo.startsWith(titulo)) {
-      return `${titulo}\n\n${resumo}`;
+      const sep = /[.!?…]$/.test(titulo) ? ' ' : '. ';
+      return `${titulo}${sep}${resumo}`;
     }
     return resumo || titulo || '';
   }, [item.resumo, item.titulo]);
 
   return (
-    <View style={styles.row}>
-      <Image source={{ uri: item.autorAvatar }} style={styles.avatar} />
-
-      <View style={styles.main}>
+    <View style={styles.root}>
+      <View style={styles.header}>
         <Pressable
           onPress={onOpenDetail}
-          style={({ pressed }) => [pressed && styles.contentPressed]}
+          style={({ pressed }) => [styles.headerLeft, pressed && styles.pressed]}
           accessibilityRole="button"
           accessibilityLabel={`Abrir publicação: ${item.titulo}`}
         >
-          <View style={styles.headerRow}>
-            <View style={styles.headerText}>
+          <Image source={{ uri: item.autorAvatar }} style={styles.avatar} />
+          <View style={styles.headerText}>
+            <View style={styles.nameRow}>
               <Text style={styles.authorName} numberOfLines={1}>
                 {displayName}
               </Text>
-              <Text style={styles.metaLine} numberOfLines={1}>
-                {formatHandleLine(item.autorHandle, item.dataRelativa)}
-              </Text>
+              {item.isOfficial ? (
+                <Ionicons name="checkmark-circle" size={16} color="#1D9BF0" />
+              ) : null}
             </View>
-            {showPinnedLabel ? (
-              <View
-                style={styles.pinnedLabel}
-                accessibilityRole="text"
-                accessibilityLabel="Fixado"
-              >
-                <MaterialIcons name="push-pin" size={13} color="#94a3b8" />
-                <Text style={styles.pinnedLabelText}>Fixado</Text>
-              </View>
-            ) : (
-              <Ionicons name="ellipsis-horizontal" size={18} color="#536471" />
-            )}
+            <Text style={styles.metaLine} numberOfLines={1}>
+              {metaLine}
+            </Text>
           </View>
-
-          <Text style={styles.body}>{bodyText}</Text>
-
-          {imageUri ? (
-            <Image source={{ uri: imageUri }} style={styles.media} resizeMode="cover" />
-          ) : null}
         </Pressable>
 
+        {showPinnedLabel ? (
+          <View
+            style={styles.pinnedLabel}
+            accessibilityRole="text"
+            accessibilityLabel="Fixado"
+          >
+            <MaterialIcons name="push-pin" size={13} color="#94a3b8" />
+            <Text style={styles.pinnedLabelText}>Fixado</Text>
+          </View>
+        ) : (
+          <Ionicons name="ellipsis-horizontal" size={18} color="#536471" />
+        )}
+      </View>
+
+      {imageUri ? (
+        <Pressable
+          onPress={onOpenDetail}
+          accessibilityRole="imagebutton"
+          accessibilityLabel={`Abrir publicação: ${item.titulo}`}
+        >
+          <FeedMedia
+            uri={imageUri}
+            contentType={item.imagemContentType}
+            aspectRatio={4 / 5}
+            style={styles.media}
+          />
+        </Pressable>
+      ) : null}
+
+      <View style={styles.footer}>
         <View style={styles.actionsRow}>
-          <Pressable
-            onPress={onLike}
-            disabled={!canInteract}
-            style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
-            accessibilityRole="button"
-            accessibilityLabel={item.liked ? 'Descurtir' : 'Curtir'}
-          >
-            <Ionicons
-              name={item.liked ? 'heart' : 'heart-outline'}
-              size={18}
-              color={item.liked ? '#e11d48' : '#536471'}
-            />
-            <Text style={[styles.actionCount, item.liked && styles.likeCountActive]}>
-              {item.curtidas}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={onToggleComments}
-            style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
-            accessibilityRole="button"
-            accessibilityLabel="Ver opiniões"
-          >
-            <Ionicons name="chatbubble-outline" size={18} color="#0891b2" />
-            <Text style={styles.commentLabel}>{formatOpinioesLabel(item.comentarios)}</Text>
-          </Pressable>
+          <View style={styles.actionGroup}>
+            <Pressable
+              onPress={onLike}
+              disabled={!canInteract}
+              style={({ pressed }) => [styles.actionBtn, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel={item.liked ? 'Descurtir' : 'Curtir'}
+            >
+              <Ionicons
+                name={item.liked ? 'heart' : 'heart-outline'}
+                size={26}
+                color={item.liked ? '#e11d48' : '#0f172a'}
+              />
+            </Pressable>
+            <Pressable
+              onPress={onOpenLikes}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Ver curtidas"
+            >
+              <Text style={styles.likesText}>
+                {item.curtidas === 1 ? '1 curtida' : `${item.curtidas} curtidas`}
+              </Text>
+            </Pressable>
+          </View>
+          <View style={styles.actionGroup}>
+            <Pressable
+              onPress={onOpenComments}
+              style={({ pressed }) => [styles.actionBtn, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Ver comentários"
+            >
+              <Ionicons name="chatbubble-outline" size={24} color="#0f172a" />
+            </Pressable>
+            <Pressable
+              onPress={onOpenComments}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Ver comentários"
+            >
+              <Text style={styles.likesText}>{formatComentariosLabel(item.comentarios)}</Text>
+            </Pressable>
+          </View>
         </View>
 
-        {commentsExpanded ? (
-          <View style={styles.commentsSection}>
-            {commentsLoading ? (
-              <ActivityIndicator
-                size="small"
-                color={AppColors.primary}
-                style={styles.commentsLoader}
-              />
-            ) : comments.length === 0 ? (
-              <Text style={styles.commentsEmpty}>Nenhuma opinião ainda. Seja o primeiro!</Text>
-            ) : (
-              comments.map((c) => (
-                <View key={c.id} style={styles.commentItem}>
-                  <View style={styles.commentAuthorRow}>
-                    <Text style={styles.commentAuthorName} numberOfLines={1}>
-                      {commentAuthorName(c)}
-                    </Text>
-                  </View>
-                  <Text style={styles.commentBody}>{c.content}</Text>
-                  <Text style={styles.commentTime}>{formatTimeAgo(c.createdAt)}</Text>
-                </View>
-              ))
-            )}
-
-            <View style={styles.commentComposer}>
-              <TextInput
-                style={styles.commentInput}
-                placeholder="Deixe sua opinião..."
-                placeholderTextColor={AppColors.text.quaternary}
-                value={commentDraft}
-                onChangeText={onCommentDraftChange}
-                editable={canInteract && !commentSending}
-              />
-              <Pressable
-                onPress={onSendComment}
-                disabled={!canInteract || !commentDraft.trim() || commentSending}
-                style={({ pressed }) => [
-                  styles.commentSendBtn,
-                  (!canInteract || !commentDraft.trim() || commentSending) &&
-                    styles.commentSendBtnDisabled,
-                  pressed && styles.commentSendBtnPressed,
-                ]}
-              >
-                {commentSending ? (
-                  <ActivityIndicator size="small" color={AppColors.text.white} />
-                ) : (
-                  <Ionicons name="send" size={18} color={AppColors.text.white} />
-                )}
-              </Pressable>
-            </View>
-          </View>
+        {bodyText ? (
+          <Pressable
+            onPress={onOpenDetail}
+            style={({ pressed }) => [pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel={`Abrir publicação: ${item.titulo}`}
+          >
+            <Text style={styles.caption}>
+              <Text style={styles.captionAuthor}>{displayName} </Text>
+              {bodyText}
+            </Text>
+          </Pressable>
         ) : null}
       </View>
     </View>
@@ -213,168 +194,101 @@ export default function FeedNovidadeCardBody({
 }
 
 const styles = StyleSheet.create({
-  row: {
+  root: {
+    width: '100%',
+    backgroundColor: '#ffffff',
+  },
+  header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#e5e7eb',
-  },
-  main: {
+  headerLeft: {
     flex: 1,
-    minWidth: 0,
-    gap: 8,
-  },
-  contentPressed: {
-    opacity: 0.92,
-  },
-  headerRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 8,
+    alignItems: 'center',
+    gap: 10,
+    minWidth: 0,
   },
   headerText: {
     flex: 1,
     minWidth: 0,
-    gap: 1,
+    gap: 2,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 0,
   },
   authorName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0f1419',
+    flexShrink: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
   },
   metaLine: {
-    fontSize: 14,
-    color: '#536471',
+    fontSize: 12,
+    color: '#64748b',
   },
   pinnedLabel: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingTop: 2,
   },
   pinnedLabelText: {
     fontSize: 12,
     fontWeight: '600',
     color: '#94a3b8',
   },
-  body: {
-    fontSize: 15,
-    lineHeight: 21,
-    color: '#0f1419',
-    marginTop: 4,
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#e5e7eb',
   },
   media: {
-    width: '100%',
-    height: 200,
-    borderRadius: 14,
-    backgroundColor: '#e5e7eb',
-    marginTop: 8,
+    alignSelf: 'stretch',
+    backgroundColor: '#000',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginHorizontal: 8,
+  },
+  footer: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
+    gap: 6,
   },
   actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 20,
+    gap: 18,
   },
-  actionBtn: {
+  actionGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 4,
   },
-  actionBtnPressed: {
-    opacity: 0.7,
+  actionBtn: {
+    paddingVertical: 2,
   },
-  actionCount: {
+  likesText: {
     fontSize: 14,
-    color: '#64748b',
-    fontWeight: '600',
+    fontWeight: '700',
+    color: '#0f172a',
   },
-  commentLabel: {
+  caption: {
     fontSize: 14,
-    color: '#0891b2',
-    fontWeight: '600',
-  },
-  likeCountActive: {
-    color: '#e11d48',
-  },
-  commentsSection: {
-    marginTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
-    paddingTop: 10,
-    gap: 10,
-  },
-  commentsLoader: {
-    alignSelf: 'flex-start',
-    marginVertical: 4,
-  },
-  commentsEmpty: {
-    fontSize: 13,
-    color: '#64748b',
-    lineHeight: 18,
-  },
-  commentItem: {
-    paddingLeft: 10,
-    borderLeftWidth: 2,
-    borderLeftColor: '#cffafe',
-  },
-  commentAuthorRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'baseline',
-  },
-  commentAuthorName: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#1e293b',
-  },
-  commentBody: {
-    fontSize: 14,
-    color: '#475569',
-    marginTop: 4,
     lineHeight: 20,
+    color: '#0f172a',
   },
-  commentTime: {
-    fontSize: 10,
-    color: AppColors.text.quaternary,
-    marginTop: 4,
+  captionAuthor: {
+    fontWeight: '700',
   },
-  commentComposer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
-  },
-  commentInput: {
-    flex: 1,
-    minHeight: 40,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
-    color: AppColors.text.secondary,
-    backgroundColor: '#ffffff',
-  },
-  commentSendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#0891b2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  commentSendBtnDisabled: {
-    opacity: 0.4,
-  },
-  commentSendBtnPressed: {
-    opacity: 0.85,
+  pressed: {
+    opacity: 0.72,
   },
 });

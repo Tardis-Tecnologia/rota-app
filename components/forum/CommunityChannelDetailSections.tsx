@@ -18,12 +18,13 @@ import {
 } from 'react-native';
 
 function roleLabel(role: ForumCommunityDetail['myRole']): string | null {
-  if (role === 'OWNER') return 'Dono do canal';
+  if (role === 'OWNER') return 'Criador';
   if (role === 'MEMBER') return 'Participante';
   return null;
 }
 
 function membershipLabel(c: ForumCommunityDetail): string | null {
+  if (c.joinRequestStatus === 'PENDING') return 'Pedido enviado';
   if (c.isFollowing && !c.isMember) return 'Seguindo';
   return roleLabel(c.myRole);
 }
@@ -48,19 +49,33 @@ function InfoChip({
   icon,
   label,
   value,
+  onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string;
+  onPress?: () => void;
 }) {
-  return (
+  const body = (
     <View style={styles.chip}>
       <View style={styles.chipIconWrap}>
         <Ionicons name={icon} size={18} color="#0891b2" />
       </View>
       <Text style={styles.chipValue}>{value}</Text>
       <Text style={styles.chipLabel}>{label}</Text>
+      {onPress ? <Text style={styles.chipHint}>Toque para ver</Text> : null}
     </View>
+  );
+  if (!onPress) return body;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.chipPress, pressed && styles.metaPressed]}
+      accessibilityRole="button"
+      accessibilityLabel={`Ver ${label.toLowerCase()}`}
+    >
+      {body}
+    </Pressable>
   );
 }
 
@@ -120,6 +135,7 @@ interface CommunityChannelDetailHeaderProps {
   postsCount: number;
   actionButtons: React.ReactNode;
   onOpenMap?: () => void;
+  onOpenMembers?: () => void;
 }
 
 export function CommunityChannelDetailHeader({
@@ -128,6 +144,7 @@ export function CommunityChannelDetailHeader({
   postsCount,
   actionButtons,
   onOpenMap,
+  onOpenMembers,
 }: CommunityChannelDetailHeaderProps) {
   const cover = communityCoverUrl(community);
   const coverUri = cover
@@ -192,11 +209,7 @@ export function CommunityChannelDetailHeader({
           icon="people"
           label="Membros"
           value={String(community.membersCount)}
-        />
-        <InfoChip
-          icon="heart"
-          label="Seguidores"
-          value={String(community.followersCount)}
+          onPress={onOpenMembers}
         />
         <InfoChip icon="newspaper" label="Publicações" value={String(postsCount)} />
       </View>
@@ -251,8 +264,8 @@ export function CommunityChannelDetailHeader({
             label="Quem pode publicar"
             value={
               community.privacy === 'PRIVATE'
-                ? 'Somente o dono do canal'
-                : 'Quem seguir o canal (e o dono)'
+                ? 'Somente um criador'
+                : 'Quem for membro'
             }
           />
 
@@ -293,13 +306,13 @@ export function CommunityChannelDetailHeader({
 
 interface CommunityFeedSectionHeaderProps {
   postsCount: number;
-  canPost: boolean;
+  publishRule: string;
   postHint?: string | null;
 }
 
 export function CommunityFeedSectionHeader({
   postsCount,
-  canPost,
+  publishRule,
   postHint,
 }: CommunityFeedSectionHeaderProps) {
   return (
@@ -315,12 +328,10 @@ export function CommunityFeedSectionHeader({
                 : `${postsCount} publicações no feed`}
           </Text>
         </View>
-        {canPost ? (
-          <View style={styles.canPostBadge}>
-            <Ionicons name="create-outline" size={14} color="#0e7490" />
-            <Text style={styles.canPostBadgeText}>Pode publicar</Text>
-          </View>
-        ) : null}
+        <View style={styles.canPostBadge}>
+          <Ionicons name="create-outline" size={14} color="#0e7490" />
+          <Text style={styles.canPostBadgeText}>{publishRule}</Text>
+        </View>
       </View>
       {postHint ? (
         <View style={styles.feedHintBox}>
@@ -414,6 +425,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     gap: 8,
   },
+  chipPress: { flex: 1 },
   chip: {
     flex: 1,
     backgroundColor: AppColors.background.default,
@@ -435,6 +447,7 @@ const styles = StyleSheet.create({
   },
   chipValue: { fontSize: 18, fontWeight: '900', color: '#0f172a' },
   chipLabel: { fontSize: 11, fontWeight: '600', color: AppColors.text.tertiary, marginTop: 2 },
+  chipHint: { fontSize: 10, fontWeight: '700', color: '#0891b2', marginTop: 4 },
   sectionCard: {
     marginHorizontal: 16,
     backgroundColor: AppColors.background.default,

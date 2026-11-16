@@ -38,25 +38,16 @@ interface ExploreFloatingCardProps {
 }
 
 const DEFAULT_ITEMS: QuickAccessItem[] = [
-  { id: 'restaurant', label: 'Restaurantes', icon: 'restaurant-outline', iconColor: '#dc2626' },
-  { id: 'fast_food', label: 'Fast-food', icon: 'fast-food-outline', iconColor: '#f97316' },
-  { id: 'bakery', label: 'Padarias', icon: 'pizza-outline', iconColor: '#a16207' },
-  { id: 'bar', label: 'Bares', icon: 'beer-outline', iconColor: '#ef4444' },
-  { id: 'cafe', label: 'Cafés', icon: 'cafe-outline', iconColor: '#92400e' },
-  { id: 'pharmacy', label: 'Farmácias', icon: 'medkit-outline', iconColor: '#16a34a' },
-  { id: 'atm', label: 'Caixas', icon: 'card-outline', iconColor: '#059669' },
-  { id: 'market', label: 'Mercados', icon: 'basket-outline', iconColor: '#d97706' },
-  { id: 'supermarket', label: 'Supermercados', icon: 'cart-outline', iconColor: '#16a34a' },
-  { id: 'prestador', label: 'Prestadores', icon: 'construct-outline', iconColor: '#0d9488' },
-  { id: 'gym', label: 'Academias', icon: 'barbell-outline', iconColor: '#7c3aed' },
-  { id: 'park', label: 'Parques', icon: 'leaf-outline', iconColor: '#15803d' },
+  { id: 'hospital', label: 'Hospitais', icon: 'medkit-outline', iconColor: '#db2777' },
   { id: 'school', label: 'Escolas', icon: 'school-outline', iconColor: '#1e40af' },
-  { id: 'hotel', label: 'Hotéis', icon: 'bed-outline', iconColor: '#c026d3' },
-  { id: 'hospital', label: 'Hospital', icon: 'medkit-outline', iconColor: '#db2777' },
-  { id: 'shopping_center', label: 'Shopping Center', icon: 'bag-outline', iconColor: '#ea580c' },
-  { id: 'bank', label: 'Bancos', icon: 'business-outline', iconColor: '#2563eb' },
+  { id: 'restaurant', label: 'Restaurantes', icon: 'restaurant-outline', iconColor: '#dc2626' },
+  { id: 'pharmacy', label: 'Farmácias', icon: 'medkit-outline', iconColor: '#16a34a' },
+  { id: 'market', label: 'Mercados', icon: 'basket-outline', iconColor: '#d97706' },
+  { id: 'prestador', label: 'Prestadores', icon: 'construct-outline', iconColor: '#0d9488' },
+  { id: 'partner_stores', label: 'Parceiros', icon: 'storefront-outline', iconColor: '#b45309' },
   { id: 'communities', label: 'Comunidades', icon: 'people-outline', iconColor: '#0891b2' },
-  { id: 'partner_stores', label: 'Lojas parceiras', icon: 'storefront-outline', iconColor: '#b45309' },
+  { id: 'bakery', label: 'Padarias', icon: 'pizza-outline', iconColor: '#a16207' },
+  { id: 'gas_station', label: 'Postos', icon: 'car-outline', iconColor: '#b45309' },
 ];
 
 export function ExploreFloatingCard({
@@ -149,9 +140,10 @@ export function ExploreFloatingCard({
             return (
               <TouchableOpacity
                 key={item.id}
-                style={[styles.chip, isActive && styles.chipActive]}
+                style={[styles.chip, isActive && styles.chipActive, filterLoading && styles.chipDisabled]}
                 onPress={() => onSelectQuickAccess?.(item.id)}
                 activeOpacity={0.85}
+                disabled={filterLoading}
               >
                 <Ionicons
                   name={item.icon}
@@ -302,6 +294,9 @@ const styles = StyleSheet.create({
   chipActive: {
     backgroundColor: AppColors.palette.sky.light,
     borderColor: AppColors.tab.active,
+  },
+  chipDisabled: {
+    opacity: 0.55,
   },
   chipLabel: {
     fontSize: 13,

@@ -13,7 +13,7 @@ interface ForumCommunityCardProps {
 }
 
 function roleBadge(item: ForumCommunityListItem): string | null {
-  if (item.myRole === 'OWNER') return 'Dono';
+  if (item.myRole === 'OWNER') return 'Criador';
   if (item.isMember) return 'Participante';
   if (item.isFollowing) return 'Seguindo';
   if (item.privacy === 'PRIVATE') return 'Privada';

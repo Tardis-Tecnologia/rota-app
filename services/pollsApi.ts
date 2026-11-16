@@ -225,7 +225,7 @@ export async function listPollRewardsForPoll(
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(text || `Erro ao carregar vínculo enquete/recompensa: ${res.status}`);
+    throw new Error(text || `Erro ao carregar vínculo enquete/benefício: ${res.status}`);
   }
   const parsed: unknown = await res.json();
   return normalizeApiArray<PollRewardLinkDto>(parsed);
@@ -245,7 +245,7 @@ export async function getRewardById(rewardId: string): Promise<RewardPublicDto> 
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(text || `Erro ao carregar recompensa: ${res.status}`);
+    throw new Error(text || `Erro ao carregar benefício: ${res.status}`);
   }
   return res.json() as Promise<RewardPublicDto>;
 }

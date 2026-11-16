@@ -1,7 +1,8 @@
+import CityAlerts from '@/components/CityAlerts';
 import PointsBadge from '@/components/PointsBadge';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { useWhitelabelCity } from '@/hooks/useWhitelabelCity';
+import { useCityBrand } from '@/contexts/CityBrandContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -23,6 +24,7 @@ interface HeaderProps {
   onProfilePress?: () => void;
   onChatPress?: () => void;
   hasNotifications?: boolean;
+  alertsReloadToken?: number;
 }
 
 export default function Header({
@@ -32,12 +34,17 @@ export default function Header({
   onProfilePress,
   onChatPress,
   hasNotifications = false,
+  alertsReloadToken = 0,
 }: HeaderProps) {
   const { user } = useAuth();
-  const city = useWhitelabelCity();
+  const brand = useCityBrand();
   const insets = useSafeAreaInsets();
   const resolvedAvatarUri = user?.photoUrl?.trim() || avatarUrl;
   const isVisitante = user?.profile === 'VISITANTE';
+  const firstName =
+    user?.name?.trim().split(/\s+/).filter(Boolean)[0] ||
+    nomeUsuario.trim().split(/\s+/).filter(Boolean)[0] ||
+    'cidadão';
 
   const handleNotificationPress = () => {
     if (onNotificationPress) {
@@ -59,7 +66,7 @@ export default function Header({
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#1D4ED8', '#2563EB', '#14B8A6']}
+        colors={brand.gradient}
         start={{ x: 0.1, y: 0.05 }}
         end={{ x: 0.9, y: 0.95 }}
         style={[styles.headerBg, { paddingTop: Math.max(insets.top, 16) + 10 }]}
@@ -81,8 +88,8 @@ export default function Header({
             </TouchableOpacity>
 
             <View style={styles.greetingContainer}>
-              <Text style={styles.welcomeMessage} numberOfLines={2} ellipsizeMode="tail">
-                Bem-vindo a nova fase {city.cityName} Digital
+              <Text style={styles.welcomeMessage} numberOfLines={1} ellipsizeMode="tail">
+                Olá, {firstName}
               </Text>
             </View>
 
@@ -96,6 +103,8 @@ export default function Header({
               >
                 <Ionicons name="chatbubble-outline" size={20} color={AppColors.text.white} />
               </TouchableOpacity>
+
+              {!isVisitante ? <PointsBadge variant="icon" /> : null}
 
               {!isVisitante ? (
                 <TouchableOpacity
@@ -112,9 +121,7 @@ export default function Header({
             </View>
           </View>
 
-          <View style={styles.pointsCardRow}>
-            <PointsBadge />
-          </View>
+          <CityAlerts variant="header" reloadToken={alertsReloadToken} />
         </View>
       </LinearGradient>
     </View>
@@ -123,12 +130,12 @@ export default function Header({
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom: 16,
+    paddingBottom: 12,
   },
   headerBg: {
     borderBottomLeftRadius: 36,
     borderBottomRightRadius: 36,
-    paddingBottom: 18,
+    paddingBottom: 12,
     overflow: 'hidden',
   },
   inner: {
@@ -196,8 +203,4 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  pointsCardRow: {
-    marginTop: 14,
-  },
 });
-

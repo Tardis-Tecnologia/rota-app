@@ -55,12 +55,12 @@ export async function openWorkOnMap(work: WorkResponseDto): Promise<boolean> {
   }
 
   router.push({
-    pathname: '/works/location',
+    pathname: '/(tabs)/map',
     params: {
-      destLat: String(coords.latitude),
-      destLng: String(coords.longitude),
-      title: work.title?.trim() || work.address?.trim() || 'Obra',
-      address: work.address?.trim() ?? '',
+      focusLat: String(coords.latitude),
+      focusLng: String(coords.longitude),
+      focusLabel: work.title?.trim() || work.address?.trim() || 'Obra',
+      focusAddress: work.address?.trim() ?? '',
     },
   });
   return true;

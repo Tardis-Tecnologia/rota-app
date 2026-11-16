@@ -7,6 +7,7 @@ import {
   markNotificationRead,
   NOTIFICATIONS_PAGE_SIZE,
 } from '@/services/notificationApi';
+import { isCommercialAccessToken } from '@/utils/comercioAuth';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -81,6 +82,25 @@ export default function NotificationsScreen() {
 
   const onPressItem = useCallback(
     async (item: NotificationDto) => {
+      if (item.channelType === 'forum_community' && item.channelId) {
+        router.push({
+          pathname: '/forum/communities/[id]',
+          params: { id: item.channelId },
+        });
+      } else if (item.channelType && item.channelId) {
+        router.push({
+          pathname: '/ChatTab',
+          params: {
+            provider: JSON.stringify({
+              id: 'prefeitura',
+              name: 'Prefeitura',
+              channelType: item.channelType,
+              channelId: item.channelId,
+            }),
+            ...(isCommercialAccessToken() ? { returnTo: '/comerciante/mensagens' } : {}),
+          },
+        });
+      }
       if (!isNotificationUnreadDto(item)) return;
       const optimisticAt = new Date().toISOString();
       setItems((prev) =>

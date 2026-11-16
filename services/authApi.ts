@@ -1,5 +1,6 @@
 import { FORUM_ACCOUNT_BANNED_ERROR } from './forumBanNoticeStore';
 import {
+  ensureAuthTokenHydrated,
   getApiBaseUrl,
   getAuthToken,
   getWhitelabelHostId,
@@ -8,13 +9,21 @@ import {
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
 import { isForumInactiveUserMessage } from '@/utils/forumPostingSuspensionParse';
 
-export { getApiBaseUrl, getAuthToken, getWhitelabelHostId, setAuthToken } from './apiConfig';
+export {
+  buildAuthHeaders,
+  ensureAuthTokenHydrated,
+  getApiBaseUrl,
+  getAuthToken,
+  getWhitelabelHostId,
+  setAuthToken,
+} from './apiConfig';
 
 const BASE_PATH = '/api/v1';
 
 interface LoginResponseBody {
   token: string;
   name?: string | null;
+  cpf?: string | null;
   profile: string;
   themeSlug?: string | null;
   photoUrl?: string | null;
@@ -25,6 +34,7 @@ export interface LoginSuccess {
   token: string;
   userId: string;
   name?: string | null;
+  cpf?: string | null;
   profile: string;
   themeSlug: string | null;
   photoUrl: string | null;
@@ -55,6 +65,8 @@ export interface UserSummary {
   uf?: string;
   cpf?: string;
   photoUrl?: string | null;
+  bio?: string | null;
+  official?: { institution: string; roleTitle: string; verified: true } | null;
 }
 
 function pickPhotoUrl(raw: Record<string, unknown>): string | null | undefined {
@@ -106,20 +118,44 @@ function mapUserSummary(raw: unknown): UserSummary {
     uf: typeof r.uf === 'string' ? r.uf : undefined,
     cpf: typeof r.cpf === 'string' ? r.cpf : undefined,
     ...(photoPick !== undefined ? { photoUrl: photoPick } : {}),
+    ...(typeof r.bio === 'string' || r.bio === null
+      ? { bio: typeof r.bio === 'string' ? r.bio.trim() || null : null }
+      : {}),
+    official: mapOfficialIdentity(r.official),
   };
+}
+
+function mapOfficialIdentity(
+  value: unknown,
+): { institution: string; roleTitle: string; verified: true } | null {
+  if (!value || typeof value !== 'object') return null;
+  const row = value as Record<string, unknown>;
+  const institution = typeof row.institution === 'string' ? row.institution.trim() : '';
+  const roleTitle = typeof row.roleTitle === 'string' ? row.roleTitle.trim() : '';
+  if (!institution || !roleTitle || row.verified !== true) return null;
+  return { institution, roleTitle, verified: true };
+}
+
+export class AuthHttpError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'AuthHttpError';
+    this.status = status;
+  }
 }
 
 export async function getUserById(userId: string): Promise<UserSummary> {
   const url = `${getApiBaseUrl()}${BASE_PATH}/users/${encodeURIComponent(userId)}`;
+  const token = (await ensureAuthTokenHydrated()) || getAuthToken();
   const headers: Record<string, string> = {
     Accept: 'application/json',
   };
-  const token = getAuthToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(url, { method: 'GET', headers });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(text || `Erro ao buscar usuário: ${res.status}`);
+    throw new AuthHttpError(res.status, text || `Erro ao buscar usuário: ${res.status}`);
   }
   const raw = await res.json();
   return mapUserSummary(raw);
@@ -132,6 +168,7 @@ export type UpdateUserProfilePayload = {
   govbrSub?: string | null;
   cpf?: string | null;
   password?: string;
+  bio?: string | null;
 };
 
 export async function updateUserProfile(
@@ -241,6 +278,7 @@ export async function login(
     token: data.token,
     userId,
     name: data.name ?? null,
+    cpf: typeof data.cpf === 'string' ? data.cpf : null,
     profile: data.profile,
     themeSlug: data.themeSlug ?? null,
     photoUrl: pickPhotoUrl(data as unknown as Record<string, unknown>) ?? null,

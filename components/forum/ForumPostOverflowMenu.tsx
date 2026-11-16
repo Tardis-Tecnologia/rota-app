@@ -14,9 +14,11 @@ interface ForumPostOverflowMenuProps {
   anchor: ForumPostOverflowAnchor | null;
   canViewProfile: boolean;
   canReport?: boolean;
+  canDelete?: boolean;
   onClose: () => void;
   onViewProfile: () => void;
   onReport: () => void;
+  onDelete?: () => void;
 }
 
 const MENU_WIDTH = 196;
@@ -26,9 +28,11 @@ export default function ForumPostOverflowMenu({
   anchor,
   canViewProfile,
   canReport = true,
+  canDelete = false,
   onClose,
   onViewProfile,
   onReport,
+  onDelete,
 }: ForumPostOverflowMenuProps) {
   if (!visible || !anchor) return null;
 
@@ -60,6 +64,22 @@ export default function ForumPostOverflowMenu({
             Ver perfil
           </Text>
         </Pressable>
+
+        {canDelete && onDelete ? (
+          <>
+            <View style={styles.menuDivider} />
+            <Pressable
+              onPress={() => {
+                onClose();
+                onDelete();
+              }}
+              style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+            >
+              <Ionicons name="trash-outline" size={20} color={AppColors.status.error} />
+              <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Excluir publicação</Text>
+            </Pressable>
+          </>
+        ) : null}
 
         {canReport ? (
           <>

@@ -33,7 +33,7 @@ export interface ForumCommunityListItem {
   followersCount: number;
   isFollowing: boolean;
   isMember: boolean;
-  /** Se o usuário logado pode criar post neste canal (regra no back: pública = seguidor/dono; privada = dono). */
+  /** Se o usuário logado pode criar post neste canal (pública = membro; privada = criador). */
   canPost: boolean;
   myRole: ForumCommunityMemberRole | null;
   createdAt: string;
@@ -43,6 +43,8 @@ export interface ForumCommunityListItem {
 export interface ForumCommunityDetail extends ForumCommunityListItem {
   userId: string;
   updatedAt: string;
+  /** Pedido de entrada ainda não decidido, em comunidade privada. */
+  joinRequestStatus?: 'PENDING' | null;
 }
 
 export interface CreateForumCommunityBody {
@@ -212,7 +214,7 @@ export async function listMyForumCommunities(options?: {
   return parseCommunityList(await res.json());
 }
 
-/** Dono, participante e canais seguidos (sem duplicar por id). */
+/** Criador, participante e canais seguidos (sem duplicar por id). */
 export function mergeMyAndFollowingCommunities(
   mine: ForumCommunityListItem[],
   following: ForumCommunityListItem[],
@@ -283,6 +285,79 @@ export async function unfollowForumCommunity(communityId: string): Promise<void>
   const base = getApiBaseUrl();
   const url = `${base}${BASE_PATH}/forum/communities/${encodeURIComponent(communityId)}/follow`;
   const res = await fetch(url, { method: 'DELETE', headers: authHeaders() });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+}
+
+export interface ForumCommunityMemberListItem {
+  id: string;
+  name: string | null;
+  photoUrl: string | null;
+  role: ForumCommunityMemberRole;
+}
+
+export async function listForumCommunityMembers(
+  communityId: string,
+): Promise<ForumCommunityMemberListItem[]> {
+  const base = getApiBaseUrl();
+  const url = `${base}${BASE_PATH}/forum/communities/${encodeURIComponent(communityId)}/members`;
+  const res = await fetch(url, { method: 'GET', headers: authHeaders() });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+  const data = await res.json();
+  return Array.isArray(data) ? (data as ForumCommunityMemberListItem[]) : [];
+}
+
+export interface ForumCommunityJoinRequest {
+  id: string;
+  name: string | null;
+  photoUrl: string | null;
+  createdAt: string;
+}
+
+export async function listForumCommunityJoinRequests(
+  communityId: string,
+): Promise<ForumCommunityJoinRequest[]> {
+  const base = getApiBaseUrl();
+  const url = `${base}${BASE_PATH}/forum/communities/${encodeURIComponent(communityId)}/join-requests`;
+  const res = await fetch(url, { method: 'GET', headers: authHeaders() });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+  const data = await res.json();
+  return Array.isArray(data) ? (data as ForumCommunityJoinRequest[]) : [];
+}
+
+export async function approveForumCommunityJoinRequest(
+  communityId: string,
+  userId: string,
+): Promise<void> {
+  const base = getApiBaseUrl();
+  const url = `${base}${BASE_PATH}/forum/communities/${encodeURIComponent(communityId)}/join-requests/${encodeURIComponent(userId)}/approve`;
+  const res = await fetch(url, { method: 'POST', headers: authHeaders() });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+}
+
+export async function rejectForumCommunityJoinRequest(
+  communityId: string,
+  userId: string,
+): Promise<void> {
+  const base = getApiBaseUrl();
+  const url = `${base}${BASE_PATH}/forum/communities/${encodeURIComponent(communityId)}/join-requests/${encodeURIComponent(userId)}/reject`;
+  const res = await fetch(url, { method: 'POST', headers: authHeaders() });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+}
+
+export async function cancelForumCommunityJoinRequest(communityId: string): Promise<void> {
+  const base = getApiBaseUrl();
+  const url = `${base}${BASE_PATH}/forum/communities/${encodeURIComponent(communityId)}/join-request`;
+  const res = await fetch(url, { method: 'DELETE', headers: authHeaders() });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+}
+
+export async function promoteForumCommunityCreator(
+  communityId: string,
+  userId: string,
+): Promise<void> {
+  const base = getApiBaseUrl();
+  const url = `${base}${BASE_PATH}/forum/communities/${encodeURIComponent(communityId)}/members/${encodeURIComponent(userId)}/creator`;
+  const res = await fetch(url, { method: 'POST', headers: authHeaders() });
   if (!res.ok) throw new Error(await readErrorMessage(res));
 }
 

@@ -2,22 +2,25 @@ import { AppColors } from '@/constants/theme';
 import React from 'react';
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
+/** Pré-matrículas de demonstração. Substituir pela API de solicitações sem mudar o card. */
 export const mockEnrollments = [
   {
-    id: 'mat1',
-    studentName: 'Sofia Pereira Costa',
-    school: 'Escola Municipal Madrid',
+    id: 'sim-mat1',
+    studentName: 'Ana Costa',
+    school: 'EM Professor Benedito Odilon',
     status: 'Aprovada',
-    requestedAt: '08/10/2025',
+    requestedAt: '08/10/2026',
     photo: 'https://images.unsplash.com/photo-1562774053-701939374585?w=400&auto=format&fit=crop&q=60',
+    simulated: true,
   },
   {
-    id: 'mat2',
-    studentName: 'Sofia Pereira Costa',
-    school: 'Escola Municipal Pio X',
-    status: 'Aprovada',
-    requestedAt: '09/10/2025',
+    id: 'sim-mat2',
+    studentName: 'Lucas Costa',
+    school: 'Creche Municipal São José',
+    status: 'Em análise',
+    requestedAt: '02/08/2026',
     photo: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=400&auto=format&fit=crop&q=60',
+    simulated: true,
   },
 ];
 

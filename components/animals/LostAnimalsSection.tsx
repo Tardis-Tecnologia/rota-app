@@ -1,5 +1,6 @@
 import LostAnimalActionMenu from '@/components/animals/LostAnimalActionMenu';
 import LostAnimalCard from '@/components/animals/LostAnimalCard';
+import LostAnimalDetailModal from '@/components/animals/LostAnimalDetailModal';
 import LostAnimalMarkFoundModal from '@/components/animals/LostAnimalMarkFoundModal';
 import LostAnimalPublishModal from '@/components/animals/LostAnimalPublishModal';
 import type { LostAnimalDto } from '@/components/animals/lostAnimalUtils';
@@ -15,7 +16,6 @@ import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     createForumComment,
-    likeForumPost,
     listForumComments,
     type ForumPostCommentListItemDto,
 } from '@/services/forumApi';
@@ -70,13 +70,13 @@ export default function LostAnimalsSection() {
     Record<string, ForumPostCommentListItemDto[]>
   >({});
   const [commentDraftByItem, setCommentDraftByItem] = useState<Record<string, string>>({});
-  const [commentsExpandedByItem, setCommentsExpandedByItem] = useState<Record<string, boolean>>(
-    {},
-  );
+  // Mantido para compatibilidade com bundles antigos em cache no Expo Go.
+  const [, setCommentsExpandedByItem] = useState<Record<string, boolean>>({});
   const [commentsLoadingByItem, setCommentsLoadingByItem] = useState<Record<string, boolean>>({});
   const [commentSendingItemId, setCommentSendingItemId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [listTab, setListTab] = useState<ListTab>('lost');
+  const [detailItem, setDetailItem] = useState<LostAnimalDto | null>(null);
 
   const canInteract = !!user && user.profile !== 'VISITANTE';
   const apiStatus = listTabToApiStatus(listTab);
@@ -277,77 +277,49 @@ export default function LostAnimalsSection() {
     [],
   );
 
-  const onLike = useCallback(
-    async (lostAnimalId: string) => {
-      const target = items.find((i) => i.id === lostAnimalId);
-      const forumPostId = target?.forumPostId?.trim();
-      if (!forumPostId) return;
+  const loadCommentsForItem = useCallback(async (itemId: string, forumPostId: string) => {
+    setCommentsLoadingByItem((prev) => ({ ...prev, [itemId]: true }));
+    try {
+      const comments = await listForumComments(forumPostId, { init: 0, end: 50 });
+      setCommentsByItem((prev) => ({ ...prev, [itemId]: comments }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Não foi possível carregar os comentários.');
+    } finally {
+      setCommentsLoadingByItem((prev) => ({ ...prev, [itemId]: false }));
+    }
+  }, []);
 
-      setItems((prev) =>
-        prev.map((p) => {
-          if (p.id !== lostAnimalId) return p;
-          const wasLiked = !!p.liked;
-          return {
-            ...p,
-            liked: !wasLiked,
-            likesCount: Math.max(0, (p.likesCount ?? 0) + (wasLiked ? -1 : 1)),
-          };
-        }),
-      );
-      try {
-        await likeForumPost(forumPostId);
-      } catch {
-        void load(false, 0);
-      }
-    },
-    [items, load],
-  );
-
-  const loadCommentsForItem = useCallback(
-    async (itemId: string, forumPostId: string) => {
-      setCommentsLoadingByItem((prev) => ({ ...prev, [itemId]: true }));
-      try {
-        const comments = await listForumComments(forumPostId, { init: 0, end: 50 });
-        setCommentsByItem((prev) => ({ ...prev, [itemId]: comments }));
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Não foi possível carregar os comentários.');
-      } finally {
-        setCommentsLoadingByItem((prev) => ({ ...prev, [itemId]: false }));
-      }
-    },
-    [],
-  );
-
-  const onToggleComments = useCallback(
+  const openDetail = useCallback(
     (item: LostAnimalDto) => {
-      const itemId = item.id;
-      const willExpand = !commentsExpandedByItem[itemId];
-      setCommentsExpandedByItem((prev) => ({ ...prev, [itemId]: willExpand }));
+      setDetailItem(item);
       const forumPostId = item.forumPostId?.trim();
-      if (willExpand && forumPostId && !commentsByItem[itemId]) {
-        void loadCommentsForItem(itemId, forumPostId);
+      if (forumPostId) {
+        void loadCommentsForItem(item.id, forumPostId);
       }
     },
-    [commentsByItem, commentsExpandedByItem, loadCommentsForItem],
+    [loadCommentsForItem],
   );
 
   const onSendComment = useCallback(
     async (itemId: string) => {
-      const target = items.find((i) => i.id === itemId);
+      const target =
+        items.find((i) => i.id === itemId) ?? (detailItem?.id === itemId ? detailItem : null);
       const forumPostId = target?.forumPostId?.trim();
       const text = (commentDraftByItem[itemId] ?? '').trim();
-      if (!text || !user || !forumPostId) return;
+      if (!text || !user || !forumPostId || !target) return;
 
       setCommentSendingItemId(itemId);
       try {
         await createForumComment(forumPostId, text);
         setCommentDraftByItem((prev) => ({ ...prev, [itemId]: '' }));
+        const nextCount = (target.commentsCount ?? 0) + 1;
         setItems((prev) =>
           prev.map((p) =>
-            p.id === itemId
-              ? { ...p, commentsCount: (p.commentsCount ?? 0) + 1 }
-              : p,
+            p.id === itemId ? { ...p, commentsCount: nextCount } : p,
           ),
+        );
+        setDetailItem((prev) =>
+          prev?.id === itemId ? { ...prev, commentsCount: nextCount } : prev,
         );
         const comments = await listForumComments(forumPostId, { init: 0, end: 50 });
         setCommentsByItem((prev) => ({ ...prev, [itemId]: comments }));
@@ -357,7 +329,7 @@ export default function LostAnimalsSection() {
         setCommentSendingItemId(null);
       }
     },
-    [commentDraftByItem, items, user],
+    [commentDraftByItem, detailItem, items, user],
   );
 
   return (
@@ -378,16 +350,32 @@ export default function LostAnimalsSection() {
 
       <View style={styles.tabRow}>
         <Pressable
-          onPress={() => setListTab('lost')}
+          onPress={() => {
+            if (listTab === 'lost') return;
+            setListTab('lost');
+            setItems([]);
+            setError(null);
+            setHasMore(true);
+          }}
           style={[styles.tabBtn, listTab === 'lost' && styles.tabBtnActive]}
+          accessibilityRole="button"
+          accessibilityState={{ selected: listTab === 'lost' }}
         >
           <Text style={[styles.tabBtnText, listTab === 'lost' && styles.tabBtnTextActive]}>
             Perdidos
           </Text>
         </Pressable>
         <Pressable
-          onPress={() => setListTab('found')}
+          onPress={() => {
+            if (listTab === 'found') return;
+            setListTab('found');
+            setItems([]);
+            setError(null);
+            setHasMore(true);
+          }}
           style={[styles.tabBtn, listTab === 'found' && styles.tabBtnActive]}
+          accessibilityRole="button"
+          accessibilityState={{ selected: listTab === 'found' }}
         >
           <Text style={[styles.tabBtnText, listTab === 'found' && styles.tabBtnTextActive]}>
             Encontrados
@@ -463,19 +451,8 @@ export default function LostAnimalsSection() {
                 key={item.id}
                 item={item}
                 imageCacheEpoch={imageEpoch}
-                canInteract={canInteract}
                 isOwner={isLostAnimalOwner(item, user?.id)}
-                comments={commentsByItem[item.id] ?? []}
-                commentsExpanded={!!commentsExpandedByItem[item.id]}
-                commentDraft={commentDraftByItem[item.id] ?? ''}
-                commentSending={commentSendingItemId === item.id}
-                commentsLoading={!!commentsLoadingByItem[item.id]}
-                onLike={() => void onLike(item.id)}
-                onToggleComments={() => onToggleComments(item)}
-                onCommentDraftChange={(t) =>
-                  setCommentDraftByItem((prev) => ({ ...prev, [item.id]: t }))
-                }
-                onSendComment={() => void onSendComment(item.id)}
+                onOpenDetail={() => openDetail(item)}
                 onOpenActions={() => setActionMenuItem(item)}
               />
             ))
@@ -544,6 +521,24 @@ export default function LostAnimalsSection() {
         }}
       />
 
+      <LostAnimalDetailModal
+        item={detailItem}
+        imageCacheEpoch={imageEpoch}
+        visible={!!detailItem}
+        comments={detailItem ? commentsByItem[detailItem.id] ?? [] : []}
+        commentsLoading={detailItem ? !!commentsLoadingByItem[detailItem.id] : false}
+        commentDraft={detailItem ? commentDraftByItem[detailItem.id] ?? '' : ''}
+        commentSending={detailItem ? commentSendingItemId === detailItem.id : false}
+        canComment={canInteract && !!detailItem?.forumPostId?.trim()}
+        onClose={() => setDetailItem(null)}
+        onCommentDraftChange={(t) => {
+          if (!detailItem) return;
+          setCommentDraftByItem((prev) => ({ ...prev, [detailItem.id]: t }));
+        }}
+        onSendComment={() => {
+          if (detailItem) void onSendComment(detailItem.id);
+        }}
+      />
     </View>
   );
 }

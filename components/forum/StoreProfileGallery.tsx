@@ -115,7 +115,7 @@ export default function StoreProfileGallery({
       </View>
       {editable ? (
         <Text style={styles.hint}>
-          Fotos que os clientes veem no seu perfil no fórum. Toque em + para adicionar (máx. 8).
+          Fotos que os clientes veem no seu perfil no feed. Toque em + para adicionar (máx. 8).
         </Text>
       ) : null}
 

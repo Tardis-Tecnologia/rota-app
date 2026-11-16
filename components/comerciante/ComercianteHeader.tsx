@@ -56,7 +56,7 @@ export default function ComercianteHeader({ showForumButton = true }: Comerciant
               style={({ pressed }) => [pressed && styles.avatarPressed]}
               hitSlop={6}
               accessibilityRole="button"
-              accessibilityLabel="Ver perfil da loja no fórum"
+              accessibilityLabel="Ver perfil da loja no feed"
             >
               <Image source={{ uri: avatarUri }} style={styles.avatar} />
             </Pressable>
@@ -68,6 +68,15 @@ export default function ComercianteHeader({ showForumButton = true }: Comerciant
             </View>
           </View>
           <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => router.push('/notifications')}
+              style={({ pressed }) => [styles.headerIconBtn, pressed && styles.headerIconBtnPressed]}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Notificações"
+            >
+              <Ionicons name="notifications-outline" size={20} color="#FFFFFF" />
+            </Pressable>
             <Pressable
               onPress={() => router.push('/comerciante/mensagens')}
               style={({ pressed }) => [styles.headerIconBtn, pressed && styles.headerIconBtnPressed]}
@@ -105,7 +114,7 @@ export default function ComercianteHeader({ showForumButton = true }: Comerciant
             onPress={() => router.push('/comerciante/forum')}
           >
             <Ionicons name="megaphone-outline" size={18} color="#FFFFFF" />
-            <Text style={styles.forumBtnText}>Publicar no fórum</Text>
+            <Text style={styles.forumBtnText}>Publicar no feed</Text>
           </Pressable>
         ) : null}
       </View>

@@ -21,6 +21,12 @@ import { StyleSheet } from 'react-native';
 export interface MapLibreMapaViewRef {
   animateToRegion: (region: Region, duration?: number) => void;
   zoomBy: (deltaLevels: number, duration?: number) => void;
+  setRoute: (payload: {
+    coordinates: [number, number][];
+    origin?: { latitude: number; longitude: number } | null;
+    destination?: { latitude: number; longitude: number; title?: string };
+  }) => void;
+  clearRoute: () => void;
 }
 
 export type MapMarkerVariant = 'card' | 'dot';
@@ -35,7 +41,9 @@ interface MapLibreMapaViewProps {
   getMarkerColor?: (tipo: PontoInteresse['tipo']) => string;
   onRegionChangeComplete?: (region: Region) => void;
   onUserDragMap?: () => void;
+  onUserGestureStart?: () => void;
   onMarkerPress?: (ponto: PontoInteresse) => void;
+  boundary?: unknown | null;
 }
 
 const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
@@ -49,7 +57,9 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
       getMarkerColor,
       onRegionChangeComplete,
       onUserDragMap,
+      onUserGestureStart,
       onMarkerPress,
+      boundary = null,
     },
     ref,
   ) {
@@ -82,7 +92,9 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
           titulo: ponto.titulo,
           latitude: ponto.latitude,
           longitude: ponto.longitude,
-          markerColor: getMarkerColor?.(ponto.tipo) ?? defaultMarkerColor,
+          markerColor: ponto.markerColor ?? getMarkerColor?.(ponto.tipo) ?? defaultMarkerColor,
+          photoUrl: ponto.photoUrl,
+          partner: ponto.placeType === 'partner_stores',
         })),
       [defaultMarkerColor, getMarkerColor, pontos],
     );
@@ -144,6 +156,14 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
     useEffect(() => {
       if (!mapReady) return;
       bridgeRef.current?.sendCommand({
+        type: 'setBoundary',
+        geojson: boundary ?? null,
+      });
+    }, [boundary, mapReady]);
+
+    useEffect(() => {
+      if (!mapReady) return;
+      bridgeRef.current?.sendCommand({
         type: 'set3d',
         enabled: is3dView,
         defaultPitch,
@@ -200,6 +220,21 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
           lastZoomLevelRef.current = next;
           sendCamera(lastCenterRef.current, next, duration);
         },
+        setRoute: (payload) => {
+          bridgeRef.current?.sendCommand({
+            type: 'setRoute',
+            coordinates: payload.coordinates,
+            origin: payload.origin ?? null,
+            destination: payload.destination,
+          });
+        },
+        clearRoute: () => {
+          bridgeRef.current?.sendCommand({
+            type: 'setRoute',
+            coordinates: [],
+            origin: null,
+          });
+        },
       }),
       [sendCamera],
     );
@@ -236,6 +271,7 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
         onReady={handleMapReady}
         onRegionChangeComplete={handleRegionChange}
         onUserDragMap={onUserDragMap}
+        onUserGestureStart={onUserGestureStart}
         onMarkerPress={handleMarkerPress}
       />
     );

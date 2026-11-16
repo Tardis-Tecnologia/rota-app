@@ -136,7 +136,7 @@ export default function RewardsModalBody({
     isLoading ? (
       <View style={styles.feedback}>
         <ActivityIndicator color={AppColors.palette.purple.base} />
-        <Text style={styles.feedbackText}>Carregando recompensas...</Text>
+        <Text style={styles.feedbackText}>Carregando benefícios...</Text>
       </View>
     ) : loadError && !isStoreTab ? (
       <View style={styles.feedback}>
@@ -155,7 +155,7 @@ export default function RewardsModalBody({
       </View>
     ) : !isStoreTab && rewards.length === 0 ? (
       <View style={styles.feedback}>
-        <Text style={styles.feedbackText}>Nenhuma recompensa disponível no momento.</Text>
+        <Text style={styles.feedbackText}>Nenhum benefício disponível no momento.</Text>
       </View>
     ) : !isStoreTab && listData.length === 0 ? (
       <View style={styles.feedback}>

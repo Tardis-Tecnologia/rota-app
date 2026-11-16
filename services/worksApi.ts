@@ -69,10 +69,24 @@ function normalizeWork(raw: unknown): WorkResponseDto {
   };
 }
 
-function requireToken(): string {
+function authHeaders(): HeadersInit {
   const token = getAuthToken();
-  if (!token) throw new Error('Não autenticado');
-  return token;
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
+async function readError(res: Response): Promise<string> {
+  const text = await res.text().catch(() => '');
+  if (!text.trim()) return `Erro ao carregar (${res.status})`;
+  try {
+    const json = JSON.parse(text) as { message?: unknown };
+    if (typeof json.message === 'string' && json.message.trim()) return json.message.trim();
+    if (Array.isArray(json.message) && json.message.length) return String(json.message[0]);
+  } catch {
+    return text.slice(0, 220);
+  }
+  return text.slice(0, 220);
 }
 
 export async function getWorks(options: {
@@ -81,8 +95,6 @@ export async function getWorks(options: {
   init?: number;
   end?: number;
 }): Promise<WorkResponseDto[]> {
-  const token = requireToken();
-
   const params = new URLSearchParams();
   if (options.hostId?.trim()) params.set('hostId', options.hostId.trim());
   if (options.neighborhood?.trim()) params.set('neighborhood', options.neighborhood.trim());
@@ -90,12 +102,9 @@ export async function getWorks(options: {
   if (typeof options.end === 'number') params.set('end', String(options.end));
 
   const url = `${getApiBaseUrl()}${BASE_PATH}/works?${params.toString()}`;
-  const res = await fetch(url, {
-    headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
-  });
+  const res = await fetch(url, { headers: authHeaders() });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(text || `Erro ao carregar obras: ${res.status}`);
+    throw new Error(await readError(res));
   }
   const data = await res.json();
   if (!Array.isArray(data)) return [];
@@ -106,19 +115,14 @@ export async function getWorksStats(options: {
   hostId?: string;
   neighborhood?: string;
 }): Promise<WorksStatsResponseDto> {
-  const token = requireToken();
-
   const params = new URLSearchParams();
   if (options.hostId?.trim()) params.set('hostId', options.hostId.trim());
   if (options.neighborhood?.trim()) params.set('neighborhood', options.neighborhood.trim());
 
   const url = `${getApiBaseUrl()}${BASE_PATH}/works/stats?${params.toString()}`;
-  const res = await fetch(url, {
-    headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
-  });
+  const res = await fetch(url, { headers: authHeaders() });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(text || `Erro ao carregar contadores: ${res.status}`);
+    throw new Error(await readError(res));
   }
   const data = (await res.json()) as Partial<WorksStatsResponseDto>;
   return {
@@ -129,17 +133,13 @@ export async function getWorksStats(options: {
 }
 
 export async function getWorkById(options: { id: string; hostId?: string }): Promise<WorkResponseDto> {
-  const token = requireToken();
   const params = new URLSearchParams();
   if (options.hostId?.trim()) params.set('hostId', options.hostId.trim());
   const qs = params.toString();
   const url = `${getApiBaseUrl()}${BASE_PATH}/works/${encodeURIComponent(options.id)}${qs ? `?${qs}` : ''}`;
-  const res = await fetch(url, {
-    headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
-  });
+  const res = await fetch(url, { headers: authHeaders() });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(text || `Erro ao carregar obra: ${res.status}`);
+    throw new Error(await readError(res));
   }
   return normalizeWork(await res.json());
 }

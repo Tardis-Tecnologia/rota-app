@@ -343,7 +343,7 @@ export default function OpinionCard({ hostId, onVoteSuccess }: OpinionCardProps)
           router.push('/edit-account');
         }}
         title="CPF necessário para votar"
-        message="Informe um CPF válido no seu perfil para participar da enquete e receber os pontos da recompensa."
+        message="Informe um CPF válido no seu perfil para votar e receber os pontos do benefício, quando a enquete tiver um."
       />
     </View>
   );

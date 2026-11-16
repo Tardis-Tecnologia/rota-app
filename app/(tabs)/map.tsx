@@ -22,15 +22,24 @@ import {
     getCurrentPositionWithRetry,
 } from '@/services/locationPermission';
 import { placeToPonto } from '@/services/mapPlaceToPonto';
-import { enrichPontosWithPhotos } from '@/services/placePhotoService';
 import { NEARBY_PLACES_RADIUS_METERS, searchNearbyPlaces } from '@/services/placesService';
+import { enrichPontosWithPhotos } from '@/services/placePhotoService';
+import { cnesMarkerColor, getCnesEstablishments, type CnesEstablishment } from '@/services/cnesApi';
+import { listPublicServiceProviders } from '@/services/serviceProvidersApi';
+import {
+  formatRouteDistance,
+  formatRouteDuration,
+  getDirectionsRoute,
+} from '@/services/directionsService';
 import type { Region } from '@/types';
 import { Localizacao, PontoInteresse } from '@/types';
+import type { DirectionsRoute } from '@/types/directions';
 import { EXPLORE_GPS_STALE_MS } from '@/utils/appRefreshPolicy';
 import {
     EXPLORE_PARTNER_STORES_CHIP_ID,
     loadPartnerStoresForMap,
 } from '@/utils/commercialStoreMap';
+import { regionFromRouteCoordinates } from '@/utils/routeBounds';
 import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import { useFocusEffect } from 'expo-router';
@@ -46,6 +55,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -57,55 +67,32 @@ const EXPLORE_CARD_MAX_LAT_DELTA = 0.058;
 
 const FILTER_CHIP_TO_PLACE_TYPE: Record<string, string> = {
   restaurant: 'restaurant',
-  fast_food: 'fast_food',
   bakery: 'bakery',
-  bar: 'bar',
-  cafe: 'cafe',
   pharmacy: 'pharmacy',
-  atm: 'atm',
   market: 'market',
-  supermarket: 'supermarket',
-  prestador: 'gas_station',
-  gym: 'gym',
-  park: 'park',
   school: 'school',
-  hotel: 'hotel',
   hospital: 'hospital',
-  shopping_center: 'shopping_center',
-  bank: 'bank',
+  gas_station: 'gas_station',
 };
 
 const CHIP_LABELS: Record<string, string> = {
   restaurant: 'Restaurantes',
-  fast_food: 'Fast-food',
   bakery: 'Padarias',
-  bar: 'Bares',
-  cafe: 'Cafés',
   pharmacy: 'Farmácias',
-  atm: 'Caixas',
   market: 'Mercados',
-  supermarket: 'Supermercados',
   prestador: 'Prestadores',
-  gym: 'Academias',
-  park: 'Parques',
   school: 'Escolas',
-  hotel: 'Hotéis',
-  hospital: 'Hospital',
-  shopping_center: 'Shopping Center',
-  bank: 'Bancos',
+  hospital: 'Hospitais',
+  gas_station: 'Postos',
   communities: 'Comunidades',
-  partner_stores: 'Lojas parceiras',
+  partner_stores: 'Parceiros',
 };
 
 function routeParamToChipId(raw: string): string | undefined {
-  const alias: Record<string, string> = {
-    gas_station: 'prestador',
-    shopping: 'shopping_center',
-    shopping_mall: 'shopping_center',
-  };
-  const chip = alias[raw] ?? raw;
+  const chip = raw;
   if (chip === EXPLORE_COMMUNITIES_CHIP_ID) return chip;
   if (chip === EXPLORE_PARTNER_STORES_CHIP_ID) return chip;
+  if (chip === 'prestador') return chip;
   return FILTER_CHIP_TO_PLACE_TYPE[chip] ? chip : undefined;
 }
 
@@ -131,6 +118,8 @@ export default function MapScreen() {
   const [locationError, setLocationError] = useState<'denied' | 'error' | null>(null);
   const [pontos, setPontos] = useState<PontoInteresse[]>([]);
   const [mapPontosForView, setMapPontosForView] = useState<PontoInteresse[]>([]);
+  const [healthLayerOn, setHealthLayerOn] = useState(false);
+  const [healthPontos, setHealthPontos] = useState<PontoInteresse[]>([]);
   const [markersLayerKey, setMarkersLayerKey] = useState(0);
   const [categoriaSelecionada, setCategoriaSelecionada] = useState<string | undefined>(undefined);
   const [filterLoading, setFilterLoading] = useState(false);
@@ -142,15 +131,23 @@ export default function MapScreen() {
   const [showDragHint, setShowDragHint] = useState(true);
   const [prefeituraModalVisible, setPrefeituraModalVisible] = useState(false);
   const [prefeituraAssuntoInicial, setPrefeituraAssuntoInicial] = useState<string | undefined>();
-  const { category, focusLat, focusLng, focusLabel, focusAddress } = useLocalSearchParams<{
-    category?: string;
-    focusLat?: string;
-    focusLng?: string;
-    focusLabel?: string;
-    focusAddress?: string;
-  }>();
+  const [activeRoute, setActiveRoute] = useState<DirectionsRoute | null>(null);
+  const [routeDestName, setRouteDestName] = useState('');
+  const [routeLoading, setRouteLoading] = useState(false);
+  const { category, focusLat, focusLng, focusLabel, focusAddress, traceRoute, routeKey, healthLayer } =
+    useLocalSearchParams<{
+      category?: string;
+      focusLat?: string;
+      focusLng?: string;
+      focusLabel?: string;
+      focusAddress?: string;
+      traceRoute?: string;
+      routeKey?: string;
+      healthLayer?: string;
+    }>();
   const appliedCategoryFromRoute = useRef<string | null>(null);
   const appliedFocusKeyRef = useRef<string | null>(null);
+  const appliedRouteKeyRef = useRef<string | null>(null);
   const pendingInitialGpsCenterRef = useRef(false);
   const lastGpsAtRef = useRef(0);
   const locationReadyRef = useRef(false);
@@ -336,7 +333,10 @@ export default function MapScreen() {
   }, []);
 
   useEffect(() => {
-    if (Platform.OS === 'web') return;
+    if (Platform.OS === 'web') {
+      setShowDragHint(false);
+      return;
+    }
     const t = setTimeout(() => setShowDragHint(false), 12000);
     return () => clearTimeout(t);
   }, []);
@@ -391,6 +391,55 @@ export default function MapScreen() {
         return;
       }
 
+      if (chipId === 'prestador') {
+        setFilterLoading(true);
+        try {
+          const rows = await listPublicServiceProviders({ init: 0, end: 200 });
+          if (isStale()) return;
+          const mapped = rows
+            .filter((item) => item.status === 'APPROVED')
+            .map((item) => {
+              const latitude = Number.parseFloat(String(item.latitude ?? ''));
+              const longitude = Number.parseFloat(String(item.longitude ?? ''));
+              if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+              const address = item.locationName?.trim() || '';
+              const ponto: PontoInteresse = {
+                id: item.id,
+                titulo: item.name,
+                descricao: address || 'Prestador de serviço',
+                latitude,
+                longitude,
+                placeType: 'prestador',
+                formattedAddress: address || undefined,
+                photoUrl: item.imagePublicUrl?.trim() || undefined,
+              };
+              return ponto;
+            })
+            .filter((ponto): ponto is PontoInteresse => ponto != null)
+            .slice(0, EXPLORE_MAP_MAX_MARKERS);
+          setPontos(mapped);
+          publishMapPontos(mapped);
+          setCategoriaSelecionada(chipId);
+          setToastType(mapped.length > 0 ? 'success' : 'info');
+          setToastMessage(
+            mapped.length > 0
+              ? `${mapped.length} prestador${mapped.length === 1 ? '' : 'es'} no mapa.`
+              : 'Nenhum prestador com localização cadastrada.',
+          );
+          setToastKey((k) => k + 1);
+          setShowToast(true);
+        } catch {
+          if (!isStale()) {
+            Alert.alert('Erro', 'Não foi possível carregar os prestadores.');
+          }
+        } finally {
+          if (!isStale()) {
+            setFilterLoading(false);
+          }
+        }
+        return;
+      }
+
       if (chipId === EXPLORE_PARTNER_STORES_CHIP_ID) {
         setFilterLoading(true);
         try {
@@ -428,15 +477,29 @@ export default function MapScreen() {
         const radius = city.placesSearchRadiusMeters || NEARBY_PLACES_RADIUS_METERS;
         const places = await searchNearbyPlaces(placeType, pos, radius, 20);
         if (isStale()) return;
-        const basePontos = places.map((p) => placeToPonto(p, placeType));
+        const partnerSegment =
+          placeType === 'restaurant' ||
+          placeType === 'bakery' ||
+          placeType === 'pharmacy' ||
+          placeType === 'market'
+            ? placeType
+            : undefined;
+        const partners = partnerSegment
+          ? await loadPartnerStoresForMap(partnerSegment).catch(() => [])
+          : [];
+        if (isStale()) return;
+        const basePontos = [...partners, ...places.map((p) => placeToPonto(p, placeType))].slice(
+          0,
+          EXPLORE_MAP_MAX_MARKERS,
+        );
         setPontos(basePontos);
         publishMapPontos(basePontos);
         setCategoriaSelecionada(chipId);
         const label = CHIP_LABELS[chipId] ?? chipId;
         setToastType(places.length > 0 ? 'success' : 'info');
         setToastMessage(
-          places.length > 0
-            ? `${places.length} ${label.toLowerCase()} encontrados.`
+          basePontos.length > 0
+            ? `${basePontos.length} ${label.toLowerCase()} encontrados.`
             : `Nenhum ${label.toLowerCase()} encontrado por perto.`,
         );
         setToastKey((k) => k + 1);
@@ -447,7 +510,12 @@ export default function MapScreen() {
         if (msg === 'UNSUPPORTED_CATEGORY') {
           Alert.alert('Em breve', 'Essa categoria ainda não está disponível.');
         } else {
-          Alert.alert('Erro', 'Não foi possível buscar locais próximos.');
+          Alert.alert(
+            'Erro',
+            msg
+              ? `Não foi possível buscar locais próximos.\n${msg}`
+              : 'Não foi possível buscar locais próximos.',
+          );
         }
       } finally {
         if (!isStale()) {
@@ -474,7 +542,7 @@ export default function MapScreen() {
   }, [loading, locationReady, category, applyFilterChip]);
 
   useEffect(() => {
-    if (loading || Platform.OS === 'web') return;
+    if (loading) return;
     if (typeof focusLat !== 'string' || typeof focusLng !== 'string') return;
 
     const lat = Number(focusLat);
@@ -512,13 +580,15 @@ export default function MapScreen() {
     };
     setLocalizacao(region);
     setMapRegion(region);
-    setSelectedPontoDetail(focusPonto);
+    if (traceRoute !== '1') {
+      setSelectedPontoDetail(focusPonto);
+    }
 
     const id = setTimeout(() => {
       mapRef.current?.animateToRegion(region, 600);
     }, 200);
     return () => clearTimeout(id);
-  }, [loading, focusLat, focusLng, focusLabel, focusAddress, publishMapPontos]);
+  }, [loading, focusLat, focusLng, focusLabel, focusAddress, publishMapPontos, traceRoute]);
 
   useEffect(() => {
     if (loading || Platform.OS === 'web' || !locationReady) return;
@@ -555,18 +625,121 @@ export default function MapScreen() {
     return AppColors.categoria[tipo] || AppColors.primary;
   };
 
+  const clearActiveRoute = useCallback(() => {
+    setActiveRoute(null);
+    setRouteDestName('');
+    setRouteLoading(false);
+    mapRef.current?.clearRoute();
+  }, []);
+
+  const handleRequestDirections = useCallback(
+    async (ponto: PontoInteresse) => {
+      setRouteLoading(true);
+      setRouteDestName(ponto.titulo);
+      setActiveRoute(null);
+      try {
+        const origin = {
+          latitude: searchOrigin.latitude,
+          longitude: searchOrigin.longitude,
+        };
+        const result = await getDirectionsRoute(
+          [origin.longitude, origin.latitude],
+          [ponto.longitude, ponto.latitude],
+          'driving',
+        );
+        setActiveRoute(result);
+        mapRef.current?.setRoute({
+          coordinates: result.coordinates,
+          origin,
+          destination: {
+            latitude: ponto.latitude,
+            longitude: ponto.longitude,
+            title: ponto.titulo,
+          },
+        });
+        const region = regionFromRouteCoordinates(result.coordinates);
+        mapRef.current?.animateToRegion(region, 650);
+      } catch {
+        Alert.alert(
+          'Rota',
+          'Não foi possível traçar o caminho agora. Tente novamente em instantes.',
+        );
+        clearActiveRoute();
+      } finally {
+        setRouteLoading(false);
+      }
+    },
+    [clearActiveRoute, searchOrigin.latitude, searchOrigin.longitude],
+  );
+
+  useEffect(() => {
+    if (loading || traceRoute !== '1') return;
+    if (typeof focusLat !== 'string' || typeof focusLng !== 'string') return;
+    const lat = Number(focusLat);
+    const lng = Number(focusLng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    if (Platform.OS !== 'web' && !locationReady) return;
+
+    const key = typeof routeKey === 'string' && routeKey.trim() ? routeKey : `${focusLat}|${focusLng}`;
+    if (appliedRouteKeyRef.current === key) return;
+    appliedRouteKeyRef.current = key;
+
+    const label =
+      typeof focusLabel === 'string' && focusLabel.trim() ? focusLabel.trim() : 'Destino';
+    const address =
+      typeof focusAddress === 'string' && focusAddress.trim()
+        ? focusAddress.trim()
+        : 'Endereço selecionado';
+
+    void handleRequestDirections({
+      id: `focus-${focusLat}|${focusLng}`,
+      titulo: label,
+      descricao: address,
+      latitude: lat,
+      longitude: lng,
+      tipo: 'turismo',
+      formattedAddress: address,
+    });
+  }, [
+    loading,
+    locationReady,
+    traceRoute,
+    routeKey,
+    focusLat,
+    focusLng,
+    focusLabel,
+    focusAddress,
+    handleRequestDirections,
+  ]);
+
   const handleMarkerPress = useCallback((ponto: PontoInteresse) => {
     setSelectedPontoDetail(ponto);
-    if (ponto.photoUrl?.trim()) return;
+    if (ponto.id.startsWith('cnes-') || ponto.photoUrl?.trim()) return;
     void enrichPontosWithPhotos([ponto]).then((enriched) => {
       const withPhoto = enriched[0];
       if (!withPhoto?.photoUrl?.trim()) return;
       setSelectedPontoDetail((current) =>
-        current?.id === withPhoto.id ? { ...current, photoUrl: withPhoto.photoUrl } : current,
+        current?.id === withPhoto.id
+          ? {
+              ...current,
+              photoUrl: withPhoto.photoUrl,
+              photoUrls: withPhoto.photoUrl
+                ? Array.from(new Set([...(current.photoUrls ?? []), withPhoto.photoUrl]))
+                : current.photoUrls,
+            }
+          : current,
       );
       setPontos((prev) =>
         prev.map((item) =>
-          item.id === withPhoto.id ? { ...item, photoUrl: withPhoto.photoUrl } : item,
+          item.id === withPhoto.id
+            ? {
+                ...item,
+                photoUrl: withPhoto.photoUrl,
+                photoUrls: withPhoto.photoUrl
+                  ? Array.from(new Set([...(item.photoUrls ?? []), withPhoto.photoUrl]))
+                  : item.photoUrls,
+              }
+            : item,
         ),
       );
     });
@@ -585,7 +758,62 @@ export default function MapScreen() {
     return mapRegion.latitudeDelta <= EXPLORE_CARD_MAX_LAT_DELTA ? 'card' : 'dot';
   }, [mapRegion.latitudeDelta]);
 
-  const pontosForMap = filterLoading ? [] : mapPontosForView;
+  useEffect(() => {
+    if (healthLayer === '1') setHealthLayerOn(true);
+  }, [healthLayer]);
+
+  useEffect(() => {
+    if (!healthLayerOn) return;
+    let active = true;
+    const loadHealthPontos = async () => {
+      const items: CnesEstablishment[] = [];
+      let offset = 0;
+      let total = Number.POSITIVE_INFINITY;
+      let sourceNote = '';
+      while (offset < total && offset < 1000) {
+        const page = await getCnesEstablishments({ limit: 50, offset });
+        sourceNote = page.sourceNote;
+        items.push(...page.items);
+        total = page.total;
+        if (page.items.length === 0) break;
+        offset += page.items.length;
+      }
+      return { items, sourceNote };
+    };
+    loadHealthPontos()
+      .then(({ items, sourceNote }) => {
+        if (!active) return;
+        setHealthPontos(
+          items
+            .filter((item) => item.latitude != null && item.longitude != null)
+            .map((item) => ({
+              id: `cnes-${item.cnes}`,
+              titulo: item.name,
+              descricao: `${item.typeName}. Dados abertos do Ministério da Saúde. Este ponto não é agendamento do ROTA.`,
+              latitude: item.latitude as number,
+              longitude: item.longitude as number,
+              tipo: 'saude' as const,
+              formattedAddress: item.address ?? undefined,
+              telefone: item.phone ?? undefined,
+              markerColor: cnesMarkerColor(item.kind),
+              about: sourceNote,
+            })),
+        );
+      })
+      .catch(() => {
+        if (active) setHealthPontos([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [healthLayerOn]);
+
+  const pontosForMap = useMemo(() => {
+    const base = filterLoading ? [] : mapPontosForView;
+    if (!healthLayerOn) return base;
+    const ids = new Set(base.map((ponto) => ponto.id));
+    return [...base, ...healthPontos.filter((ponto) => !ids.has(ponto.id))];
+  }, [filterLoading, healthLayerOn, healthPontos, mapPontosForView]);
 
   const handleUserDragMap = useCallback(() => {
     setShowDragHint(false);
@@ -659,10 +887,43 @@ export default function MapScreen() {
             <Ionicons name="compass-outline" size={32} color={AppColors.primary} />
             <Text style={styles.webTitle}>Pontos de Interesse - {city.cityName}</Text>
             <Text style={styles.webSubtitle}>
-              O mapa interativo está disponível apenas em dispositivos móveis.
-              Use o app no celular para visualizar o mapa completo.
+              {traceRoute === '1' && typeof focusLat === 'string' && typeof focusLng === 'string'
+                ? 'A rota abriu aqui no Explorar. No celular, o caminho aparece traçado no mapa.'
+                : typeof focusLat === 'string' && typeof focusLng === 'string'
+                  ? 'A localização abriu aqui no Explorar. No celular, o mapa centraliza neste ponto.'
+                  : 'O mapa interativo está disponível apenas em dispositivos móveis. Use o app no celular para visualizar o mapa completo.'}
             </Text>
           </View>
+          {traceRoute === '1' && (routeLoading || activeRoute) ? (
+            <View style={styles.webRouteCard}>
+              {routeLoading ? (
+                <View style={styles.routeLoadingRow}>
+                  <ActivityIndicator color={AppColors.tab.active} />
+                  <Text style={styles.routeLoadingText}>Traçando caminho…</Text>
+                </View>
+              ) : activeRoute ? (
+                <>
+                  <Text style={styles.routeTitle} numberOfLines={1}>
+                    {routeDestName || 'Destino'}
+                  </Text>
+                  <View style={styles.routeMetaRow}>
+                    <View style={styles.routeMetaItem}>
+                      <Ionicons name="time-outline" size={16} color="#6d28d9" />
+                      <Text style={styles.routeMetaValue}>
+                        {formatRouteDuration(activeRoute.durationSeconds)}
+                      </Text>
+                    </View>
+                    <View style={styles.routeMetaItem}>
+                      <Ionicons name="navigate-outline" size={16} color="#6d28d9" />
+                      <Text style={styles.routeMetaValue}>
+                        {formatRouteDistance(activeRoute.distanceMeters)}
+                      </Text>
+                    </View>
+                  </View>
+                </>
+              ) : null}
+            </View>
+          ) : null}
           <View style={styles.pontosList}>
             {pontos.map((ponto) => (
               <View key={ponto.id} style={styles.pontoCard}>
@@ -717,8 +978,9 @@ export default function MapScreen() {
     );
   }
 
-  const mapControlsBottom = tabBarHeight + 12;
-  const reportButtonBottom = 20;
+  const hasRouteUi = routeLoading || activeRoute != null;
+  const mapControlsBottom = tabBarHeight + 12 + (hasRouteUi ? 96 : 0);
+  const reportButtonBottom = 20 + (hasRouteUi ? 96 : 0);
 
   return (
     <View style={[styles.container, { backgroundColor: AppColors.background.default }]}>
@@ -726,6 +988,7 @@ export default function MapScreen() {
         ref={mapRef}
         localizacao={localizacao}
         pontos={pontosForMap}
+        boundary={null}
         viewMode="3d"
         markerVariant={markerVariant}
         markersLayerKey={markersLayerKey}
@@ -734,7 +997,7 @@ export default function MapScreen() {
         onUserDragMap={handleUserDragMap}
         onMarkerPress={handleMarkerPress}
       />
-      {showDragHint && (
+      {showDragHint && !hasRouteUi && (
         <View
           pointerEvents="none"
           style={[styles.dragHintWrap, { bottom: mapControlsBottom + 68 }]}
@@ -753,8 +1016,11 @@ export default function MapScreen() {
       >
         <ExploreFloatingCard
           activeItemId={categoriaSelecionada}
-          onSelectQuickAccess={(id) => void applyFilterChip(id)}
-          filterLoading={filterLoading}
+          onSelectQuickAccess={(id) => {
+            clearActiveRoute();
+            void applyFilterChip(id);
+          }}
+          filterLoading={filterLoading || routeLoading}
           hasNotifications={unreadCount > 0}
         />
       </View>
@@ -765,6 +1031,44 @@ export default function MapScreen() {
         onZoomOut={handleZoomOut}
       />
       <ReportButton onReport={handleReport} bottomOffset={reportButtonBottom} />
+      {hasRouteUi ? (
+        <View
+          style={[
+            styles.routePanel,
+            { paddingBottom: Math.max(insets.bottom, 12) + tabBarHeight * 0.15 },
+          ]}
+        >
+          {routeLoading ? (
+            <View style={styles.routeLoadingRow}>
+              <ActivityIndicator color={AppColors.tab.active} />
+              <Text style={styles.routeLoadingText}>Traçando caminho…</Text>
+            </View>
+          ) : activeRoute ? (
+            <>
+              <Text style={styles.routeTitle} numberOfLines={1}>
+                {routeDestName || 'Destino'}
+              </Text>
+              <View style={styles.routeMetaRow}>
+                <View style={styles.routeMetaItem}>
+                  <Ionicons name="time-outline" size={16} color="#6d28d9" />
+                  <Text style={styles.routeMetaValue}>
+                    {formatRouteDuration(activeRoute.durationSeconds)}
+                  </Text>
+                </View>
+                <View style={styles.routeMetaItem}>
+                  <Ionicons name="navigate-outline" size={16} color="#6d28d9" />
+                  <Text style={styles.routeMetaValue}>
+                    {formatRouteDistance(activeRoute.distanceMeters)}
+                  </Text>
+                </View>
+              </View>
+            </>
+          ) : null}
+          <TouchableOpacity style={styles.routeClearBtn} onPress={clearActiveRoute} activeOpacity={0.85}>
+            <Text style={styles.routeClearText}>Limpar rota</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       <ModalReportPrefeitura
         visible={prefeituraModalVisible}
         initialAssunto={prefeituraAssuntoInicial}
@@ -779,6 +1083,7 @@ export default function MapScreen() {
         userLng={searchOrigin.longitude}
         userLat={searchOrigin.latitude}
         onClose={() => setSelectedPontoDetail(null)}
+        onRequestDirections={(ponto) => void handleRequestDirections(ponto)}
       />
       <Toast
         key={toastKey}
@@ -869,6 +1174,61 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
+  routePanel: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 12,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 8,
+    zIndex: 60,
+  },
+  routeLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  routeLoadingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppColors.text.secondary,
+  },
+  routeTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: AppColors.text.secondary,
+  },
+  routeMetaRow: {
+    flexDirection: 'row',
+    gap: 18,
+  },
+  routeMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  routeMetaValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#4c1d95',
+  },
+  routeClearBtn: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+  },
+  routeClearText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: AppColors.tab.active,
+  },
   webContainer: {
     flex: 1,
   },
@@ -891,6 +1251,16 @@ const styles = StyleSheet.create({
     color: AppColors.text.tertiary,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  webRouteCard: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 14,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   pontosList: {
     padding: 16,

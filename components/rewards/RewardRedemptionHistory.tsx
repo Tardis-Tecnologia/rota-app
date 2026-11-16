@@ -29,7 +29,7 @@ export default function RewardRedemptionHistory({
       {redemptions.map((item, index, arr) => {
         const rewardFromList = catalog.find((r) => r.id === item.rewardId);
         const rewardName =
-          item.reward?.name ?? rewardFromList?.name ?? 'Recompensa';
+          item.reward?.name ?? rewardFromList?.name ?? 'Benefício';
         const delta = resolveRedemptionDelta(item, catalog);
 
         const badge =

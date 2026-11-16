@@ -10,7 +10,12 @@ import {
   mapMarketplaceListItem,
   parseMarketplaceListPayload,
 } from '@/utils/marketplaceMappers';
-import { getApiBaseUrl, getAuthToken, getWhitelabelHostId } from './authApi';
+import {
+  buildAuthHeaders,
+  ensureAuthTokenHydrated,
+  getApiBaseUrl,
+  getWhitelabelHostId,
+} from './authApi';
 
 const BASE_PATH = '/api/v1';
 const DEFAULT_PAGE_SIZE = 20;
@@ -45,14 +50,8 @@ async function readErrorMessage(res: Response): Promise<string> {
   return res.statusText || `HTTP ${res.status}`;
 }
 
-function authHeaders(json = true): HeadersInit {
-  const token = getAuthToken();
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-  };
-  if (json) headers['Content-Type'] = 'application/json';
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
+async function authHeaders(json = true): Promise<Record<string, string>> {
+  return buildAuthHeaders(json);
 }
 
 function isLocalImageUri(uri: string): boolean {
@@ -73,6 +72,44 @@ async function resolveImageId(input: MarketplaceListingInput): Promise<string | 
   return uploaded.id;
 }
 
+async function resolveGalleryUpload(
+  input: MarketplaceListingInput,
+): Promise<{ imageId?: string; galleryImageIds: string[] }> {
+  const photos =
+    input.images && input.images.length > 0
+      ? input.images
+      : input.imageUri || input.imageId
+        ? [{ uri: input.imageUri ?? '', id: input.imageId }]
+        : [];
+
+  const resolvedIds: string[] = [];
+  for (let i = 0; i < photos.length; i++) {
+    const photo = photos[i];
+    const existingId = photo.id?.trim();
+    if (existingId) {
+      resolvedIds.push(existingId);
+      continue;
+    }
+    const uri = photo.uri?.trim();
+    if (!uri) continue;
+    if (!isLocalImageUri(uri)) continue;
+    const uploaded = await uploadMarketplaceImageFromUri(uri, {
+      fileName: `marketplace-image-${i + 1}.jpg`,
+    });
+    resolvedIds.push(uploaded.id);
+  }
+
+  if (resolvedIds.length === 0) {
+    const fallback = await resolveImageId(input);
+    return { imageId: fallback, galleryImageIds: [] };
+  }
+
+  return {
+    imageId: resolvedIds[0],
+    galleryImageIds: resolvedIds.slice(1),
+  };
+}
+
 export async function uploadMarketplaceImageFromUri(
   uri: string,
   options?: { mimeType?: string; fileName?: string },
@@ -88,7 +125,7 @@ export async function uploadMarketplaceImageFromUri(
   } as unknown as Blob);
 
   const url = `${base}${BASE_PATH}/upload/supabase/image`;
-  const token = getAuthToken();
+  const token = await ensureAuthTokenHydrated();
   const headers: Record<string, string> = {
     Accept: 'application/json',
   };
@@ -108,6 +145,7 @@ function buildListingQuery(
   options?: {
     category?: string;
     search?: string;
+    commercialAccountId?: string;
     init?: number;
     end?: number;
   },
@@ -116,6 +154,9 @@ function buildListingQuery(
   params.set('hostId', hostId);
   if (options?.category?.trim()) params.set('category', options.category.trim());
   if (options?.search?.trim()) params.set('title', options.search.trim());
+  if (options?.commercialAccountId?.trim()) {
+    params.set('commercialAccountId', options.commercialAccountId.trim());
+  }
   if (typeof options?.init === 'number') params.set('init', String(options.init));
   if (typeof options?.end === 'number') params.set('end', String(options.end));
   return params.toString();
@@ -130,6 +171,7 @@ function mapListResponse(raw: unknown): MarketplaceListing[] {
 export async function listMarketplaceListings(options?: {
   category?: string;
   search?: string;
+  commercialAccountId?: string;
   init?: number;
   end?: number;
 }): Promise<MarketplaceListing[]> {
@@ -141,7 +183,7 @@ export async function listMarketplaceListings(options?: {
     end: options?.end ?? DEFAULT_PAGE_SIZE,
   });
   const url = `${base}${BASE_PATH}/marketplace?${qs}`;
-  const res = await fetch(url, { headers: authHeaders(false) });
+  const res = await fetch(url, { headers: await authHeaders(false) });
   if (!res.ok) throw new Error(await readErrorMessage(res));
   const data = await res.json();
   return mapListResponse(data);
@@ -157,7 +199,7 @@ export async function listMyMarketplaceListings(options?: {
   if (typeof options?.init === 'number') params.set('init', String(options.init));
   if (typeof options?.end === 'number') params.set('end', String(options.end));
   const url = `${base}${BASE_PATH}/marketplace/me?${params.toString()}`;
-  const res = await fetch(url, { headers: authHeaders(false) });
+  const res = await fetch(url, { headers: await authHeaders(false) });
   if (!res.ok) throw new Error(await readErrorMessage(res));
   const data = await res.json();
   return mapListResponse(data);
@@ -168,7 +210,7 @@ export async function getMarketplaceListingById(id: string): Promise<Marketplace
   if (!trimmed) return null;
   const base = getApiBaseUrl();
   const url = `${base}${BASE_PATH}/marketplace/${encodeURIComponent(trimmed)}?${hostIdQuery()}`;
-  const res = await fetch(url, { headers: authHeaders(false) });
+  const res = await fetch(url, { headers: await authHeaders(false) });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(await readErrorMessage(res));
   const data = (await res.json()) as MarketplaceListingDetailDto;
@@ -177,7 +219,8 @@ export async function getMarketplaceListingById(id: string): Promise<Marketplace
 
 function inputToBody(
   input: MarketplaceListingInput,
-  imageId?: string,
+  imageId: string | undefined,
+  galleryImageIds: string[],
   status?: 'draft' | 'published',
 ): CreateMarketplaceListingBody {
   const hostId = marketplaceHostId();
@@ -192,6 +235,7 @@ function inputToBody(
   };
   if (input.locationAddress?.trim()) body.locationAddress = input.locationAddress.trim();
   if (imageId) body.imageId = imageId;
+  body.galleryImageIds = galleryImageIds;
   body.status = status ?? 'published';
   return body;
 }
@@ -201,12 +245,17 @@ export async function createMarketplaceListing(
   options?: { status?: 'draft' | 'published' },
 ): Promise<MarketplaceListing> {
   const base = getApiBaseUrl();
-  const imageId = await resolveImageId(input);
-  const body = inputToBody(input, imageId, options?.status ?? 'published');
+  const { imageId, galleryImageIds } = await resolveGalleryUpload(input);
+  const body = inputToBody(
+    input,
+    imageId,
+    galleryImageIds,
+    options?.status ?? 'published',
+  );
   const url = `${base}${BASE_PATH}/marketplace?${hostIdQuery()}`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res));
@@ -221,12 +270,12 @@ export async function updateMarketplaceListing(
   const trimmed = id.trim();
   if (!trimmed) throw new Error('Anúncio inválido.');
   const base = getApiBaseUrl();
-  const imageId = await resolveImageId(input);
-  const body = inputToBody(input, imageId);
+  const { imageId, galleryImageIds } = await resolveGalleryUpload(input);
+  const body = inputToBody(input, imageId, galleryImageIds);
   const url = `${base}${BASE_PATH}/marketplace/${encodeURIComponent(trimmed)}?${hostIdQuery()}`;
   const res = await fetch(url, {
     method: 'PATCH',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res));
@@ -241,7 +290,7 @@ export async function deleteMarketplaceListing(id: string): Promise<void> {
   const url = `${base}${BASE_PATH}/marketplace/${encodeURIComponent(trimmed)}?${hostIdQuery()}`;
   const res = await fetch(url, {
     method: 'DELETE',
-    headers: authHeaders(false),
+    headers: await authHeaders(false),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res));
 }

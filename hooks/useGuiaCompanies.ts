@@ -17,8 +17,9 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export const GUIA_EMPRESAS_PAGE_SIZE = 15;
-const INITIAL_CATEGORIES = 1;
-const PARALLEL_CATEGORIES = 2;
+/** Carrega empresas/comércio geral de cara (não só restaurantes). */
+const INITIAL_CATEGORIES = 4;
+const PARALLEL_CATEGORIES = 3;
 
 export function useGuiaCompanies(
   enabled: boolean,

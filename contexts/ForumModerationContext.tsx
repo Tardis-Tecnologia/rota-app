@@ -86,7 +86,7 @@ export function ForumModerationProvider({ children }: { children: React.ReactNod
       const r = restrictions;
       setModal({
         visible: true,
-        title: title ?? (r?.isSuspended ? 'Conta suspensa no fórum' : 'Ação indisponível'),
+        title: title ?? (r?.isSuspended ? 'Conta suspensa no feed' : 'Ação indisponível'),
         message:
           message?.trim() ||
           r?.message?.trim() ||

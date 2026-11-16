@@ -6,8 +6,15 @@ import type {
   FeedPostType,
 } from '@/types/feedNovidade';
 import { parsePollOptions } from '@/utils/pollOptions';
+import { personDisplayName } from '@/utils/userDisplayName';
 import type { FeedFilter } from '@/types';
-import { getApiBaseUrl, getAuthToken, getWhitelabelHostId } from './authApi';
+import {
+  buildAuthHeaders,
+  ensureAuthTokenHydrated,
+  getApiBaseUrl,
+  getAuthToken,
+  getWhitelabelHostId,
+} from './authApi';
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
 
 const BASE_PATH = '/api/v1';
@@ -16,6 +23,7 @@ export interface NewsImage {
   id: string;
   publicUrl: string | null;
   path: string;
+  contentType?: string | null;
 }
 
 export interface NewsItem {
@@ -31,6 +39,9 @@ export interface NewsItem {
   creatorName?: string | null;
   creatorPhotoUrl?: string | null;
   creatorProfile?: string | null;
+  creatorOfficial?: boolean;
+  creatorOfficialInstitution?: string | null;
+  creatorOfficialRole?: string | null;
   updatedBy?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -260,10 +271,23 @@ function normalizeNewsItem(raw: NewsItem & Record<string, unknown>): NewsItem {
   const isPinned =
     postType === 'poll' ? false : readBoolean(raw.isPinned ?? raw.is_pinned);
 
+  const officialInstitutionRaw =
+    raw.creatorOfficialInstitution ?? raw.creator_official_institution;
+  const officialRoleRaw = raw.creatorOfficialRole ?? raw.creator_official_role;
+
   return {
     ...raw,
     hostId,
     creatorProfile: readCreatorProfile(raw) ?? raw.creatorProfile ?? null,
+    creatorOfficial: readBoolean(raw.creatorOfficial ?? raw.creator_official),
+    creatorOfficialInstitution:
+      officialInstitutionRaw != null && String(officialInstitutionRaw).trim()
+        ? String(officialInstitutionRaw).trim()
+        : null,
+    creatorOfficialRole:
+      officialRoleRaw != null && String(officialRoleRaw).trim()
+        ? String(officialRoleRaw).trim()
+        : null,
     postType,
     pollId: pollId ?? poll?.id ?? null,
     poll,
@@ -298,14 +322,8 @@ async function parseNewsLikeErrorMessage(res: Response): Promise<string> {
   return readErrorMessage(res);
 }
 
-function authHeaders(): Record<string, string> {
-  const token = getAuthToken();
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-  };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
+async function authHeaders(): Promise<Record<string, string>> {
+  return buildAuthHeaders(true);
 }
 
 async function readErrorMessage(res: Response): Promise<string> {
@@ -341,6 +359,7 @@ function newsHostQueryParams(extra?: URLSearchParams): string {
 }
 
 function currentUserIdFromToken(): string | null {
+  void ensureAuthTokenHydrated();
   const token = getAuthToken();
   if (!token) return null;
   try {
@@ -368,9 +387,7 @@ function resolveNewsHostId(): string | null {
 
 async function fetchApi<T>(endpoint: string): Promise<T> {
   const url = `${getApiBaseUrl()}${BASE_PATH}${endpoint}`;
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  const token = getAuthToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const headers = await buildAuthHeaders(false);
   const res = await fetch(url, { headers });
   if (!res.ok) {
     throw new Error(`Erro ao carregar notícias: ${res.status}`);
@@ -417,7 +434,7 @@ export async function likeNews(newsId: string, hostId?: string | null): Promise<
   const url = `${getApiBaseUrl()}${BASE_PATH}/news/${encodeURIComponent(newsId)}/like?hostId=${encodeURIComponent(hid)}`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: await authHeaders(),
   });
   if (!res.ok) {
     throw new Error(await parseNewsLikeErrorMessage(res));
@@ -437,7 +454,7 @@ async function fetchNewsCommentsOnce(
   const url = `${getApiBaseUrl()}${BASE_PATH}/news/${encodeURIComponent(newsId)}/comments${
     qs ? `?${qs}` : ''
   }`;
-  const res = await fetch(url, { method: 'GET', headers: authHeaders() });
+  const res = await fetch(url, { method: 'GET', headers: await authHeaders() });
   if (!res.ok) throw new Error(await readErrorMessage(res));
   const rawText = await res.text();
   if (!rawText.trim()) return [];
@@ -448,6 +465,55 @@ async function fetchNewsCommentsOnce(
     return [];
   }
   return mapNewsCommentRows(parsed);
+}
+
+export interface NewsLikeListItemDto {
+  userId: string;
+  name: string;
+  photoUrl: string | null;
+}
+
+function mapNewsLikeRows(data: unknown): NewsLikeListItemDto[] {
+  const rows = extractNewsCommentsPayload(
+    data as (NewsCommentListItemDto & Record<string, unknown>)[],
+  );
+  return rows
+    .map((row) => {
+      const record = row as Record<string, unknown>;
+      const userId = String(record.userId ?? record.user_id ?? '').trim();
+      if (!userId) return null;
+      const photo = record.photoUrl ?? record.photo_url;
+      return {
+        userId,
+        name: String(record.name ?? 'Morador(a)').trim() || 'Morador(a)',
+        photoUrl: typeof photo === 'string' ? photo : null,
+      };
+    })
+    .filter((row): row is NewsLikeListItemDto => row !== null);
+}
+
+export async function listNewsLikes(
+  newsId: string,
+  options?: { init?: number; end?: number; hostId?: string | null },
+): Promise<NewsLikeListItemDto[]> {
+  const params = new URLSearchParams();
+  if (typeof options?.init === 'number') params.set('init', String(options.init));
+  if (typeof options?.end === 'number') params.set('end', String(options.end));
+  const hostId = options?.hostId?.trim() || resolveNewsHostId();
+  if (hostId) params.set('hostId', hostId);
+  const qs = params.toString();
+  const url = `${getApiBaseUrl()}${BASE_PATH}/news/${encodeURIComponent(newsId)}/likes${
+    qs ? `?${qs}` : ''
+  }`;
+  const res = await fetch(url, { method: 'GET', headers: await authHeaders() });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+  const rawText = await res.text();
+  if (!rawText.trim()) return [];
+  try {
+    return mapNewsLikeRows(JSON.parse(rawText) as unknown);
+  } catch {
+    return [];
+  }
 }
 
 export async function listNewsComments(
@@ -469,7 +535,7 @@ export async function createNewsComment(
   const url = `${getApiBaseUrl()}${BASE_PATH}/news/${encodeURIComponent(newsId)}/comments?hostId=${encodeURIComponent(hid)}`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify({ content: content.trim() }),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res));
@@ -479,7 +545,7 @@ export async function likeNewsComment(commentId: string): Promise<void> {
   const url = `${getApiBaseUrl()}${BASE_PATH}/news/comments/${encodeURIComponent(commentId)}/like`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res));
 }
@@ -488,7 +554,7 @@ export async function updateNewsComment(commentId: string, content: string): Pro
   const url = `${getApiBaseUrl()}${BASE_PATH}/news/comments/${encodeURIComponent(commentId)}`;
   const res = await fetch(url, {
     method: 'PATCH',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify({ content: content.trim() }),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res));
@@ -498,7 +564,7 @@ export async function deleteNewsComment(commentId: string): Promise<void> {
   const url = `${getApiBaseUrl()}${BASE_PATH}/news/comments/${encodeURIComponent(commentId)}`;
   const res = await fetch(url, {
     method: 'DELETE',
-    headers: authHeaders(),
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res));
 }
@@ -521,7 +587,7 @@ export function buildOptimisticNewsComment(
     createdAt: new Date().toISOString(),
     author: {
       id: author.id,
-      name: author.name.trim() || 'Morador(a)',
+      name: personDisplayName(author.name, 'Morador(a)'),
       photoUrl: author.photoUrl ?? null,
     },
   };
@@ -625,6 +691,7 @@ function newsItemToPollFeed(item: NewsItem): FeedNovidade {
     resumo: conteudo ? truncateText(conteudo, 280) : titulo,
     conteudo: conteudo || titulo,
     imagem: null,
+    imagemContentType: null,
     dataPublicacao,
     dataRelativa: relativa,
     dataFormatada: formatada,
@@ -632,12 +699,13 @@ function newsItemToPollFeed(item: NewsItem): FeedNovidade {
     categoriaLabel: CATEGORIA_LABEL.enquetes,
     tipoNovidade: 'comunicado',
     tipoLabel: 'Enquete',
-    autorNome:
-      item.creatorName?.trim() ||
-      (item.creatorProfile?.toUpperCase() === 'SUPERADMIN' ? 'Superadmin' : 'Administrador'),
+    autorNome: personDisplayName(item.creatorName, 'Prefeitura'),
     autorAvatar: post.avatar,
-    autorHandle: post.username ?? '@superadmin',
+    autorHandle: post.username ?? '@prefeitura',
     autorPerfil: item.creatorProfile ?? null,
+    isOfficial: true,
+    officialInstitution: item.creatorOfficialInstitution ?? 'Prefeitura de Maricá',
+    officialRole: item.creatorOfficialRole ?? 'Comunicação Oficial',
     curtidas: 0,
     liked: false,
     comentarios: 0,
@@ -661,8 +729,6 @@ export function newsItemToNovidade(item: NewsItem): FeedNovidade {
   const titulo = item.title?.trim() || 'Comunicado oficial';
   const conteudo = item.content?.trim() || '';
   const tipoNovidade = inferTipoNovidade(item, categoria);
-  const creatorName = item.creatorName?.trim();
-
   return {
     id: item.id,
     postType: 'article',
@@ -673,6 +739,7 @@ export function newsItemToNovidade(item: NewsItem): FeedNovidade {
     resumo: conteudo ? truncateText(conteudo, 280) : titulo,
     conteudo: conteudo || titulo,
     imagem: newsItemImageUri(item),
+    imagemContentType: item.image?.contentType ?? null,
     dataPublicacao,
     dataRelativa: relativa,
     dataFormatada: formatada,
@@ -680,10 +747,13 @@ export function newsItemToNovidade(item: NewsItem): FeedNovidade {
     categoriaLabel: CATEGORIA_LABEL[categoria],
     tipoNovidade,
     tipoLabel: TIPO_LABEL[tipoNovidade],
-    autorNome: creatorName || post.autor || 'Prefeitura',
+    autorNome: personDisplayName(item.creatorName, 'Prefeitura'),
     autorAvatar: post.avatar,
     autorHandle: post.username ?? '@prefeitura',
     autorPerfil: item.creatorProfile ?? null,
+    isOfficial: true,
+    officialInstitution: item.creatorOfficialInstitution ?? 'Prefeitura de Maricá',
+    officialRole: item.creatorOfficialRole ?? 'Comunicação Oficial',
     curtidas: item.likesCount ?? post.curtidas,
     liked: item.liked ?? post.curtido,
     comentarios: item.commentsCount ?? 0,

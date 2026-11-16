@@ -5,7 +5,7 @@ import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 function roleLabel(item: ForumCommunityListItem): string {
-  if (item.myRole === 'OWNER') return 'Dono';
+  if (item.myRole === 'OWNER') return 'Criador';
   if (item.isMember) return 'Participante';
   if (item.isFollowing) return 'Seguindo';
   return item.privacy === 'PRIVATE' ? 'Privada' : 'Canal';

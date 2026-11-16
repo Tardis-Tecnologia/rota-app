@@ -108,7 +108,7 @@ export default function ComercianteForumFeed() {
         <View style={styles.topBarRow}>
           <View style={styles.topBarSpacer} />
           <View style={styles.topBarCenter}>
-            <Text style={styles.screenTitle}>Fórum do bairro</Text>
+            <Text style={styles.screenTitle}>Feed da Cidade</Text>
             <Text style={styles.screenSubtitle}>
               Divulgue promoções da sua loja. Você vê apenas suas publicações; cidadãos veem no
               feed geral com a tag da loja.
@@ -166,7 +166,7 @@ export default function ComercianteForumFeed() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Nova promoção no fórum</Text>
+            <Text style={styles.modalTitle}>Nova promoção no feed</Text>
             <TextInput
               style={styles.input}
               placeholder="Título"

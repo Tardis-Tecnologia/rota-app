@@ -57,6 +57,8 @@ export type MapWebViewCommand =
         latitude: number;
         longitude: number;
         markerColor?: string;
+        photoUrl?: string;
+        partner?: boolean;
       }>;
       variant: 'card' | 'dot';
       layerKey?: string | number;
@@ -66,6 +68,10 @@ export type MapWebViewCommand =
       coordinates: [number, number][];
       origin?: { latitude: number; longitude: number } | null;
       destination?: { latitude: number; longitude: number; title?: string };
+    }
+  | {
+      type: 'setBoundary';
+      geojson: unknown | null;
     }
   | {
       type: 'set3d';
@@ -84,12 +90,14 @@ type MapWebViewBridgeProps = {
   onReady?: () => void;
   onRegionChangeComplete?: (region: Region, isUserInteraction: boolean) => void;
   onUserDragMap?: () => void;
+  /** Disparado no início de um gesto do usuário (arrastar ou pinçar), não em câmera programática. */
+  onUserGestureStart?: () => void;
   onMarkerPress?: (id: string) => void;
 };
 
 const MapWebViewBridge = forwardRef<MapWebViewBridgeRef, MapWebViewBridgeProps>(
   function MapWebViewBridge(
-    { style, onBridgeReady, onReady, onRegionChangeComplete, onUserDragMap, onMarkerPress },
+    { style, onBridgeReady, onReady, onRegionChangeComplete, onUserDragMap, onUserGestureStart, onMarkerPress },
     ref,
   ) {
     const webRef = useRef<WebView>(null);
@@ -134,6 +142,11 @@ const MapWebViewBridge = forwardRef<MapWebViewBridgeRef, MapWebViewBridgeProps>(
             return;
           }
 
+          if (payload.type === 'userGestureStart') {
+            onUserGestureStart?.();
+            return;
+          }
+
           if (payload.type === 'regionChange') {
             if (
               payload.latitude == null ||
@@ -170,7 +183,7 @@ const MapWebViewBridge = forwardRef<MapWebViewBridgeRef, MapWebViewBridgeProps>(
           // ignore malformed messages
         }
       },
-      [onBridgeReady, onMarkerPress, onReady, onRegionChangeComplete, onUserDragMap],
+      [onBridgeReady, onMarkerPress, onReady, onRegionChangeComplete, onUserDragMap, onUserGestureStart],
     );
 
     return (
@@ -192,6 +205,9 @@ const MapWebViewBridge = forwardRef<MapWebViewBridgeRef, MapWebViewBridgeProps>(
           mixedContentMode="always"
           allowUniversalAccessFromFileURLs
           allowFileAccess
+          nestedScrollEnabled
+          androidLayerType="hardware"
+          pointerEvents="auto"
         />
       </View>
     );

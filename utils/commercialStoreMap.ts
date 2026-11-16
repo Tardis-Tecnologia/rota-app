@@ -19,6 +19,13 @@ export function commercialStoreToExplorePonto(
 ): PontoInteresse {
   const address = store.address?.trim();
   const segment = store.segment?.trim();
+  const cover = store.photoUrl?.trim() || undefined;
+  const gallery = (store.galleryImageUrls ?? [])
+    .map((url) => url.trim())
+    .filter((url) => url.length > 0);
+  const photoUrls = [...(cover ? [cover] : []), ...gallery].filter(
+    (url, index, arr) => arr.indexOf(url) === index,
+  );
   return {
     id: `commercial-${store.id}`,
     titulo: store.storeName.trim() || 'Loja parceira',
@@ -26,10 +33,12 @@ export function commercialStoreToExplorePonto(
     latitude: coords.latitude,
     longitude: coords.longitude,
     tipo: 'turismo',
-    photoUrl: store.photoUrl?.trim() || undefined,
+    photoUrl: photoUrls[0] || cover,
+    photoUrls: photoUrls.length > 0 ? photoUrls : undefined,
     formattedAddress: address || undefined,
     telefone: store.phone?.trim() || undefined,
     placeType: EXPLORE_PARTNER_STORES_CHIP_ID,
+    markerColor: '#d97706',
   };
 }
 
@@ -75,19 +84,45 @@ async function geocodeStoreForMap(
   return commercialStoreToExplorePonto(store, coords);
 }
 
-/** Carrega lojas parceiras cadastradas e geocodifica endereço para pins no mapa. */
-export async function loadPartnerStoresForMap(): Promise<PontoInteresse[]> {
+function partnerSegmentMatches(storeSegment: string | null | undefined, wanted: string): boolean {
+  const value = (storeSegment ?? '').trim().toLowerCase();
+  const groups: Record<string, string[]> = {
+    restaurant: ['restaurant', 'restaurante'],
+    bakery: ['bakery', 'padaria'],
+    pharmacy: ['pharmacy', 'farmacia', 'farmácia'],
+    market: ['market', 'mercado', 'supermercado'],
+  };
+  return (groups[wanted] ?? [wanted]).includes(value);
+}
+export async function loadPartnerStoresForMap(segment?: string): Promise<PontoInteresse[]> {
   const stores = await listCommercialStoresForMap();
+  const wanted = segment?.trim().toLowerCase();
   const seen = new Set<string>();
   const unique = stores.filter((store) => {
     if (seen.has(store.id)) return false;
     seen.add(store.id);
+    if (wanted && !partnerSegmentMatches(store.segment, wanted)) return false;
     return true;
   });
 
   const pontos: PontoInteresse[] = [];
-  for (let i = 0; i < unique.length; i += GEOCODE_BATCH_SIZE) {
-    const batch = unique.slice(i, i + GEOCODE_BATCH_SIZE);
+  const needsGeocode: CommercialStoreMapItem[] = [];
+  for (const store of unique) {
+    if (store.latitude != null && store.longitude != null) {
+      pontos.push(
+        commercialStoreToExplorePonto(store, {
+          latitude: store.latitude,
+          longitude: store.longitude,
+        }),
+      );
+      continue;
+    }
+    needsGeocode.push(store);
+  }
+
+  const toGeocode = segment ? [] : needsGeocode.slice(0, GEOCODE_BATCH_SIZE);
+  for (let i = 0; i < toGeocode.length; i += GEOCODE_BATCH_SIZE) {
+    const batch = toGeocode.slice(i, i + GEOCODE_BATCH_SIZE);
     const batchResults = await Promise.all(batch.map((store) => geocodeStoreForMap(store)));
     for (const ponto of batchResults) {
       if (ponto) pontos.push(ponto);

@@ -5,16 +5,19 @@ import {
 } from '@/constants/providerCategories';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useConversations } from '@/contexts/ConversationsContext';
 import { prepareServiceProviderChat } from '@/services/serviceProviderChat';
 import type { Profile } from '@/types';
 import type { ServiceProviderUserRating } from '@/types/serviceProvider';
+import { ROUTE_CITIZEN_MESSAGES } from '@/utils/comercioAuth';
 import { formatProviderRatingLabel } from '@/utils/providerRatingDisplay';
 import {
   categoryIdToLabel,
   formatCategoriesLabel,
 } from '@/utils/serviceProviderCategories';
+import { streamAndUiDisplayName } from '@/utils/userDisplayName';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { type Href, router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -49,6 +52,7 @@ export default function ProviderProfile({
   onRatingUpdated,
 }: ProviderProfileProps) {
   const { user } = useAuth();
+  const { addOrUpdateConversation } = useConversations();
   const [imageError, setImageError] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
 
@@ -97,13 +101,6 @@ export default function ProviderProfile({
   }, [data.about, data.categoryId, data.services, professionLabels]);
 
   const openProviderChat = async () => {
-    if (!data.ownerUserId?.trim()) {
-      router.push({
-        pathname: '/ChatTab',
-        params: { provider: JSON.stringify(data) },
-      });
-      return;
-    }
     if (!user?.id) {
       Alert.alert('Login necessário', 'Faça login para enviar mensagem ao prestador.');
       return;
@@ -112,6 +109,13 @@ export default function ProviderProfile({
       Alert.alert(
         'Conta necessária',
         'Visitantes não podem enviar mensagens. Faça login com uma conta cadastrada.',
+      );
+      return;
+    }
+    if (!data.ownerUserId?.trim()) {
+      Alert.alert(
+        'Chat indisponível',
+        'Este prestador ainda não tem conta para mensagens no app.',
       );
       return;
     }
@@ -128,17 +132,25 @@ export default function ProviderProfile({
         providerName: data.name,
         providerCategoryLabel: categoriesDisplayLabel || data.categoryId,
         providerImage: data.image || undefined,
-        currentUserDisplayName: user.name,
+        currentUserDisplayName: streamAndUiDisplayName(user) ?? user.name,
       });
+      addOrUpdateConversation(payload, payload.draftMessage || `Conversa com ${payload.name}`);
       router.push({
         pathname: '/ChatTab',
-        params: { provider: JSON.stringify(payload) },
+        params: {
+          provider: JSON.stringify(payload),
+          returnTo: '/(tabs)/messages',
+        },
       });
     } catch (e) {
-      Alert.alert(
-        'Erro',
-        e instanceof Error ? e.message : 'Não foi possível abrir a conversa.',
-      );
+      const msg = e instanceof Error ? e.message : 'Não foi possível abrir a conversa.';
+      Alert.alert('Chat', msg, [
+        {
+          text: 'Abrir Mensagens',
+          onPress: () => router.push(ROUTE_CITIZEN_MESSAGES as Href),
+        },
+        { text: 'OK', style: 'cancel' },
+      ]);
     } finally {
       setChatLoading(false);
     }

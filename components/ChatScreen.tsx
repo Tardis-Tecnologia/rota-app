@@ -17,7 +17,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export type ChatOption = {
   id: string;
@@ -32,6 +32,8 @@ export type ChatMessage = {
   timestamp: Date;
   options?: ChatOption[]; // Opções interativas (botões) para esta mensagem
   emoji?: string; // Emoji para mensagens de opção selecionada
+  /** Exibe spinner na bolha (busca / confirmação breve). */
+  loading?: boolean;
 };
 
 export type ChatParticipant = {
@@ -155,6 +157,7 @@ export default function ChatScreen({
   onClearConversation,
   draftMessage,
 }: ChatScreenProps) {
+  const insets = useSafeAreaInsets();
   const [message, setMessage] = useState(draftMessage?.trim() ?? '');
   const [clearLoading, setClearLoading] = useState(false);
   const messagesScrollRef = useRef<ScrollView>(null);
@@ -345,8 +348,8 @@ export default function ChatScreen({
       {/* Messages Area */}
       <KeyboardAvoidingView
         style={styles.chatContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
         <ScrollView
           ref={messagesScrollRef}
@@ -368,14 +371,31 @@ export default function ChatScreen({
                 {msg.emoji && !msg.isFromOther && (
                   <Text style={styles.messageEmoji}>{msg.emoji}</Text>
                 )}
-                <Text
-                  style={[
-                    styles.messageText,
-                    msg.isFromOther ? styles.otherMessageText : styles.userMessageText,
-                  ]}
-                >
-                  {msg.text}
-                </Text>
+                {msg.loading ? (
+                  <View style={styles.loadingRow}>
+                    <ActivityIndicator
+                      size="small"
+                      color={msg.isFromOther ? AppColors.primary : AppColors.text.white}
+                    />
+                    <Text
+                      style={[
+                        styles.messageText,
+                        msg.isFromOther ? styles.otherMessageText : styles.userMessageText,
+                      ]}
+                    >
+                      {msg.text}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text
+                    style={[
+                      styles.messageText,
+                      msg.isFromOther ? styles.otherMessageText : styles.userMessageText,
+                    ]}
+                  >
+                    {msg.text}
+                  </Text>
+                )}
               </View>
               
               {/* Renderiza botões de opções se existirem */}
@@ -405,7 +425,12 @@ export default function ChatScreen({
 
         {/* Input Area */}
         {canSendMessages && (
-          <View style={styles.inputContainer}>
+          <View
+            style={[
+              styles.inputContainer,
+              { paddingBottom: Math.max(insets.bottom, 12) },
+            ]}
+          >
             <TextInput
               style={styles.input}
               placeholder={ui.inputPlaceholder}
@@ -414,11 +439,14 @@ export default function ChatScreen({
               onChangeText={setMessage}
               multiline
               maxLength={500}
+              textAlignVertical="center"
             />
             <Pressable
               style={[styles.sendButton, !message.trim() && styles.sendButtonDisabled]}
               onPress={handleSend}
               disabled={!message.trim()}
+              accessibilityRole="button"
+              accessibilityLabel="Enviar mensagem"
             >
               <Ionicons
                 name="send"
@@ -544,13 +572,14 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   messageBubble: {
-    maxWidth: '80%',
+    maxWidth: '85%',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 18,
     marginBottom: 8,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
   },
   otherBubble: {
     alignSelf: 'flex-start',
@@ -568,8 +597,10 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
   },
   messageText: {
+    flexShrink: 1,
+    flexGrow: 1,
     fontSize: 15,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   otherMessageText: {
     color: AppColors.text.secondary,
@@ -580,6 +611,12 @@ const styles = StyleSheet.create({
   messageEmoji: {
     fontSize: 18,
     marginRight: 8,
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexShrink: 1,
   },
   // Options
   optionsContainer: {
@@ -613,18 +650,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 10,
     backgroundColor: AppColors.background.default,
     borderTopWidth: 1,
     borderTopColor: AppColors.border.muted,
-    gap: 12,
+    gap: 10,
   },
   input: {
     flex: 1,
+    minHeight: 44,
     backgroundColor: AppColors.background.light,
-    borderRadius: 24,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
     fontSize: 15,
     maxHeight: 100,
     color: AppColors.text.secondary,

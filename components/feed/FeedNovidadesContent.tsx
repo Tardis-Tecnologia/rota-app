@@ -1,3 +1,5 @@
+import FeedCommentsSheet from '@/components/feed/FeedCommentsSheet';
+import FeedLikesSheet, { type FeedLiker } from '@/components/feed/FeedLikesSheet';
 import FeedNovidadeCard from '@/components/feed/FeedNovidadeCard';
 import FeedPinnedNovidadeCard from '@/components/feed/FeedPinnedNovidadeCard';
 import FeedPollCard from '@/components/feed/FeedPollCard';
@@ -13,6 +15,7 @@ import {
   getNewsById,
   likeNews,
   listNewsComments,
+  listNewsLikes,
   mergeNewsCommentsWithPending,
   newsItemToFeedItem,
   type NewsCommentListItemDto,
@@ -24,7 +27,7 @@ import { isFeedPollItem } from '@/types/feedNovidade';
 import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -79,11 +82,19 @@ export default function FeedNovidadesContent({
     Record<string, NewsCommentListItemDto[] | undefined>
   >({});
   const [commentDraftByPost, setCommentDraftByPost] = useState<Record<string, string>>({});
-  const [commentsExpandedByPost, setCommentsExpandedByPost] = useState<Record<string, boolean>>({});
+  const [commentsSheetPostId, setCommentsSheetPostId] = useState<string | null>(null);
+  const [likesSheetPostId, setLikesSheetPostId] = useState<string | null>(null);
+  const [likesByPost, setLikesByPost] = useState<Record<string, FeedLiker[]>>({});
+  const [likesLoadingPostId, setLikesLoadingPostId] = useState<string | null>(null);
   const [commentsLoadingPostId, setCommentsLoadingPostId] = useState<string | null>(null);
   const [commentSendingPostId, setCommentSendingPostId] = useState<string | null>(null);
   const [pollVoteSendingId, setPollVoteSendingId] = useState<string | null>(null);
   const [pollVoteErrorById, setPollVoteErrorById] = useState<Record<string, string>>({});
+
+  const commentsSheetPost = useMemo(
+    () => (commentsSheetPostId ? items.find((i) => i.id === commentsSheetPostId) ?? null : null),
+    [commentsSheetPostId, items],
+  );
 
   const openDetail = (item: FeedNovidade) => {
     router.push({
@@ -166,31 +177,58 @@ export default function FeedNovidadesContent({
           hostId: post?.hostId,
           retryIfEmpty: options?.retryIfEmpty,
         });
+        const merged = mergeNewsCommentsWithPending(rows, commentsByPost[postId] ?? []);
         setCommentsByPost((prev) => ({
           ...prev,
-          [postId]: mergeNewsCommentsWithPending(rows, prev[postId] ?? []),
+          [postId]: merged,
         }));
+        // Mantém o contador alinhado aos comentários reais (evita seed com count fake).
+        updateItem(postId, { comentarios: merged.length });
       } catch {
         setCommentsByPost((prev) => ({ ...prev, [postId]: prev[postId] ?? [] }));
       } finally {
         if (showLoading) setCommentsLoadingPostId(null);
       }
     },
-    [commentsByPost, items],
+    [commentsByPost, items, updateItem],
   );
 
-  const onToggleComments = useCallback(
+  const onOpenComments = useCallback(
     (postId: string) => {
       const post = items.find((i) => i.id === postId);
       if (post && isFeedPollItem(post)) return;
-      const willExpand = !commentsExpandedByPost[postId];
-      setCommentsExpandedByPost((prev) => ({ ...prev, [postId]: willExpand }));
-      if (willExpand && commentsByPost[postId] === undefined) {
-        void loadCommentsForPost(postId);
-      }
+      setCommentsSheetPostId(postId);
+      void loadCommentsForPost(postId, {
+        showLoading: (commentsByPost[postId]?.length ?? 0) === 0,
+      });
     },
-    [commentsByPost, commentsExpandedByPost, loadCommentsForPost],
+    [commentsByPost, items, loadCommentsForPost],
   );
+
+  const onOpenLikes = useCallback(
+    (postId: string) => {
+      const post = items.find((i) => i.id === postId);
+      if (post && isFeedPollItem(post)) return;
+      setLikesSheetPostId(postId);
+      setLikesLoadingPostId(postId);
+      void listNewsLikes(postId, { init: 0, end: 100, hostId: post?.hostId })
+        .then((rows) => {
+          setLikesByPost((prev) => ({ ...prev, [postId]: rows }));
+          if (rows.length > 0) updateItem(postId, { curtidas: rows.length });
+        })
+        .catch(() => {
+          setLikesByPost((prev) => ({ ...prev, [postId]: prev[postId] ?? [] }));
+        })
+        .finally(() => {
+          setLikesLoadingPostId((current) => (current === postId ? null : current));
+        });
+    },
+    [items, updateItem],
+  );
+
+  const onCloseComments = useCallback(() => {
+    setCommentsSheetPostId(null);
+  }, []);
 
   const onSendComment = useCallback(
     async (postId: string) => {
@@ -209,7 +247,7 @@ export default function FeedNovidadesContent({
 
       setCommentSendingPostId(postId);
       setCommentDraftByPost((prev) => ({ ...prev, [postId]: '' }));
-      setCommentsExpandedByPost((prev) => ({ ...prev, [postId]: true }));
+      setCommentsSheetPostId(postId);
       setCommentsByPost((prev) => ({
         ...prev,
         [postId]: [...(prev[postId] ?? []), optimistic],
@@ -362,18 +400,11 @@ export default function FeedNovidadesContent({
             const cardProps = {
               item,
               imageCacheEpoch: imageEpoch,
-              comments: commentsByPost[item.id] ?? [],
-              commentDraft: commentDraftByPost[item.id] ?? '',
-              commentsExpanded: !!commentsExpandedByPost[item.id],
-              commentsLoading: commentsLoadingPostId === item.id,
-              commentSending: commentSendingPostId === item.id,
               canInteract,
               onOpenDetail: () => openDetail(item),
               onLike: () => void onLike(item.id),
-              onToggleComments: () => onToggleComments(item.id),
-              onCommentDraftChange: (text: string) =>
-                setCommentDraftByPost((prev) => ({ ...prev, [item.id]: text })),
-              onSendComment: () => void onSendComment(item.id),
+              onOpenLikes: () => onOpenLikes(item.id),
+              onOpenComments: () => onOpenComments(item.id),
             };
 
             if (item.isPinned) {
@@ -410,6 +441,46 @@ export default function FeedNovidadesContent({
           ) : null}
         </>
       )}
+
+      <FeedLikesSheet
+        visible={!!likesSheetPostId}
+        likers={likesSheetPostId ? (likesByPost[likesSheetPostId] ?? []) : []}
+        likesCount={
+          likesSheetPostId
+            ? (items.find((item) => item.id === likesSheetPostId)?.curtidas ?? 0)
+            : 0
+        }
+        loading={!!likesSheetPostId && likesLoadingPostId === likesSheetPostId}
+        onClose={() => setLikesSheetPostId(null)}
+      />
+
+      <FeedCommentsSheet
+        visible={!!commentsSheetPost}
+        title="Comentários"
+        comments={
+          commentsSheetPostId ? (commentsByPost[commentsSheetPostId] ?? []) : []
+        }
+        commentDraft={
+          commentsSheetPostId ? (commentDraftByPost[commentsSheetPostId] ?? '') : ''
+        }
+        commentsLoading={
+          !!commentsSheetPostId && commentsLoadingPostId === commentsSheetPostId
+        }
+        commentSending={
+          !!commentsSheetPostId && commentSendingPostId === commentsSheetPostId
+        }
+        canInteract={canInteract}
+        commentsCount={commentsSheetPost?.comentarios ?? 0}
+        onClose={onCloseComments}
+        onCommentDraftChange={(text) => {
+          if (!commentsSheetPostId) return;
+          setCommentDraftByPost((prev) => ({ ...prev, [commentsSheetPostId]: text }));
+        }}
+        onSendComment={() => {
+          if (!commentsSheetPostId) return;
+          void onSendComment(commentsSheetPostId);
+        }}
+      />
     </>,
   );
 }

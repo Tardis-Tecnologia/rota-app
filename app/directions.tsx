@@ -13,7 +13,6 @@ import {
 } from '@/services/locationPermission';
 import type { DirectionsProfile } from '@/types/directions';
 import { distanceMeters } from '@/utils/guiaGeo';
-import { openExternalDirections } from '@/utils/openExternalMaps';
 import { regionFromRouteCoordinates } from '@/utils/routeBounds';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -160,11 +159,11 @@ export default function DirectionsScreen() {
       const isTimeout =
         err instanceof Error &&
         (err.message === ROUTING_TIMEOUT_ERROR || err.message === LOCATION_TIMEOUT_ERROR);
-      setRouteWarning(
-        isTimeout
-          ? 'O serviço de rotas demorou para responder. O destino está marcado no mapa — tente novamente ou abra no app de mapas.'
-          : 'Não foi possível traçar a rota da sua posição atual. O endereço de destino está marcado no mapa.',
-      );
+        setRouteWarning(
+          isTimeout
+            ? 'O serviço de rotas demorou para responder. O destino está marcado no mapa — toque em tentar novamente.'
+            : 'Não foi possível traçar a rota da sua posição atual. O endereço de destino está marcado no mapa.',
+        );
     } finally {
       if (seq === loadSeqRef.current) {
         setRouteLoading(false);
@@ -261,16 +260,6 @@ export default function DirectionsScreen() {
           ) : routeWarning ? (
             <Text style={styles.warningText}>{routeWarning}</Text>
           ) : null}
-          <TouchableOpacity
-            style={styles.externalBtn}
-            onPress={() =>
-              openExternalDirections(destination.latitude, destination.longitude, destName)
-            }
-            activeOpacity={0.85}
-          >
-            <Ionicons name="open-outline" size={18} color={AppColors.text.secondary} />
-            <Text style={styles.externalBtnText}>Abrir no app de mapas</Text>
-          </TouchableOpacity>
           {!routeLoading && routeWarning ? (
             <TouchableOpacity onPress={() => void loadRoute()} style={styles.retryLink} activeOpacity={0.85}>
               <Text style={styles.retryLinkText}>Tentar calcular rota novamente</Text>

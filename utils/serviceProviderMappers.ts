@@ -41,7 +41,7 @@ export function serviceProviderListItemToGuia(
 
   return {
     id: item.id,
-    type: 'PROVIDER',
+    type: item.type === 'COMPANY' ? 'COMPANY' : 'PROVIDER',
     name: item.name,
     categoryId: primaryId,
     categoryIds,
@@ -104,7 +104,7 @@ export function serviceProviderResponseToProfile(
 
   return {
     id: provider.id,
-    type: 'PROVIDER',
+    type: provider.type === 'COMPANY' ? 'COMPANY' : 'PROVIDER',
     ownerUserId: provider.userId,
     name: provider.name,
     categoryId: primaryId,

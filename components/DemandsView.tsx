@@ -171,24 +171,15 @@ export function DemandsView() {
         ListHeaderComponent={
           <View>
             <View style={styles.hero}>
-              <Text style={styles.heroOverline}>PAINEL DE ENTREGAS</Text>
+              <View style={styles.heroTop}>
+                <Text style={styles.heroOverline}>PAINEL DE ENTREGAS</Text>
+                <View style={styles.heroCountWrap}>
+                  <Text style={styles.heroCount}>{stats.lastMonth}</Text>
+                  <Text style={styles.heroCountLabel}>este mês</Text>
+                </View>
+              </View>
               <Text style={styles.heroTitle}>Realizações</Text>
               <Text style={styles.heroSubtitle}>Publicações oficiais com melhorias já executadas pela Prefeitura.</Text>
-            </View>
-
-            <View style={styles.statsRow}>
-              <View style={[styles.statBox, styles.statBoxAccent]}>
-                <Text style={styles.statValueAccent}>{String(stats.highlights)}</Text>
-                <Text style={styles.statLabel}>destaques</Text>
-              </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statValue}>+{String(stats.lastMonth)}</Text>
-                <Text style={styles.statLabel}>este mês</Text>
-              </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statValue}>{String(stats.publishedPercent)}%</Text>
-                <Text style={styles.statLabel}>publicadas</Text>
-              </View>
             </View>
 
             <Text style={styles.sectionLabel}>BAIRRO</Text>
@@ -306,24 +297,18 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 12,
   },
-  heroOverline: { color: '#67E8F9', fontWeight: '900', fontSize: 12, letterSpacing: 1.2 },
+  heroTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  heroOverline: { color: '#67E8F9', fontWeight: '900', fontSize: 12, letterSpacing: 1.2, flex: 1 },
+  heroCountWrap: { alignItems: 'flex-end' },
+  heroCount: { color: '#fff', fontWeight: '900', fontSize: 28, lineHeight: 32 },
+  heroCountLabel: { color: 'rgba(255,255,255,0.72)', fontSize: 11, fontWeight: '700', marginTop: -2 },
   heroTitle: { color: '#fff', marginTop: 8, fontSize: 20, fontWeight: '900' },
   heroSubtitle: { color: 'rgba(255,255,255,0.78)', marginTop: 6, fontSize: 13, lineHeight: 18 },
-
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 14 },
-  statBox: {
-    flex: 1,
-    backgroundColor: AppColors.background.muted,
-    borderRadius: 14,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
-  },
-  statBoxAccent: { backgroundColor: '#ECFEFF', borderColor: '#A5F3FC' },
-  statValue: { fontSize: 22, fontWeight: '900', color: '#0F172A' },
-  statValueAccent: { fontSize: 22, fontWeight: '900', color: '#0891b2' },
-  statLabel: { marginTop: 2, fontSize: 12, color: AppColors.gray[500], fontWeight: '700' },
 
   sectionLabel: { fontSize: 13, fontWeight: '800', letterSpacing: 0.6, color: '#334155', marginBottom: 8 },
   chipsRow: { paddingBottom: 12, gap: 10 },

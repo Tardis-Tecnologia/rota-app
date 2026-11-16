@@ -117,9 +117,7 @@ export default function FeedPollCard({
                   >
                     {label}
                   </Text>
-                  {showResults ? (
-                    <Text style={styles.optionPct}>{pct}%</Text>
-                  ) : null}
+                  {showResults ? <Text style={styles.optionPct}>{pct}%</Text> : null}
                 </View>
                 {showResults ? (
                   <View style={styles.barTrack}>
@@ -154,66 +152,58 @@ export default function FeedPollCard({
     </View>
   );
 
-  const pollInnerCard = (
-    <View style={styles.pollCard}>
-      <View style={styles.pollTypeRow}>
-        <Ionicons name="stats-chart" size={15} color={AppColors.primary} />
-        <Text style={styles.badgeText}>ENQUETE</Text>
-      </View>
-
-      <Text style={styles.question}>{item.titulo}</Text>
-      <Text style={styles.subtitle}>{subtitle}</Text>
-
-      {optionsBlock}
-
-      <Text style={styles.statsLine}>{formatVotesLine(totalVotes)}</Text>
-
-      {showMuralLink ? (
-        <>
-          <View style={styles.footerDivider} />
-          <Pressable
-            onPress={openMural}
-            style={({ pressed }) => [styles.muralLink, pressed && styles.muralLinkPressed]}
-            accessibilityRole="link"
-            accessibilityLabel="Acessar mural de enquetes"
-          >
-            <Text style={styles.muralLinkText}>acessar mural de enquetes</Text>
-            <Ionicons name="chevron-forward" size={18} color={AppColors.primary} />
-          </Pressable>
-        </>
-      ) : null}
-    </View>
-  );
-
   if (embedded) {
     return <View style={[styles.embeddedWrap, style]}>{optionsBlock}</View>;
   }
 
   return (
-    <View style={[styles.row, showDivider && styles.rowDivider, style]}>
-      <Image source={{ uri: item.autorAvatar }} style={styles.avatar} />
-
-      <View style={styles.main}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerText}>
-            <View style={styles.nameRow}>
-              <Text style={styles.authorName} numberOfLines={1}>
-                {publisherName}
-              </Text>
-              {isSuperadmin ? (
-                <View style={styles.roleBadge}>
-                  <Ionicons name="shield-checkmark" size={11} color="#1d4ed8" />
-                  <Text style={styles.roleBadgeText}>Superadmin</Text>
-                </View>
-              ) : null}
-            </View>
-            <Text style={styles.metaLine} numberOfLines={1}>
-              {formatPublisherHandleLine(item.autorHandle, item.dataRelativa)}
+    <View style={[styles.card, showDivider && styles.cardDivider, style]}>
+      <View style={styles.header}>
+        <Image source={{ uri: item.autorAvatar }} style={styles.avatar} />
+        <View style={styles.headerText}>
+          <View style={styles.nameRow}>
+            <Text style={styles.authorName} numberOfLines={1}>
+              {publisherName}
             </Text>
+            {item.isOfficial || isSuperadmin ? (
+              <Ionicons name="checkmark-circle" size={16} color="#1D9BF0" />
+            ) : null}
           </View>
+          <Text style={styles.metaLine} numberOfLines={1}>
+            {item.isOfficial && (item.officialRole || item.officialInstitution)
+              ? `${[item.officialRole, item.officialInstitution].filter(Boolean).join(' · ')} · ${item.dataRelativa.replace(/^há\s+/i, '').trim() || item.dataRelativa}`
+              : formatPublisherHandleLine(item.autorHandle, item.dataRelativa)}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.body}>
+        <View style={styles.pollTypeRow}>
+          <Ionicons name="stats-chart" size={15} color={AppColors.primary} />
+          <Text style={styles.badgeText}>ENQUETE</Text>
         </View>
 
-        {pollInnerCard}
+        <Text style={styles.question}>{item.titulo}</Text>
+        <Text style={styles.subtitle}>{subtitle}</Text>
+
+        {optionsBlock}
+
+        <Text style={styles.statsLine}>{formatVotesLine(totalVotes)}</Text>
+
+        {showMuralLink ? (
+          <>
+            <View style={styles.footerDivider} />
+            <Pressable
+              onPress={openMural}
+              style={({ pressed }) => [styles.muralLink, pressed && styles.muralLinkPressed]}
+              accessibilityRole="link"
+              accessibilityLabel="Acessar mural de enquetes"
+            >
+              <Text style={styles.muralLinkText}>acessar mural de enquetes</Text>
+              <Ionicons name="chevron-forward" size={18} color={AppColors.primary} />
+            </Pressable>
+          </>
+        ) : null}
       </View>
     </View>
   );
@@ -224,39 +214,33 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 4,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  card: {
+    width: '100%',
     backgroundColor: '#ffffff',
+    paddingBottom: 4,
   },
-  rowDivider: {
-    borderBottomWidth: 8,
-    borderBottomColor: '#eef2f6',
+  cardDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e2e8f0',
+    marginBottom: 6,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#e5e7eb',
-  },
-  main: {
-    flex: 1,
-    minWidth: 0,
-    gap: 10,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 8,
   },
   headerText: {
     flex: 1,
     minWidth: 0,
-    gap: 1,
+    gap: 2,
   },
   nameRow: {
     flexDirection: 'row',
@@ -265,38 +249,19 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   authorName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0f1419',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
     flexShrink: 1,
   },
-  roleBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#dbeafe',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  roleBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#1d4ed8',
-    letterSpacing: 0.3,
-  },
   metaLine: {
-    fontSize: 14,
-    color: '#536471',
+    fontSize: 12,
+    color: '#64748b',
   },
-  pollCard: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+  body: {
+    width: '100%',
     paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 10,
+    paddingBottom: 8,
   },
   pollTypeRow: {
     flexDirection: 'row',
@@ -336,7 +301,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   optionButtonIdle: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f8fafc',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#e2e8f0',
   },
@@ -346,7 +311,7 @@ const styles = StyleSheet.create({
     borderColor: '#93c5fd',
   },
   optionButtonPressed: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f1f5f9',
   },
   optionDisabled: {
     opacity: 0.55,

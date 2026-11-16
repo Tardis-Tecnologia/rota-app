@@ -17,6 +17,8 @@ interface LostAnimalImageLightboxProps {
   imageSource: ImageSourcePropType | null;
   title?: string;
   onClose: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
 }
 
 export default function LostAnimalImageLightbox({
@@ -24,6 +26,8 @@ export default function LostAnimalImageLightbox({
   imageSource,
   title,
   onClose,
+  onPrev,
+  onNext,
 }: LostAnimalImageLightboxProps) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
@@ -31,6 +35,7 @@ export default function LostAnimalImageLightbox({
   if (!imageSource) return null;
 
   const imageMaxHeight = height - insets.top - insets.bottom - 120;
+  const hasNav = !!(onPrev && onNext);
 
   return (
     <Modal
@@ -68,10 +73,7 @@ export default function LostAnimalImageLightbox({
           </Pressable>
         </View>
 
-        <Pressable
-          style={styles.imageArea}
-          onPress={(e) => e.stopPropagation()}
-        >
+        <Pressable style={styles.imageArea} onPress={(e) => e.stopPropagation()}>
           <Image
             source={imageSource}
             style={{
@@ -79,8 +81,28 @@ export default function LostAnimalImageLightbox({
               height: imageMaxHeight,
             }}
             resizeMode="contain"
-            accessibilityLabel={title ? `Foto de ${title}` : 'Foto do animal'}
+            accessibilityLabel={title ? `Foto de ${title}` : 'Foto ampliada'}
           />
+          {hasNav ? (
+            <>
+              <Pressable
+                style={[styles.navBtn, styles.navLeft]}
+                onPress={onPrev}
+                accessibilityLabel="Foto anterior"
+                hitSlop={8}
+              >
+                <Ionicons name="chevron-back" size={28} color="#fff" />
+              </Pressable>
+              <Pressable
+                style={[styles.navBtn, styles.navRight]}
+                onPress={onNext}
+                accessibilityLabel="Próxima foto"
+                hitSlop={8}
+              >
+                <Ionicons name="chevron-forward" size={28} color="#fff" />
+              </Pressable>
+            </>
+          ) : null}
         </Pressable>
 
         <Text style={[styles.hint, { paddingBottom: insets.bottom + 16 }]}>
@@ -131,6 +153,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     zIndex: 1,
   },
+  navBtn: {
+    position: 'absolute',
+    top: '46%',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navLeft: { left: 4 },
+  navRight: { right: 4 },
   hint: {
     textAlign: 'center',
     fontSize: 12,

@@ -16,7 +16,7 @@ export default function CpfRequiredModal({
   onClose,
   onCompleteProfile,
   title = 'Complete seu cadastro',
-  message = 'Você precisa informar CPF para resgatar recompensas.',
+  message = 'Você precisa informar CPF para resgatar benefícios.',
 }: CpfRequiredModalProps) {
   return (
     <Modal

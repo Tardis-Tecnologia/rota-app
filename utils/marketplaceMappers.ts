@@ -49,6 +49,19 @@ export function mapMarketplaceListItem(dto: MarketplaceListingListItemDto): Mark
     detail.image?.publicUrl?.trim() ||
     null;
   const imageId = detail.image?.id?.trim() || null;
+  const galleryFromDto =
+    detail.galleryImages
+      ?.map((img) => img.publicUrl?.trim() || '')
+      .filter(Boolean) ?? [];
+  const imageUris =
+    galleryFromDto.length > 0
+      ? galleryFromDto
+      : imageUri
+        ? [imageUri]
+        : [];
+  const galleryImageIds = (detail.galleryImageIds ?? [])
+    .map((id) => String(id).trim())
+    .filter(Boolean);
   const priceRaw =
     dto.price ??
     (detail as MarketplaceListingDetailDto & { priceValue?: string | number }).priceValue;
@@ -67,6 +80,8 @@ export function mapMarketplaceListItem(dto: MarketplaceListingListItemDto): Mark
     advertiserContact: '',
     imageUri,
     imageId,
+    imageUris,
+    galleryImageIds,
     isOwner: false,
     status: dto.status?.trim() || 'published',
     createdAt: '',
@@ -91,6 +106,17 @@ export function mapMarketplaceDetail(dto: MarketplaceListingDetailDto): Marketpl
     advertiserContact: dto.advertiserContact?.trim() || '',
     imageUri: dto.image?.publicUrl?.trim() || dto.imagePublicUrl?.trim() || base.imageUri,
     imageId: dto.image?.id?.trim() || base.imageId,
+    imageUris:
+      (dto.galleryImages ?? [])
+        .map((img) => img.publicUrl?.trim() || '')
+        .filter(Boolean).length > 0
+        ? (dto.galleryImages ?? [])
+            .map((img) => img.publicUrl?.trim() || '')
+            .filter(Boolean)
+        : base.imageUris,
+    galleryImageIds: (dto.galleryImageIds ?? base.galleryImageIds)
+      .map((id) => String(id).trim())
+      .filter(Boolean),
     isOwner: dto.isOwner === true,
     createdAt: dto.createdAt?.trim() || '',
     updatedAt: dto.updatedAt?.trim() || '',

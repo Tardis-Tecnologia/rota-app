@@ -13,7 +13,6 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { ModalCurriculum } from './ModalCurriculum';
 import { ModalDocuments } from './ModalDocuments';
 
 interface MenuItemProps {
@@ -61,7 +60,6 @@ export default function ProfileComponent({
 }: ProfileComponentProps) {
     const { user, logout } = useAuth();
     const [showDocumentosModal, setShowDocumentosModal] = useState(false);
-    const [showCurriculoModal, setShowCurriculoModal] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
     const displayName = user ? streamAndUiDisplayName(user) || nomeUsuario : nomeUsuario;
     const displaySubtitle = user ? (user.profile === 'VISITANTE' ? 'Visitante' : 'Cidadão') : subtitulo;
@@ -81,7 +79,10 @@ export default function ProfileComponent({
             setShowDocumentosModal(true);
             return;
         } else if (item === 'Meu Currículo') {
-            setShowCurriculoModal(true);
+            router.push('/JobCandidateProfile');
+            return;
+        } else if (item === 'Certificados e medalhas') {
+            router.push('/CertificadosMedalhas');
             return;
         }
         console.log(`Navegando para: ${item}`);
@@ -102,10 +103,6 @@ export default function ProfileComponent({
             <ModalDocuments
                 visible={showDocumentosModal}
                 onClose={() => setShowDocumentosModal(false)}
-            />
-            <ModalCurriculum
-                visible={showCurriculoModal}
-                onClose={() => setShowCurriculoModal(false)}
             />
             <ScrollView
             style={styles.content}
@@ -131,6 +128,9 @@ export default function ProfileComponent({
                 {/* Name and Subtitle */}
                 <Text style={styles.userName}>{displayName}</Text>
                 <Text style={styles.userSubtitle}>{displaySubtitle}</Text>
+                {user?.bio?.trim() ? (
+                  <Text style={styles.userBio}>{user.bio.trim()}</Text>
+                ) : null}
             </View>
 
             {/* Menu Options */}
@@ -143,18 +143,45 @@ export default function ProfileComponent({
                     onPress={() => handleMenuPress('Conta')}
                   />
                 ) : null}
+                {!isVisitante && user?.id ? (
+                  <MenuItem
+                    icon="images-outline"
+                    label="Meu feed"
+                    iconColor="#0891b2"
+                    onPress={() =>
+                      router.push({
+                        pathname: '/forum/author',
+                        params: {
+                          userId: user.id,
+                          name: displayName,
+                          photoUrl: user.photoUrl ?? '',
+                        },
+                      })
+                    }
+                  />
+                ) : null}
                 {/* <MenuItem
                 icon="folder-outline"
                 label="Meus Documentos"
                 iconColor="#6366F1"
                 onPress={() => handleMenuPress('Meus Documentos')}
                 /> */}
-                {/* <MenuItem
-                icon="ribbon-outline"
-                label="Meu Currículo"
-                iconColor="#14B8A6"
-                onPress={() => handleMenuPress('Meu Currículo')}
-                /> */}
+                {!isVisitante ? (
+                  <MenuItem
+                    icon="ribbon-outline"
+                    label="Meu Currículo"
+                    iconColor="#14B8A6"
+                    onPress={() => handleMenuPress('Meu Currículo')}
+                  />
+                ) : null}
+                {!isVisitante ? (
+                  <MenuItem
+                    icon="medal-outline"
+                    label="Certificados e medalhas"
+                    iconColor="#D97706"
+                    onPress={() => handleMenuPress('Certificados e medalhas')}
+                  />
+                ) : null}
                 <MenuItem
                 icon="help-circle-outline"
                 label="Ajuda"
@@ -227,6 +254,14 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '400',
         color: '#6B7280',
+    },
+    userBio: {
+        marginTop: 10,
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#475569',
+        textAlign: 'center',
+        paddingHorizontal: 12,
     },
     menuSection: {
         paddingHorizontal: 24,

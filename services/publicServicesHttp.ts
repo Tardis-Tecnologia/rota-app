@@ -1,4 +1,5 @@
-import { getApiBaseUrl, getAuthToken, getWhitelabelHostId } from './authApi';
+import { resolveActiveHostId } from '@/utils/whitelabelHost';
+import { ensureAuthTokenHydrated, getApiBaseUrl, getAuthToken } from './authApi';
 
 const BASE_PATH = '/api/v1';
 const TIMEOUT_MS = 30_000;
@@ -22,9 +23,9 @@ async function readErrorMessage(res: Response): Promise<string> {
   return res.statusText || `HTTP ${res.status}`;
 }
 
-/** Host da cidade atual (whitelabel). */
+/** Host da cidade atual: município do login, ou o host do build. */
 export function currentHostId(): string {
-  return getWhitelabelHostId();
+  return resolveActiveHostId();
 }
 
 /**
@@ -35,7 +36,7 @@ export async function publicServicesRequest<T>(
   path: string,
   options: { method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; query?: Query; body?: unknown } = {},
 ): Promise<T> {
-  const token = getAuthToken();
+  const token = (await ensureAuthTokenHydrated()) || getAuthToken();
   if (!token) throw new Error('Faça login para continuar.');
 
   const params = new URLSearchParams();
@@ -69,7 +70,64 @@ export async function publicServicesRequest<T>(
     clearTimeout(timeout);
   }
 
-  if (!res.ok) throw new Error(await readErrorMessage(res));
+  if (!res.ok) {
+    if (res.status === 401) {
+      throw new Error('Sessão expirada ou não autorizada. Saia e entre novamente na conta.');
+    }
+    throw new Error(await readErrorMessage(res));
+  }
+  const raw = await res.text();
+  return (raw.trim() ? JSON.parse(raw) : undefined) as T;
+}
+
+/** Catálogo público: envia token se houver, mas não exige login. */
+export async function publicServicesOptionalAuthRequest<T>(
+  path: string,
+  options: {
+    method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+    query?: Query;
+    body?: unknown;
+    timeoutMs?: number;
+  } = {},
+): Promise<T> {
+  const token = (await ensureAuthTokenHydrated()) || getAuthToken();
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(options.query ?? {})) {
+    if (value === undefined || value === null || value === '') continue;
+    params.set(key, String(value));
+  }
+  const qs = params.toString();
+  const url = `${getApiBaseUrl()}${BASE_PATH}${path}${qs ? `?${qs}` : ''}`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: options.method ?? 'GET',
+      headers: {
+        Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error('O servidor demorou para responder. Verifique sua conexão e tente novamente.');
+    }
+    throw error instanceof Error ? error : new Error('Falha de conexão');
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (!res.ok) {
+    if (res.status === 401) {
+      throw new Error('Sessão expirada ou não autorizada. Saia e entre novamente na conta.');
+    }
+    throw new Error(await readErrorMessage(res));
+  }
   const raw = await res.text();
   return (raw.trim() ? JSON.parse(raw) : undefined) as T;
 }

@@ -106,21 +106,17 @@ export default function HelpCenter() {
           'No início, use a seção de problemas reportados para registrar uma ocorrência.',
       },
       {
-          id: 'faq-3',
-          title: 'Como funciona o Pulso?',
-          description:
-            'O Pulso mostra tendências e problemas mais reportados pela comunidade, ajudando a priorizar melhorias.',
-        },
-        {
-          id: 'faq-4',
-          title: 'Não estou vendo o mapa, o que faço?',
-          description: 'Verifique a permissão de localização do navegador/dispositivo e tente recarregar. Se persistir, reporte como bug abaixo.',
-        },
-        {
-          id: 'faq-5',
-          title: 'Como funciona o Missões da Cidade?',
-          description: 'As missões da cidade são oportunidades para a comunidade se envolver com a prefeitura e a cidade. Elas são organizadas pela prefeitura e são abertas para todos os cidadãos.',
-        },
+        id: 'faq-3',
+        title: 'Não estou vendo o mapa, o que faço?',
+        description:
+          'Verifique a permissão de localização do navegador/dispositivo e tente recarregar. Se persistir, reporte como bug abaixo.',
+      },
+      {
+        id: 'faq-4',
+        title: 'Como funcionam as missões e os benefícios?',
+        description:
+          'No Programa Cidadão, as missões dão pontos quando a prefeitura aprova a comprovação. Esses pontos formam o saldo para resgatar benefícios: valor negativo desconta, valor positivo credita.',
+      },
     ],
     [],
   );
@@ -179,7 +175,7 @@ export default function HelpCenter() {
           /> */}
           <HelpActionCard
             icon="message-square"
-            title="Fórum"
+            title="Feed"
             description="Tire dúvidas e participe de discussões."
             onPress={() => router.push(forumHref)}
           />

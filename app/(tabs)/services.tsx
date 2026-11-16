@@ -58,8 +58,8 @@ const servicesCards: ServiceCard[] = [
   },
   {
     id: 'animals',
-    title: 'Animais, Meio Ambiente / ONG',
-    titleLines: ['Animais, Meio', 'Ambiente / ONG'],
+    title: 'Animais perdidos',
+    titleLines: ['Animais', 'perdidos'],
     icon: 'paw-outline',
     iconColor: '#16A34A',
     iconBg: '#DCFCE7',
@@ -102,7 +102,7 @@ export default function ServicosScreen() {
 
   const handleCardPress = (serviceId: string, title: string) => {
     if (serviceId === 'education') {
-      router.push('/EducationTab');
+      router.push('/education' as Href);
       return;
     }
 

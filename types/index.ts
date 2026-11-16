@@ -39,20 +39,33 @@ export interface Post {
   categoria: Exclude<FeedFilter, 'todos'>;
 }
 
+export interface PlaceReview {
+  author: string;
+  comment: string;
+  rating: number;
+  timeAgo?: string;
+}
+
 export interface PontoInteresse {
   id: string;
   titulo: string;
   descricao: string;
   latitude: number;
   longitude: number;
-  tipo: 'governo' | 'saude' | 'lazer' | 'educacao' | 'cultura' | 'turismo';
+  /** Cor do ponto no mapa. Quando ausente, o mapa usa a cor do tipo. */
+  markerColor?: string;
   rating?: number;
   userRatingsTotal?: number;
   openNow?: boolean;
   photoUrl?: string;
+  /** Galeria do estabelecimento no sheet do mapa (setas se > 1). */
+  photoUrls?: string[];
   formattedAddress?: string;
   telefone?: string;
   placeType?: string;
+  /** Texto curto / sobre o estabelecimento no sheet do mapa. */
+  about?: string;
+  reviews?: PlaceReview[];
 }
 
 export interface Localizacao {

@@ -30,28 +30,32 @@ export type JobCard = {
   description?: string;
   /** Requisitos da vaga (O que você precisa) */
   requirements?: string[];
+  commercialAccountId?: string | null;
+  companyPhotoUrl?: string | null;
+  deadlineLabel?: string | null;
 };
 
 export const jobsNearBy: JobCard[] = [
   {
     id: 'job-0',
     title: 'Analista de Sistemas Pleno',
-    company: 'RIOTECH HUB',
-    location: 'Porto Maravilha, RJ',
+    company: 'Prefeitura de Maricá — TI',
+    location: 'Centro, Maricá',
     type: 'Híbrido',
     contractType: 'CLT',
     salary: 'R$ 7.500',
     image: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=200&auto=format&fit=crop',
     distance: 0.3,
     tags: ['TECH', 'HÍBRIDO'],
-    description: 'Buscamos um desenvolvedor apaixonado por inovação para atuar em projetos de grande escala com React e TypeScript.',
+    description:
+      'Atuação em sistemas municipais e canais digitais do cidadão. Stack com React, TypeScript e APIs REST.',
     requirements: ['3+ anos com React', 'Experiência com TypeScript', 'Trabalho em equipe'],
   },
   {
     id: 'job-1',
     title: 'Atendente de Padaria',
     company: 'Padaria Pão Dourado',
-    location: 'Centro',
+    location: 'Centro, Maricá',
     type: 'Presencial',
     contractType: 'CLT',
     salary: 'R$ 1.800',
@@ -238,15 +242,19 @@ interface JobsOpportunitiesProps {
   activeCategory?: JobCategoryId;
   /** Texto digitado no filtro de profissão (só na variante lista). */
   searchQuery?: string;
+  /** Quando informado, usa esta lista (ex.: API) em vez do mock local. */
+  jobs?: JobCard[];
 }
 
 export default function JobsOpportunities({
   variant = 'carousel',
   activeCategory = 'todos',
   searchQuery = '',
+  jobs,
 }: JobsOpportunitiesProps) {
+  const sourceJobs = jobs !== undefined ? jobs : sortedJobs;
   const filteredForList = filterJobsBySearch(
-    filterJobsByCategory(sortedJobs, activeCategory),
+    filterJobsByCategory(sourceJobs, activeCategory),
     searchQuery,
   );
 

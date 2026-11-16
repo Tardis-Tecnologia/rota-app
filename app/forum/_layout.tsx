@@ -2,7 +2,7 @@ import { AppColors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, router } from 'expo-router';
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
 function HeaderBack() {
   return (
@@ -29,7 +29,6 @@ export default function ForumStackLayout() {
         },
         headerShadowVisible: false,
         headerLeft: () => <HeaderBack />,
-        headerRight: () => <View style={styles.headerSpacer} />,
       }}
     >
       <Stack.Screen name="communities/create" options={{ title: 'Novo canal' }} />
@@ -53,5 +52,4 @@ export default function ForumStackLayout() {
 const styles = StyleSheet.create({
   headerBtn: { paddingHorizontal: 8, paddingVertical: 4 },
   headerBtnPressed: { opacity: 0.7 },
-  headerSpacer: { width: 40 },
 });

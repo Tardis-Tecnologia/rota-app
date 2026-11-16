@@ -1,3 +1,4 @@
+import MarketplaceProductImageGallery from '@/components/marketplace/MarketplaceProductImageGallery';
 import { getMarketplaceCategoryMeta } from '@/constants/marketplaceCategories';
 import { AppColors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,14 +10,12 @@ import type { MarketplaceListing } from '@/types/marketplace';
 import { formatMarketplacePrice } from '@/utils/marketplaceFormat';
 import { promptVisitanteLogin } from '@/utils/visitanteAccess';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,10 +23,6 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-function contactDigits(phone: string): string {
-  return phone.replace(/\D/g, '');
-}
 
 export default function MarketplaceDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -103,9 +98,28 @@ export default function MarketplaceDetailScreen() {
     }
   }, [item, user?.id, user?.name, user?.profile]);
 
-  const callPhone = () => {
-    if (!item?.advertiserContact) return;
-    void Linking.openURL(`tel:${contactDigits(item.advertiserContact)}`);
+  const openCompanyProfile = () => {
+    if (!item?.sellerId?.trim()) return;
+    const seller = item;
+    if (seller.sellerIsCommercial === false) {
+      router.push({
+        pathname: '/forum/author',
+        params: {
+          userId: seller.sellerId,
+          name: seller.sellerName,
+          photoUrl: seller.sellerPhotoUrl ?? '',
+        },
+      });
+      return;
+    }
+    router.push({
+      pathname: '/forum/store',
+      params: {
+        commercialId: seller.sellerId,
+        storeName: seller.sellerName,
+        photoUrl: seller.sellerPhotoUrl ?? '',
+      },
+    });
   };
 
   if (loading) {
@@ -135,13 +149,15 @@ export default function MarketplaceDetailScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
         showsVerticalScrollIndicator={false}
       >
-        {item.imageUri ? (
-          <Image source={{ uri: item.imageUri }} style={styles.hero} resizeMode="cover" />
-        ) : (
-          <LinearGradient colors={['#6366f1', '#a855f7']} style={styles.heroPlaceholder}>
-            <Ionicons name="cube-outline" size={48} color="#fff" />
-          </LinearGradient>
-        )}
+        <MarketplaceProductImageGallery
+          imageUris={
+            item.imageUris?.length
+              ? item.imageUris
+              : item.imageUri
+                ? [item.imageUri]
+                : []
+          }
+        />
 
         <View style={styles.body}>
           <View style={[styles.catBadge, { backgroundColor: cat.bg }]}>
@@ -163,36 +179,50 @@ export default function MarketplaceDetailScreen() {
           <Text style={styles.description}>{item.description}</Text>
 
           <Text style={styles.sectionLabel}>Loja</Text>
-          <Text style={styles.sellerName}>{item.sellerName}</Text>
-
-          {canContactStore ? (
-            <>
-              <Text style={styles.sectionLabel}>Contato</Text>
-              <Pressable
-                style={styles.contactRow}
-                onPress={() => void openSellerChat()}
-                disabled={chatLoading}
-              >
-                <Ionicons name="chatbubble-ellipses-outline" size={20} color="#7c3aed" />
-                <View style={styles.contactTextWrap}>
-                  <Text style={styles.contactText}>Enviar mensagem no app</Text>
-                  <Text style={styles.contactHint} numberOfLines={2}>
-                    Abre um chat com {item.sellerName} sobre este produto.
-                  </Text>
-                </View>
-                {chatLoading ? (
-                  <ActivityIndicator size="small" color="#7c3aed" />
-                ) : (
-                  <Text style={styles.contactAction}>Abrir</Text>
-                )}
-              </Pressable>
-              {item.advertiserContact ? (
-                <Pressable style={styles.contactRowSecondary} onPress={callPhone}>
-                  <Ionicons name="call-outline" size={18} color={AppColors.text.tertiary} />
-                  <Text style={styles.contactSecondaryText}>Ligar: {item.advertiserContact}</Text>
-                </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.sellerRow, pressed && styles.btnPressed]}
+            onPress={openCompanyProfile}
+            disabled={!canContactStore}
+            accessibilityRole="button"
+            accessibilityLabel={`Ver perfil de ${item.sellerName}`}
+          >
+            {item.sellerPhotoUrl ? (
+              <Image source={{ uri: item.sellerPhotoUrl }} style={styles.sellerPhoto} />
+            ) : (
+              <View style={styles.sellerFallback}>
+                <Text style={styles.sellerFallbackText}>
+                  {item.sellerName.trim().charAt(0).toUpperCase() || 'L'}
+                </Text>
+              </View>
+            )}
+            <View style={styles.sellerTextWrap}>
+              <Text style={styles.sellerName}>{item.sellerName}</Text>
+              {canContactStore ? (
+                <Text style={styles.sellerHint}>Ver perfil da empresa</Text>
               ) : null}
-            </>
+            </View>
+            {canContactStore ? (
+              <Ionicons name="chevron-forward" size={18} color={AppColors.text.quaternary} />
+            ) : null}
+          </Pressable>
+
+          {canContactStore && !item.isOwner ? (
+            <Pressable
+              style={({ pressed }) => [styles.contactBtn, pressed && styles.btnPressed]}
+              onPress={() => void openSellerChat()}
+              disabled={chatLoading}
+              accessibilityRole="button"
+              accessibilityLabel={`Falar com ${item.sellerName}`}
+            >
+              {chatLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" />
+                  <Text style={styles.contactBtnText}>Falar com a loja</Text>
+                </>
+              )}
+            </Pressable>
           ) : null}
         </View>
       </ScrollView>
@@ -244,6 +274,33 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  sellerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
+  },
+  sellerTextWrap: { flex: 1, gap: 2 },
+  sellerHint: { fontSize: 13, fontWeight: '600', color: '#0d9488' },
+  sellerPhoto: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: AppColors.gray[200],
+  },
+  sellerFallback: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#ede9fe',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sellerFallbackText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#6d28d9',
+  },
   description: {
     fontSize: 16,
     lineHeight: 24,
@@ -254,33 +311,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: AppColors.text.secondary,
   },
-  contactRow: {
+  contactBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#ddd6fe',
-    backgroundColor: '#f5f3ff',
-    marginTop: 6,
-  },
-  contactTextWrap: { flex: 1, gap: 4 },
-  contactText: { fontSize: 15, fontWeight: '700', color: AppColors.text.secondary },
-  contactHint: { fontSize: 12, lineHeight: 17, color: AppColors.text.tertiary },
-  contactAction: { fontSize: 13, fontWeight: '800', color: '#7c3aed' },
-  contactRowSecondary: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    marginTop: 4,
+    backgroundColor: '#0d9488',
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 8,
   },
-  contactSecondaryText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: AppColors.text.tertiary,
-  },
+  btnPressed: { opacity: 0.9 },
+  contactBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

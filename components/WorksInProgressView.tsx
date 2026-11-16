@@ -199,7 +199,6 @@ export function WorksInProgressView(props: { showBack?: boolean; title?: string 
         <View style={styles.statsRow}>
           <StatBox value={stats.total} label="Ativas" />
           <StatBox value={stats.faseFinal} label="Fase final" />
-          <StatBox value={stats.last7Days} label="Novas semana" />
         </View>
         {statsError ? <Text style={styles.statsErrorText}>{statsError}</Text> : null}
 

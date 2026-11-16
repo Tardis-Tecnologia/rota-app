@@ -128,7 +128,7 @@ export default function ComercianteMyStorePostsSection({
     (forumPostId: string) => {
       const commercialId = commercialIdsByForumPost[forumPostId];
       if (!commercialId) return;
-      Alert.alert('Excluir publicação', 'Deseja remover esta promoção do fórum?', [
+      Alert.alert('Excluir publicação', 'Deseja remover esta promoção do feed?', [
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Excluir',
@@ -155,7 +155,7 @@ export default function ComercianteMyStorePostsSection({
   return (
     <View style={styles.wrap}>
       <View style={styles.stickyHeader}>
-        <ForumFeedContextChip label="Minhas publicações no fórum" />
+        <ForumFeedContextChip label="Minhas publicações no feed" />
       </View>
 
       <ScrollView
@@ -184,7 +184,7 @@ export default function ComercianteMyStorePostsSection({
             <Ionicons name="storefront-outline" size={32} color={AppColors.text.quaternary} />
             <Text style={styles.emptyTitle}>Nenhuma publicação da loja</Text>
             <Text style={styles.emptyHint}>
-              Toque em Publicar para divulgar promoções no fórum do bairro.
+              Toque em Publicar para divulgar promoções no feed da cidade.
             </Text>
           </View>
         ) : null}

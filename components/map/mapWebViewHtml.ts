@@ -9,20 +9,31 @@ export const MAP_WEBVIEW_HTML = `<!DOCTYPE html>
     * { box-sizing: border-box; }
     html, body, #map { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #e8ecf1; }
     .maplibregl-ctrl-logo { display: none !important; }
-    .card-marker-wrap { display: flex; flex-direction: column; align-items: center; width: 76px; cursor: pointer; }
+    .card-marker-wrap { display: flex; flex-direction: column; align-items: center; width: 92px; cursor: pointer; }
     .card-marker-card {
-      width: 76px; background: #fff; border-radius: 10px; border: 1px solid #e2e8f0;
-      padding: 5px; box-shadow: 0 2px 4px rgba(15,23,42,0.12);
+      width: 92px; background: #fff; border-radius: 10px; border: 1px solid #e2e8f0;
+      padding: 4px; box-shadow: 0 2px 4px rgba(15,23,42,0.12);
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .card-marker-card.partner {
+      border: 2px solid #d97706;
+      padding: 3px;
+      box-shadow: 0 0 0 2px #fff7ed, 0 2px 6px rgba(180, 83, 9, 0.35);
     }
     .card-marker-avatar {
-      width: 66px; height: 48px; border-radius: 7px; background: #7C3AED;
+      width: 100%; height: 48px; border-radius: 7px; background: #7C3AED;
       display: flex; align-items: center; justify-content: center;
-      color: #fff; font-size: 15px; font-weight: 700;
+      color: #fff; font-size: 15px; font-weight: 700; overflow: hidden;
+    }
+    .card-marker-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+    .card-marker-avatar.partner {
+      box-shadow: inset 0 0 0 2px #fff;
     }
     .card-marker-label {
-      margin-top: 4px; font-size: 9px; line-height: 11px; font-weight: 700;
-      color: #475569; text-align: center; max-height: 22px; overflow: hidden;
+      width: 100%; margin-top: 4px; font-size: 11px; line-height: 13px; font-weight: 800;
+      color: #1e293b; text-align: center; max-height: 26px; overflow: hidden;
     }
+    .card-marker-card.partner .card-marker-label { color: #9a3412; }
     .card-marker-pointer {
       width: 8px; height: 4px; margin-top: 2px; border-radius: 1px;
       background: #fff; border: 1px solid #e2e8f0;
@@ -54,6 +65,28 @@ export const MAP_WEBVIEW_HTML = `<!DOCTYPE html>
       var userWatchId = null;
       var dotsLayerId = null;
       var dotsSourceId = null;
+      var boundaryData = null;
+
+      function applyBoundary() {
+        if (!map || !map.isStyleLoaded()) return;
+        if (map.getLayer('ibge-boundary-fill')) map.removeLayer('ibge-boundary-fill');
+        if (map.getLayer('ibge-boundary-line')) map.removeLayer('ibge-boundary-line');
+        if (map.getSource('ibge-boundary')) map.removeSource('ibge-boundary');
+        if (!boundaryData) return;
+        map.addSource('ibge-boundary', { type: 'geojson', data: boundaryData });
+        map.addLayer({
+          id: 'ibge-boundary-fill',
+          type: 'fill',
+          source: 'ibge-boundary',
+          paint: { 'fill-color': '#0ea5e9', 'fill-opacity': 0.12 }
+        });
+        map.addLayer({
+          id: 'ibge-boundary-line',
+          type: 'line',
+          source: 'ibge-boundary',
+          paint: { 'line-color': '#0369a1', 'line-width': 2 }
+        });
+      }
 
       function post(payload) {
         if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
@@ -76,19 +109,51 @@ export const MAP_WEBVIEW_HTML = `<!DOCTYPE html>
         return t ? t.charAt(0).toUpperCase() : '?';
       }
 
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function bindMarkerPress(el, id) {
+        var lastTs = 0;
+        function fire(e) {
+          if (e && e.stopPropagation) e.stopPropagation();
+          if (e && e.preventDefault) e.preventDefault();
+          var now = Date.now();
+          if (now - lastTs < 350) return;
+          lastTs = now;
+          post({ type: 'markerPress', id: String(id) });
+        }
+        el.addEventListener('click', fire);
+        el.addEventListener('touchend', fire, { passive: false });
+      }
+
+      function markerAvatarHtml(ponto) {
+        var partner = !!ponto.partner;
+        var photo = ponto.photoUrl ? String(ponto.photoUrl) : '';
+        var cls = 'card-marker-avatar' + (partner ? ' partner' : '');
+        var inner = photo
+          ? '<img alt="" src="' + escapeHtml(photo) + '" />'
+          : escapeHtml(markerInitial(ponto.titulo));
+        return '<div class="' + cls + '">' + inner + '</div>';
+      }
+
       function addCardMarker(ponto) {
         var wrap = document.createElement('div');
         wrap.className = 'card-marker-wrap';
+        wrap.style.touchAction = 'manipulation';
+        var cardCls = 'card-marker-card' + (ponto.partner ? ' partner' : '');
         wrap.innerHTML =
-          '<div class="card-marker-card">' +
-            '<div class="card-marker-avatar">' + markerInitial(ponto.titulo) + '</div>' +
-            '<div class="card-marker-label">' + (ponto.titulo || '') + '</div>' +
+          '<div class="' + cardCls + '">' +
+            markerAvatarHtml(ponto) +
+            '<div class="card-marker-label">' + escapeHtml(ponto.titulo || '') + '</div>' +
           '</div>' +
           '<div class="card-marker-pointer"></div>';
-        wrap.addEventListener('click', function (e) {
-          e.stopPropagation();
-          post({ type: 'markerPress', id: String(ponto.id) });
-        });
+        bindMarkerPress(wrap, ponto.id);
         var marker = new maplibregl.Marker({ element: wrap, anchor: 'bottom' })
           .setLngLat([ponto.longitude, ponto.latitude])
           .addTo(map);
@@ -162,7 +227,9 @@ export const MAP_WEBVIEW_HTML = `<!DOCTYPE html>
       function apply3dBuildings() {
         removeLayerIfExists('rota-explore-3d-buildings');
         if (!is3d || !map) return;
-        var sourceId = map.getSource('maptiler_planet') ? 'maptiler_planet' : null;
+        var sourceId = null;
+        if (map.getSource('maptiler_planet')) sourceId = 'maptiler_planet';
+        else if (map.getSource('openmaptiles')) sourceId = 'openmaptiles';
         if (!sourceId) return;
         hideDefaultBuildingExtrusions();
         var insertBefore = belowLayerId || findLabelLayerId();
@@ -224,12 +291,17 @@ export const MAP_WEBVIEW_HTML = `<!DOCTYPE html>
             'circle-stroke-color': '#ffffff'
           }
         });
-        map.on('click', dotsLayerId, function (e) {
-          var f = e.features && e.features[0];
-          if (f && f.properties && f.properties.id) {
-            post({ type: 'markerPress', id: String(f.properties.id) });
-          }
-        });
+        if (!map.__rotaDotsClickBound) {
+          map.__rotaDotsClickBound = true;
+          map.on('click', function (e) {
+            if (!dotsLayerId || !map.getLayer(dotsLayerId)) return;
+            var feats = map.queryRenderedFeatures(e.point, { layers: [dotsLayerId] });
+            var f = feats && feats[0];
+            if (f && f.properties && f.properties.id) {
+              post({ type: 'markerPress', id: String(f.properties.id) });
+            }
+          });
+        }
       }
 
       function applyRoute(coords) {
@@ -298,7 +370,7 @@ export const MAP_WEBVIEW_HTML = `<!DOCTYPE html>
           }
           return payload.styleJson;
         }
-        return 'https://demotiles.maplibre.org/style.json';
+        return 'https://tiles.openfreemap.org/styles/liberty';
       }
 
       function bindMapEvents() {
@@ -310,6 +382,10 @@ export const MAP_WEBVIEW_HTML = `<!DOCTYPE html>
         });
         map.on('style.load', function () {
           apply3dBuildings();
+          applyBoundary();
+        });
+        map.on('movestart', function (e) {
+          if (e && e.originalEvent) post({ type: 'userGestureStart' });
         });
         map.on('moveend', function () { emitRegion(true); });
         map.on('error', function (e) {
@@ -383,6 +459,12 @@ export const MAP_WEBVIEW_HTML = `<!DOCTYPE html>
           applyRoute(cmd.coordinates || []);
           if (cmd.origin) addRouteDot(cmd.origin.longitude, cmd.origin.latitude, 'origin');
           if (cmd.destination) addRouteDot(cmd.destination.longitude, cmd.destination.latitude, 'destination');
+          return;
+        }
+
+        if (cmd.type === 'setBoundary') {
+          boundaryData = cmd.geojson || null;
+          if (map.isStyleLoaded()) applyBoundary();
           return;
         }
 

@@ -1,4 +1,5 @@
-import ForumFeedContextChip from '@/components/forum/ForumFeedContextChip';
+import FeedCommentsSheet from '@/components/feed/FeedCommentsSheet';
+import FeedLikesSheet, { type FeedLiker } from '@/components/feed/FeedLikesSheet';
 import ForumPostCard from '@/components/forum/ForumPostCard';
 import {
     forumListItemToFeedPost,
@@ -14,6 +15,7 @@ import {
     getForumPost,
     likeForumPost,
     listForumComments,
+    listForumLikes,
     listForumPosts,
     type ForumPostCommentListItemDto,
     type ForumPostListItemDto,
@@ -22,7 +24,7 @@ import {
 import { FORUM_PARTNER_STORE_POST_TYPE } from '@/types/forumCommercial';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     RefreshControl,
@@ -37,6 +39,12 @@ interface ForumAllPostsSectionProps {
   onRefresh: () => void;
   onRefreshComplete: () => void;
   reloadToken: number;
+  /** Incrementar para voltar ao topo (toque de novo na aba). */
+  scrollToTopToken?: number;
+  /** Mesmos posts oficiais do Feed, filtrados para o Início. */
+  officialOnly?: boolean;
+  /** Renderiza dentro do scroll da tela, sem um segundo ScrollView. */
+  embedded?: boolean;
 }
 
 export default function ForumAllPostsSection({
@@ -44,9 +52,13 @@ export default function ForumAllPostsSection({
   onRefresh,
   onRefreshComplete,
   reloadToken,
+  scrollToTopToken = 0,
+  officialOnly = false,
+  embedded = false,
 }: ForumAllPostsSectionProps) {
   const canInteract = useCanInteractAsCitizen();
-  const { handleForumApiError } = useForumModeration();
+  const { isLoading: authLoading } = useAuth();
+  const { handleForumApiError, requestForumComment } = useForumModeration();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,15 +68,24 @@ export default function ForumAllPostsSection({
     Record<string, ForumPostCommentListItemDto[]>
   >({});
   const [commentDraftByPost, setCommentDraftByPost] = useState<Record<string, string>>({});
-  const [commentsExpandedByPost, setCommentsExpandedByPost] = useState<Record<string, boolean>>(
-    {},
-  );
+  const [commentsSheetPostId, setCommentsSheetPostId] = useState<string | null>(null);
+  const [commentsLoadingPostId, setCommentsLoadingPostId] = useState<string | null>(null);
+  const [likesSheetPostId, setLikesSheetPostId] = useState<string | null>(null);
+  const [likesByPost, setLikesByPost] = useState<Record<string, FeedLiker[]>>({});
+  const [likesLoadingPostId, setLikesLoadingPostId] = useState<string | null>(null);
   const [commentSendingPostId, setCommentSendingPostId] = useState<string | null>(null);
+  const completeRefreshAfterLoadRef = useRef(false);
+  const listRef = useRef<ScrollView>(null);
+  const onRefreshCompleteRef = useRef(onRefreshComplete);
+  onRefreshCompleteRef.current = onRefreshComplete;
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [generalRows, storeRows] = await Promise.all([
+      const [generalRows, storeRows] = officialOnly
+        ? [await listForumPosts(undefined, { official: true, init: 0, end: 20 }), []]
+        : await Promise.all([
         listForumPosts(undefined, { init: 0, end: 80 }),
         listForumPosts(undefined, {
           postType: FORUM_PARTNER_STORE_POST_TYPE,
@@ -74,13 +95,14 @@ export default function ForumAllPostsSection({
       ]);
       const byId = new Map<string, (typeof generalRows)[number]>();
       for (const row of [...generalRows, ...storeRows]) {
-        if (isExcludedFromGeneralForumFeed(row)) continue;
+        if (officialOnly && !row.official) continue;
+        if (!row.official && isExcludedFromGeneralForumFeed(row)) continue;
         byId.set(row.id, row);
       }
       const rows = [...byId.values()].sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
-      const top = rows.slice(0, 40);
+      const top = rows.slice(0, 80);
       const detailed = (
         await Promise.all(
           top.map(async (row) => {
@@ -91,7 +113,9 @@ export default function ForumAllPostsSection({
             }
           }),
         )
-      ).filter((p) => !isExcludedFromGeneralForumFeed(p));
+      ).filter((p) =>
+        officialOnly ? p.official : p.official || !isExcludedFromGeneralForumFeed(p),
+      );
       const commentEntries = await Promise.all(
         detailed.map(async (p) => {
           const comments = await listForumComments(p.id, { init: 0, end: 50 });
@@ -100,7 +124,6 @@ export default function ForumAllPostsSection({
       );
       setCommentsByPost(Object.fromEntries(commentEntries));
       setPosts(detailed);
-      setCommentsExpandedByPost({});
       setImageEpoch(Date.now());
     } catch (e) {
       setPosts([]);
@@ -109,11 +132,29 @@ export default function ForumAllPostsSection({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [officialOnly]);
 
   useEffect(() => {
-    void load();
-  }, [load, reloadToken]);
+    if (embedded && refreshing) {
+      completeRefreshAfterLoadRef.current = true;
+    }
+  }, [embedded, refreshing, reloadToken]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    void (async () => {
+      await load();
+      if (completeRefreshAfterLoadRef.current) {
+        completeRefreshAfterLoadRef.current = false;
+        onRefreshCompleteRef.current();
+      }
+    })();
+  }, [authLoading, load, reloadToken]);
+
+  useEffect(() => {
+    if (scrollToTopToken < 1) return;
+    listRef.current?.scrollTo({ y: 0, animated: true });
+  }, [scrollToTopToken]);
 
   const handleRefresh = useCallback(async () => {
     onRefresh();
@@ -171,13 +212,147 @@ export default function ForumAllPostsSection({
     [load],
   );
 
+  const refreshComments = useCallback(
+    async (postId: string) => {
+      if ((commentsByPost[postId]?.length ?? 0) === 0) {
+        setCommentsLoadingPostId(postId);
+      }
+      try {
+        const comments = await listForumComments(postId, { init: 0, end: 50 });
+        setCommentsByPost((prev) => ({ ...prev, [postId]: comments }));
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === postId ? { ...p, commentsCount: comments.length } : p,
+          ),
+        );
+      } catch (e) {
+        if (await handleForumApiError(e)) return;
+      } finally {
+        setCommentsLoadingPostId((current) => (current === postId ? null : current));
+      }
+    },
+    [commentsByPost, handleForumApiError],
+  );
+
+  const openLikes = useCallback((postId: string) => {
+    setLikesSheetPostId(postId);
+    setLikesLoadingPostId(postId);
+    void listForumLikes(postId, { init: 0, end: 100 })
+      .then((rows) => {
+        setLikesByPost((prev) => ({ ...prev, [postId]: rows }));
+        if (rows.length > 0) {
+          setPosts((prev) =>
+            prev.map((p) => (p.id === postId ? { ...p, likesCount: rows.length } : p)),
+          );
+        }
+      })
+      .catch(() => {
+        setLikesByPost((prev) => ({ ...prev, [postId]: prev[postId] ?? [] }));
+      })
+      .finally(() => {
+        setLikesLoadingPostId((current) => (current === postId ? null : current));
+      });
+  }, []);
+
+  const commentsSheetPost = posts.find((post) => post.id === commentsSheetPostId) ?? null;
+  const likesSheetPost = posts.find((post) => post.id === likesSheetPostId) ?? null;
+
+  const cards = (
+    <>
+      {officialOnly ? <Text style={styles.sectionTitle}>Publicações oficiais</Text> : null}
+      {loading ? (
+        <View style={styles.centerBlock}>
+          <ActivityIndicator color={AppColors.primary} />
+          <Text style={styles.centerText}>Carregando...</Text>
+        </View>
+      ) : null}
+      {error && !loading ? (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
+      {!loading && !error && posts.length === 0 ? (
+        <View style={styles.emptyBlock}>
+          <Ionicons name="chatbubbles-outline" size={32} color={AppColors.text.quaternary} />
+          <Text style={styles.emptyTitle}>
+            {officialOnly ? 'Nenhuma publicação oficial ainda' : 'Nenhuma publicação ainda'}
+          </Text>
+          <Text style={styles.emptyHint}>
+            {officialOnly
+              ? 'Comunicados oficiais da Prefeitura aparecerão aqui.'
+              : 'Publicações de canais aparecem na aba Comunidade.'}
+          </Text>
+        </View>
+      ) : null}
+      {!loading && !error
+        ? posts.map((post, index) => (
+            <ForumPostCard
+              key={post.id}
+              showDivider={index < posts.length - 1}
+              post={post}
+              comments={commentsByPost[post.id] ?? []}
+              imageCacheEpoch={imageEpoch}
+              commentDraft=""
+              commentsExpanded={false}
+              commentSending={false}
+              canInteract={canInteract}
+              onLike={() => void onLike(post.id)}
+              onOpenLikes={() => openLikes(post.id)}
+              onToggleComments={() => {
+                setCommentsSheetPostId(post.id);
+                void refreshComments(post.id);
+              }}
+              onCommentDraftChange={(t) =>
+                setCommentDraftByPost((prev) => ({ ...prev, [post.id]: t }))
+              }
+              onSendComment={() => void onSendComment(post.id)}
+              onOpenStore={() => openForumCommercialStoreProfile(post, router)}
+              onRemoved={() => setPosts((prev) => prev.filter((item) => item.id !== post.id))}
+            />
+          ))
+        : null}
+      <FeedLikesSheet
+        visible={!!likesSheetPost}
+        likers={likesSheetPostId ? (likesByPost[likesSheetPostId] ?? []) : []}
+        likesCount={likesSheetPost?.likesCount ?? 0}
+        loading={!!likesSheetPostId && likesLoadingPostId === likesSheetPostId}
+        onClose={() => setLikesSheetPostId(null)}
+      />
+      <FeedCommentsSheet
+        visible={!!commentsSheetPost}
+        title="Comentários"
+        comments={commentsSheetPostId ? (commentsByPost[commentsSheetPostId] ?? []) : []}
+        commentDraft={commentsSheetPostId ? (commentDraftByPost[commentsSheetPostId] ?? '') : ''}
+        commentsLoading={
+          !!commentsSheetPostId && commentsLoadingPostId === commentsSheetPostId
+        }
+        commentSending={!!commentsSheetPostId && commentSendingPostId === commentsSheetPostId}
+        canInteract={canInteract}
+        commentsCount={commentsSheetPost?.commentsCount ?? 0}
+        onClose={() => setCommentsSheetPostId(null)}
+        onCommentDraftChange={(text) => {
+          if (!commentsSheetPostId) return;
+          setCommentDraftByPost((prev) => ({ ...prev, [commentsSheetPostId]: text }));
+        }}
+        onSendComment={() => {
+          if (!commentsSheetPostId) return;
+          const postId = commentsSheetPostId;
+          void requestForumComment(() => {
+            void onSendComment(postId);
+          });
+        }}
+      />
+    </>
+  );
+
+  if (embedded) {
+    return <View style={styles.embedded}>{cards}</View>;
+  }
+
   return (
     <View style={styles.wrap}>
-      <View style={styles.stickyHeader}>
-        <ForumFeedContextChip label="Fórum do bairro · Todos" />
-      </View>
-
       <ScrollView
+        ref={listRef}
         style={styles.listScroll}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -185,56 +360,7 @@ export default function ForumAllPostsSection({
         }
         contentContainerStyle={styles.listContent}
       >
-        {loading ? (
-          <View style={styles.centerBlock}>
-            <ActivityIndicator color={AppColors.primary} />
-            <Text style={styles.centerText}>Carregando...</Text>
-          </View>
-        ) : null}
-
-        {error && !loading ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null}
-
-        {!loading && !error && posts.length === 0 ? (
-          <View style={styles.emptyBlock}>
-            <Ionicons name="chatbubbles-outline" size={32} color={AppColors.text.quaternary} />
-            <Text style={styles.emptyTitle}>Nenhuma publicação ainda</Text>
-            <Text style={styles.emptyHint}>
-              Publicações de canais aparecem na aba Comunidade.
-            </Text>
-          </View>
-        ) : null}
-
-        {!loading && !error
-          ? posts.map((post, index) => (
-              <ForumPostCard
-                key={post.id}
-                showDivider={index < posts.length - 1}
-                post={post}
-                comments={commentsByPost[post.id] ?? []}
-                imageCacheEpoch={imageEpoch}
-                commentDraft={commentDraftByPost[post.id] ?? ''}
-                commentsExpanded={!!commentsExpandedByPost[post.id]}
-                commentSending={commentSendingPostId === post.id}
-                canInteract={canInteract}
-                onLike={() => void onLike(post.id)}
-                onToggleComments={() =>
-                  setCommentsExpandedByPost((prev) => ({
-                    ...prev,
-                    [post.id]: !prev[post.id],
-                  }))
-                }
-                onCommentDraftChange={(t) =>
-                  setCommentDraftByPost((prev) => ({ ...prev, [post.id]: t }))
-                }
-                onSendComment={() => void onSendComment(post.id)}
-                onOpenStore={() => openForumCommercialStoreProfile(post, router)}
-              />
-            ))
-          : null}
+        {cards}
       </ScrollView>
     </View>
   );
@@ -242,14 +368,17 @@ export default function ForumAllPostsSection({
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, minHeight: 0, backgroundColor: '#ffffff' },
-  stickyHeader: {
-    backgroundColor: '#ffffff',
-    paddingTop: 4,
-    paddingBottom: 0,
-    zIndex: 2,
+  embedded: { backgroundColor: '#ffffff' },
+  sectionTitle: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    fontSize: 16,
+    fontWeight: '800',
+    color: AppColors.text.primary,
   },
   listScroll: { flex: 1 },
-  listContent: { paddingBottom: 100 },
+  listContent: { paddingBottom: 100, paddingTop: 2 },
   centerBlock: { paddingVertical: 28, alignItems: 'center', gap: 6 },
   centerText: { color: AppColors.text.tertiary, fontWeight: '600', fontSize: 13 },
   errorBox: {

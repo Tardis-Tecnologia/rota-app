@@ -2,10 +2,11 @@ import FilterTabs, { type FilterOption } from '@/components/FilterTabs';
 import ForumAllPostsSection from '@/components/forum/ForumAllPostsSection';
 import ForumCommunitySection from '@/components/forum/ForumCommunitySection';
 import ForumPublishFab from '@/components/forum/ForumPublishFab';
+import ForumPublishTags from '@/components/forum/ForumPublishTags';
 import { AppColors } from '@/constants/theme';
 import { useForumModeration } from '@/contexts/ForumModerationContext';
 import { useCanInteractAsCitizen } from '@/hooks/useIsVisitante';
-import { promptVisitanteLogin } from '@/utils/visitanteAccess';
+import { subscribeTabReselect } from '@/utils/tabReselect';
 import {
   createForumPost,
   findRecentlyCreatedForumPostId,
@@ -15,7 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -52,6 +53,7 @@ export default function ForumScreen() {
   const isAllPosts = activeFilter === 'todos';
   const [refreshing, setRefreshing] = useState(false);
   const [allFeedReloadToken, setAllFeedReloadToken] = useState(0);
+  const [scrollToTopToken, setScrollToTopToken] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const [publishOpen, setPublishOpen] = useState(false);
@@ -59,10 +61,22 @@ export default function ForumScreen() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [location, setLocation] = useState('');
+  const [taggedEvent, setTaggedEvent] = useState<{ id: string; title: string } | null>(null);
+  const [taggedStore, setTaggedStore] = useState<{ id: string; name: string } | null>(null);
+
+  useEffect(() => {
+    return subscribeTabReselect('forum', () => {
+      setActiveFilter('todos');
+      setScrollToTopToken((token) => token + 1);
+      setAllFeedReloadToken((token) => token + 1);
+      setRefreshing(true);
+    });
+  }, []);
 
   const onPublish = useCallback(async () => {
     if (!canInteract) {
-      promptVisitanteLogin('publicar no fórum');
+      promptVisitanteLogin('publicar no feed');
       return;
     }
     if (!title.trim() || !content.trim()) return;
@@ -73,6 +87,9 @@ export default function ForumScreen() {
         title: title.trim(),
         content: content.trim(),
         postType: 'community' as const,
+        locationDescription: location.trim() || undefined,
+        eventId: taggedEvent?.id,
+        commercialAccountId: taggedStore?.id,
       };
       await createForumPost(undefined, payload);
       if (imageUri) {
@@ -88,7 +105,10 @@ export default function ForumScreen() {
       setPublishOpen(false);
       setTitle('');
       setContent('');
+      setLocation('');
       setImageUri(null);
+      setTaggedEvent(null);
+      setTaggedStore(null);
       setAllFeedReloadToken((t) => t + 1);
     } catch (e) {
       if (await handleForumApiError(e)) return;
@@ -96,7 +116,7 @@ export default function ForumScreen() {
     } finally {
       setPublishing(false);
     }
-  }, [canInteract, content, handleForumApiError, imageUri, title]);
+  }, [canInteract, content, handleForumApiError, imageUri, location, taggedEvent, taggedStore, title]);
 
   const pickImage = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -138,6 +158,7 @@ export default function ForumScreen() {
             onRefresh={startRefresh}
             onRefreshComplete={endRefresh}
             reloadToken={allFeedReloadToken}
+            scrollToTopToken={scrollToTopToken}
           />
         </View>
         <View style={[styles.filterPanel, !isCommunityHub && styles.filterPanelHidden]}>
@@ -196,6 +217,20 @@ export default function ForumScreen() {
                       textAlignVertical="top"
                       maxLength={20000}
                     />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Localização (opcional)"
+                      value={location}
+                      onChangeText={setLocation}
+                      maxLength={255}
+                      returnKeyType="next"
+                    />
+                    <ForumPublishTags
+                      event={taggedEvent}
+                      store={taggedStore}
+                      onChangeEvent={setTaggedEvent}
+                      onChangeStore={setTaggedStore}
+                    />
                     <Pressable style={styles.photoPickBtn} onPress={() => void pickImage()}>
                       <Ionicons name="image-outline" size={18} color={AppColors.text.secondary} />
                       <Text style={styles.photoPickText}>
@@ -211,6 +246,8 @@ export default function ForumScreen() {
                       onPress={() => {
                         Keyboard.dismiss();
                         setPublishOpen(false);
+                        setTaggedEvent(null);
+                        setTaggedStore(null);
                       }}
                       style={styles.cancelBtn}
                     >
@@ -243,7 +280,7 @@ export default function ForumScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#ffffff' },
-  topSection: { paddingTop: 6, paddingBottom: 0 },
+  topSection: { paddingTop: 2, paddingBottom: 0 },
   content: { flex: 1, minHeight: 0 },
   filterPanel: { flex: 1, minHeight: 0 },
   filterPanelHidden: { display: 'none' },

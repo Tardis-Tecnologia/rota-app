@@ -30,15 +30,6 @@ export default function QuickAccessSection() {
       onPress: () => router.push('/missions'),
     },
     {
-      id: 'pulso',
-      label: 'Pulso',
-      icon: 'activity',
-      iconColor: '#059669',
-      iconBg: '#D1FAE5',
-      accentColor: '#10B981',
-      onPress: () => router.push('/pulso'),
-    },
-    {
       id: 'emergency',
       label: 'Emergência',
       icon: 'phone-call',

@@ -32,6 +32,10 @@ export interface MarketplaceListing {
   advertiserContact: string;
   imageUri: string | null;
   imageId: string | null;
+  /** Galeria completa (capa + extras), URLs públicas */
+  imageUris: string[];
+  /** IDs das fotos extras (sem a capa) */
+  galleryImageIds: string[];
   isOwner: boolean;
   status: string;
   createdAt: string;
@@ -48,6 +52,8 @@ export interface MarketplaceListingInput {
   locationAddress?: string;
   imageUri?: string | null;
   imageId?: string | null;
+  /** Fotos na ordem da galeria (capa = primeira) */
+  images?: Array<{ uri: string; id?: string | null }>;
 }
 
 export interface MarketplaceSellerDto {
@@ -74,6 +80,8 @@ export interface MarketplaceListingDetailDto extends MarketplaceListingListItemD
   longitude?: string | null;
   advertiserContact?: string | null;
   image?: { id: string; publicUrl: string | null; path?: string } | null;
+  galleryImageIds?: string[];
+  galleryImages?: Array<{ id: string; publicUrl: string | null; path?: string }>;
   isOwner?: boolean;
   commercialAccountId?: string;
   userId?: string;
@@ -88,6 +96,7 @@ export interface CreateMarketplaceListingBody {
   category: string;
   price: number;
   imageId?: string;
+  galleryImageIds?: string[];
   advertiserContact: string;
   locationName: string;
   locationAddress?: string;

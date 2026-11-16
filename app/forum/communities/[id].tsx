@@ -20,12 +20,19 @@ import {
   type ForumPostResponseDto,
 } from '@/services/forumApi';
 import {
+  approveForumCommunityJoinRequest,
+  cancelForumCommunityJoinRequest,
   deleteForumCommunity,
-  followForumCommunity,
   getForumCommunity,
+  joinForumCommunity,
   leaveForumCommunity,
-  unfollowForumCommunity,
+  listForumCommunityJoinRequests,
+  listForumCommunityMembers,
+  promoteForumCommunityCreator,
+  rejectForumCommunityJoinRequest,
   type ForumCommunityDetail,
+  type ForumCommunityJoinRequest,
+  type ForumCommunityMemberListItem,
 } from '@/services/forumCommunityApi';
 import {
   getCachedCommunityDetail,
@@ -91,6 +98,14 @@ export default function CommunityChannelScreen({ feedMode = false }: { feedMode?
   const [actionLoading, setActionLoading] = useState(false);
   const [imageEpoch, setImageEpoch] = useState(() => Date.now());
 
+  const [joinRequests, setJoinRequests] = useState<ForumCommunityJoinRequest[]>([]);
+  const [reviewingUserId, setReviewingUserId] = useState<string | null>(null);
+
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [members, setMembers] = useState<ForumCommunityMemberListItem[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [membersError, setMembersError] = useState<string | null>(null);
+
   const [publishOpen, setPublishOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [postTitle, setPostTitle] = useState('');
@@ -117,6 +132,11 @@ export default function CommunityChannelScreen({ feedMode = false }: { feedMode?
         setCommunity(cached.community);
         setPosts(cached.posts);
         setLoading(false);
+        if (cached.community.myRole === 'OWNER') {
+          void listForumCommunityJoinRequests(communityId)
+            .then(setJoinRequests)
+            .catch(() => setJoinRequests([]));
+        }
         if (!shouldAppRefetch(cached.loadedAt, { hasData: true })) return;
       } else if (!cached) {
         if (isRefresh) setRefreshing(true);
@@ -128,6 +148,10 @@ export default function CommunityChannelScreen({ feedMode = false }: { feedMode?
       setError(null);
       try {
         const detail = await getForumCommunity(communityId);
+        const pending =
+          detail.myRole === 'OWNER'
+            ? await listForumCommunityJoinRequests(communityId).catch(() => [])
+            : [];
         const rows = await listForumPosts(undefined, {
           communityId,
           init: 0,
@@ -135,6 +159,7 @@ export default function CommunityChannelScreen({ feedMode = false }: { feedMode?
         });
         const feedPosts = rows.map((row) => forumListItemToFeedPost(row));
         setCommunity(detail);
+        setJoinRequests(pending);
         setPosts(feedPosts);
         setCommentsExpandedByPost({});
         setCommentsByPost({});
@@ -201,8 +226,51 @@ export default function CommunityChannelScreen({ feedMode = false }: { feedMode?
     [communityId, isVisitante, load],
   );
 
-  const onFollow = () => void runAction(() => followForumCommunity(communityId));
-  const onUnfollow = () => void runAction(() => unfollowForumCommunity(communityId));
+  const reviewRequest = useCallback(
+    async (userId: string, decision: 'approve' | 'reject') => {
+      setReviewingUserId(userId);
+      setError(null);
+      try {
+        if (decision === 'approve') {
+          await approveForumCommunityJoinRequest(communityId, userId);
+        } else {
+          await rejectForumCommunityJoinRequest(communityId, userId);
+        }
+        invalidateCommunityDetailCache(communityId);
+        await load({ force: true, isRefresh: true });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Não foi possível revisar o pedido.');
+      } finally {
+        setReviewingUserId(null);
+      }
+    },
+    [communityId, load],
+  );
+
+  const onPromote = useCallback(
+    (userId: string, name: string) => {
+      Alert.alert(
+        'Tornar criador',
+        `${name} também poderá aprovar entradas e cuidar deste canal.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Tornar criador',
+            onPress: () =>
+              void (async () => {
+                await runAction(() => promoteForumCommunityCreator(communityId, userId));
+                const rows = await listForumCommunityMembers(communityId).catch(() => null);
+                if (rows) setMembers(rows);
+              })(),
+          },
+        ],
+      );
+    },
+    [communityId, runAction],
+  );
+
+  const onJoin = () => void runAction(() => joinForumCommunity(communityId));
+  const onCancelRequest = () => void runAction(() => cancelForumCommunityJoinRequest(communityId));
   const onLeave = () => {
     Alert.alert('Sair da comunidade', 'Deseja deixar de participar deste canal?', [
       { text: 'Cancelar', style: 'cancel' },
@@ -232,6 +300,22 @@ export default function CommunityChannelScreen({ feedMode = false }: { feedMode?
       },
     ]);
   };
+
+  const openMembers = useCallback(async () => {
+    if (!communityId) return;
+    setMembersOpen(true);
+    setMembersLoading(true);
+    setMembersError(null);
+    try {
+      const rows = await listForumCommunityMembers(communityId);
+      setMembers(rows);
+    } catch (e) {
+      setMembers([]);
+      setMembersError(e instanceof Error ? e.message : 'Não foi possível carregar os membros.');
+    } finally {
+      setMembersLoading(false);
+    }
+  }, [communityId]);
 
   const openMap = useCallback(() => {
     if (!coords || !communityId) return;
@@ -361,32 +445,35 @@ export default function CommunityChannelScreen({ feedMode = false }: { feedMode?
       );
     }
 
-    if (community.isFollowing) {
+    if (community.joinRequestStatus === 'PENDING') {
       return (
         <Pressable
           style={[styles.actionBtnOutline, busy && styles.actionDisabled]}
-          onPress={onUnfollow}
+          onPress={onCancelRequest}
           disabled={busy}
         >
-          <Ionicons name="remove-circle-outline" size={20} color="#0e7490" />
+          <Ionicons name="time-outline" size={20} color="#0e7490" />
           <Text style={[styles.actionBtnOutlineText, { color: '#0e7490' }]}>
-            Deixar de seguir o canal
+            Cancelar pedido
           </Text>
         </Pressable>
       );
     }
 
+    const asksApproval = community.privacy === 'PRIVATE';
     return (
       <Pressable
         style={[styles.actionBtnPrimary, busy && styles.actionDisabled]}
-        onPress={onFollow}
+        onPress={onJoin}
         disabled={busy}
       >
-        <Ionicons name="add-circle" size={22} color="#fff" />
-        <Text style={styles.actionBtnPrimaryText}>Seguir canal</Text>
+        <Ionicons name="person-add" size={22} color="#fff" />
+        <Text style={styles.actionBtnPrimaryText}>
+          {asksApproval ? 'Pedir para entrar' : 'Tornar-se membro'}
+        </Text>
       </Pressable>
     );
-  }, [actionLoading, community, onDeleteCommunity, onFollow, onLeave, onUnfollow]);
+  }, [actionLoading, community, onCancelRequest, onDeleteCommunity, onJoin, onLeave]);
 
   if (loading && !community) {
     return (
@@ -415,10 +502,10 @@ export default function CommunityChannelScreen({ feedMode = false }: { feedMode?
   const postHint = (() => {
     if (!user || canPost) return null;
     if (community.privacy === 'PRIVATE') {
-      return 'Canal privado — somente o criador pode publicar.';
+      return 'Canal privado — somente um criador pode publicar.';
     }
-    if (!community.isFollowing) {
-      return 'Siga o canal para poder publicar aqui.';
+    if (!community.isMember && community.myRole !== 'OWNER') {
+      return 'Torne-se membro para publicar aqui.';
     }
     return null;
   })();
@@ -464,7 +551,7 @@ export default function CommunityChannelScreen({ feedMode = false }: { feedMode?
           postsCount={posts.length}
           actionButtons={
             isVisitante && actionButtons ? (
-              <VisitanteRestrictedZone message="Para seguir, participar ou gerenciar este canal, faça login com uma conta cadastrada.">
+              <VisitanteRestrictedZone message="Para participar ou gerenciar este canal, faça login com uma conta cadastrada.">
                 {actionButtons}
               </VisitanteRestrictedZone>
             ) : (
@@ -472,7 +559,68 @@ export default function CommunityChannelScreen({ feedMode = false }: { feedMode?
             )
           }
           onOpenMap={coords ? openMap : undefined}
+          onOpenMembers={() => void openMembers()}
         />}
+
+        {!isFeed && community.myRole === 'OWNER' && (community.privacy === 'PRIVATE' || joinRequests.length > 0) ? (
+          <View style={styles.approvalsCard}>
+            <Text style={styles.approvalsTitle}>Aprovações</Text>
+            <Text style={styles.approvalsHint}>
+              Pedidos para se tornar membro. Quem for criador pode aprovar.
+            </Text>
+            {joinRequests.length === 0 ? (
+              <Text style={styles.approvalsEmpty}>Nenhum pedido para entrar.</Text>
+            ) : (
+              joinRequests.map((request) => {
+                const name = (request.name || 'Morador(a)').trim();
+                const photo = request.photoUrl?.trim();
+                const busy = reviewingUserId === request.id;
+                return (
+                  <View key={request.id} style={styles.requestRow}>
+                    <Pressable
+                      style={({ pressed }) => [styles.requestPerson, pressed && styles.actionDisabled]}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/forum/author',
+                          params: {
+                            userId: request.id,
+                            name,
+                            photoUrl: photo ?? '',
+                          },
+                        })
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel={`Ver perfil de ${name}`}
+                    >
+                      {photo ? (
+                        <Image source={{ uri: photo }} style={styles.memberAvatar} />
+                      ) : (
+                        <View style={styles.memberAvatarPlaceholder}>
+                          <Text style={styles.memberInitial}>{name.charAt(0).toUpperCase()}</Text>
+                        </View>
+                      )}
+                      <Text style={styles.memberName} numberOfLines={1}>{name}</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.requestBtn, busy && styles.actionDisabled]}
+                      disabled={busy}
+                      onPress={() => void reviewRequest(request.id, 'reject')}
+                    >
+                      <Text style={styles.requestBtnText}>Recusar</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.requestBtnPrimary, busy && styles.actionDisabled]}
+                      disabled={busy}
+                      onPress={() => void reviewRequest(request.id, 'approve')}
+                    >
+                      <Text style={styles.requestBtnPrimaryText}>Aprovar</Text>
+                    </Pressable>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        ) : null}
 
         {!isFeed && canReportCommunity ? (
           <Pressable
@@ -499,7 +647,11 @@ export default function CommunityChannelScreen({ feedMode = false }: { feedMode?
 
         {isFeed ? <CommunityFeedSectionHeader
           postsCount={posts.length}
-          canPost={canPost}
+          publishRule={
+            community.privacy === 'PRIVATE'
+              ? 'Somente um criador publica'
+              : 'Membros podem publicar'
+          }
           postHint={postHint}
         /> : null}
 
@@ -524,6 +676,9 @@ export default function CommunityChannelScreen({ feedMode = false }: { feedMode?
                     setCommentDraftByPost((prev) => ({ ...prev, [post.id]: t }))
                   }
                   onSendComment={() => void onSendComment(post.id)}
+                  onRemoved={() =>
+                    setPosts((prev) => prev.filter((item) => item.id !== post.id))
+                  }
                 />
             ))}
           </View>
@@ -536,6 +691,79 @@ export default function CommunityChannelScreen({ feedMode = false }: { feedMode?
           bottomOffset={Math.max(insets.bottom, 12)}
         />
       ) : null}
+
+      <Modal visible={membersOpen} transparent animationType="fade" onRequestClose={() => setMembersOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.membersCard}>
+            <View style={styles.membersHeader}>
+              <Text style={styles.modalTitle}>Membros</Text>
+              <Pressable onPress={() => setMembersOpen(false)} hitSlop={8}>
+                <Ionicons name="close" size={22} color={AppColors.text.tertiary} />
+              </Pressable>
+            </View>
+            {membersLoading ? (
+              <ActivityIndicator color="#0891b2" style={{ marginVertical: 24 }} />
+            ) : membersError ? (
+              <Text style={styles.membersEmpty}>{membersError}</Text>
+            ) : members.length === 0 ? (
+              <Text style={styles.membersEmpty}>Nenhum membro nesta comunidade.</Text>
+            ) : (
+              <ScrollView style={styles.membersList} showsVerticalScrollIndicator={false}>
+                {members.map((member) => {
+                  const name = (member.name || 'Morador(a)').trim();
+                  const photo = member.photoUrl?.trim();
+                  const canPromote =
+                    community.myRole === 'OWNER' &&
+                    member.role === 'MEMBER' &&
+                    member.id !== user?.id;
+                  return (
+                    <View key={member.id} style={styles.memberRow}>
+                      <Pressable
+                        style={({ pressed }) => [styles.memberMain, pressed && styles.actionDisabled]}
+                        onPress={() => {
+                          setMembersOpen(false);
+                          router.push({
+                            pathname: '/forum/author',
+                            params: {
+                              userId: member.id,
+                              name,
+                              photoUrl: photo ?? '',
+                            },
+                          });
+                        }}
+                      >
+                        {photo ? (
+                          <Image source={{ uri: photo }} style={styles.memberAvatar} />
+                        ) : (
+                          <View style={styles.memberAvatarPlaceholder}>
+                            <Text style={styles.memberInitial}>{name.charAt(0).toUpperCase()}</Text>
+                          </View>
+                        )}
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.memberName} numberOfLines={1}>{name}</Text>
+                          <Text style={styles.memberRole}>
+                            {member.role === 'OWNER' ? 'Criador' : 'Membro'}
+                          </Text>
+                        </View>
+                      </Pressable>
+                      {canPromote ? (
+                        <Pressable
+                          style={styles.promoteBtn}
+                          onPress={() => onPromote(member.id, name)}
+                        >
+                          <Text style={styles.promoteBtnText}>Tornar criador</Text>
+                        </Pressable>
+                      ) : (
+                        <Ionicons name="chevron-forward" size={18} color={AppColors.text.quaternary} />
+                      )}
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={publishOpen} transparent animationType="fade">
         <View style={styles.modalOverlay}>
@@ -685,6 +913,97 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 16,
   },
+  membersCard: {
+    backgroundColor: AppColors.background.default,
+    borderRadius: 18,
+    padding: 16,
+    maxHeight: '70%',
+    gap: 8,
+  },
+  membersHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  membersList: { marginTop: 4 },
+  membersEmpty: {
+    color: AppColors.text.tertiary,
+    fontWeight: '600',
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  memberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+  },
+  memberMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minWidth: 0,
+  },
+  promoteBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#ecfeff',
+  },
+  promoteBtnText: { color: '#0e7490', fontWeight: '800', fontSize: 12 },
+  approvalsCard: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: AppColors.background.default,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: AppColors.border.muted,
+    gap: 10,
+  },
+  approvalsTitle: { fontSize: 15, fontWeight: '900', color: '#0f172a' },
+  approvalsHint: { fontSize: 13, lineHeight: 18, color: AppColors.text.tertiary },
+  approvalsEmpty: { fontSize: 14, fontWeight: '600', color: AppColors.text.tertiary },
+  requestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  requestPerson: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  requestBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: AppColors.border.muted,
+  },
+  requestBtnText: { fontWeight: '700', color: AppColors.text.tertiary, fontSize: 13 },
+  requestBtnPrimary: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#0891b2',
+  },
+  requestBtnPrimaryText: { fontWeight: '800', color: '#fff', fontSize: 13 },
+  memberAvatar: { width: 44, height: 44, borderRadius: 22 },
+  memberAvatarPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#0891b2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  memberInitial: { color: '#fff', fontWeight: '800', fontSize: 18 },
+  memberName: { fontSize: 15, fontWeight: '800', color: '#0f172a' },
+  memberRole: { fontSize: 12, fontWeight: '600', color: AppColors.text.tertiary, marginTop: 2 },
   modalCard: {
     backgroundColor: AppColors.background.default,
     borderRadius: 18,

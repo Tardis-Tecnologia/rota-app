@@ -33,6 +33,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+export type MarketplaceFormImage = {
+  uri: string;
+  id: string | null;
+};
+
 export interface MarketplaceFormValues {
   title: string;
   description: string;
@@ -46,7 +51,10 @@ export interface MarketplaceFormValues {
   advertiserContact: string;
   imageUri: string | null;
   imageId: string | null;
+  images: MarketplaceFormImage[];
 }
+
+const MAX_PRODUCT_PHOTOS = 8;
 
 interface MarketplaceProductFormProps {
   initial?: Partial<MarketplaceFormValues>;
@@ -128,6 +136,16 @@ export function formValuesToListingInput(values: MarketplaceFormValues): Marketp
     locationAddress = '';
   }
 
+  const images =
+    values.images?.length > 0
+      ? values.images
+      : values.imageUri
+        ? [{ uri: values.imageUri, id: values.imageId }]
+        : [];
+  if (images.length === 0) {
+    throw new Error('Adicione ao menos uma foto do produto.');
+  }
+
   return {
     title: values.title.trim(),
     description: values.description.trim(),
@@ -136,8 +154,9 @@ export function formValuesToListingInput(values: MarketplaceFormValues): Marketp
     locationName,
     locationAddress: locationAddress || undefined,
     advertiserContact: phoneDigits,
-    imageUri: values.imageUri,
-    imageId: values.imageId,
+    imageUri: images[0]?.uri ?? null,
+    imageId: images[0]?.id ?? null,
+    images,
   };
 }
 
@@ -161,8 +180,13 @@ export default function MarketplaceProductForm({
   const [advertiserContact, setAdvertiserContact] = useState(
     initial?.advertiserContact ? formatBrazilPhoneInput(initial.advertiserContact) : '',
   );
-  const [imageUri, setImageUri] = useState<string | null>(initial?.imageUri ?? null);
-  const [imageId, setImageId] = useState<string | null>(initial?.imageId ?? null);
+  const [images, setImages] = useState<MarketplaceFormImage[]>(() => {
+    if (initial?.images && initial.images.length > 0) return initial.images;
+    if (initial?.imageUri) {
+      return [{ uri: initial.imageUri, id: initial.imageId ?? null }];
+    }
+    return [];
+  });
   const [error, setError] = useState<string | null>(null);
 
   const [cepLoading, setCepLoading] = useState(false);
@@ -215,27 +239,39 @@ export default function MarketplaceProductForm({
     }
   }, [cep, lookupCep, usePickupLocation]);
 
-  const pickImage = async () => {
+  const pickImages = async () => {
+    const remaining = MAX_PRODUCT_PHOTOS - images.length;
+    if (remaining <= 0) {
+      setError(`Você pode adicionar no máximo ${MAX_PRODUCT_PHOTOS} fotos.`);
+      return;
+    }
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      setError('Permita o acesso à galeria para adicionar a foto.');
+      setError('Permita o acesso à galeria para adicionar fotos.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
+      allowsMultipleSelection: true,
+      selectionLimit: remaining,
       quality: 0.85,
     });
-    if (!result.canceled && result.assets[0]?.uri) {
-      setImageUri(result.assets[0].uri);
-      setImageId(null);
-      setError(null);
-    }
+    if (result.canceled || !result.assets?.length) return;
+    const next = result.assets
+      .map((asset) => asset.uri)
+      .filter(Boolean)
+      .map((uri) => ({ uri, id: null as string | null }));
+    setImages((prev) => [...prev, ...next].slice(0, MAX_PRODUCT_PHOTOS));
+    setError(null);
+  };
+
+  const removeImageAt = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = () => {
     try {
+      const cover = images[0] ?? null;
       const input = formValuesToListingInput({
         title,
         description,
@@ -247,8 +283,9 @@ export default function MarketplaceProductForm({
         locationAddress,
         streetNumber,
         advertiserContact,
-        imageUri,
-        imageId,
+        imageUri: cover?.uri ?? null,
+        imageId: cover?.id ?? null,
+        images,
       });
       setError(null);
       onSubmit(input);
@@ -269,28 +306,50 @@ export default function MarketplaceProductForm({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Pressable style={styles.photoCard} onPress={() => void pickImage()}>
-          {imageUri ? (
-            <>
-              <Image source={{ uri: imageUri }} style={styles.photo} resizeMode="cover" />
-              <LinearGradient
-                colors={['transparent', 'rgba(15,23,42,0.75)']}
-                style={styles.photoOverlay}
-              >
-                <Ionicons name="camera" size={18} color="#fff" />
-                <Text style={styles.photoChangeText}>Trocar foto</Text>
-              </LinearGradient>
-            </>
-          ) : (
-            <LinearGradient colors={['#7c3aed', '#db2777']} style={styles.photoEmpty}>
-              <View style={styles.photoIconCircle}>
-                <Ionicons name="camera-outline" size={28} color="#7c3aed" />
+        <FormSection
+          title="Fotos do produto"
+          subtitle={`Até ${MAX_PRODUCT_PHOTOS} fotos · a primeira é a capa`}
+          icon="images-outline"
+        >
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.galleryRow}
+          >
+            {images.map((photo, index) => (
+              <View key={`${photo.uri}-${index}`} style={styles.galleryThumbWrap}>
+                <Image source={{ uri: photo.uri }} style={styles.galleryThumb} />
+                {index === 0 ? (
+                  <View style={styles.coverBadge}>
+                    <Text style={styles.coverBadgeText}>Capa</Text>
+                  </View>
+                ) : null}
+                <Pressable
+                  onPress={() => removeImageAt(index)}
+                  style={styles.galleryRemove}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remover foto"
+                >
+                  <Ionicons name="close" size={14} color="#fff" />
+                </Pressable>
               </View>
-              <Text style={styles.photoEmptyTitle}>Adicionar foto</Text>
-              <Text style={styles.photoEmptyHint}>Toque para escolher da galeria</Text>
-            </LinearGradient>
-          )}
-        </Pressable>
+            ))}
+            {images.length < MAX_PRODUCT_PHOTOS ? (
+              <Pressable
+                style={styles.galleryAdd}
+                onPress={() => void pickImages()}
+                accessibilityRole="button"
+                accessibilityLabel="Adicionar fotos"
+              >
+                <Ionicons name="add" size={28} color="#7c3aed" />
+                <Text style={styles.galleryAddText}>
+                  {images.length === 0 ? 'Adicionar' : 'Mais fotos'}
+                </Text>
+              </Pressable>
+            ) : null}
+          </ScrollView>
+        </FormSection>
 
         <FormSection
           title="Sobre o produto"
@@ -532,47 +591,54 @@ const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: '#f1f5f9' },
   scroll: { flex: 1 },
   content: { padding: 16, gap: 14 },
-  photoCard: {
-    height: 200,
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: '#e2e8f0',
-    shadowColor: '#7c3aed',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  photo: { width: '100%', height: '100%' },
-  photoOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
+  galleryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
+    gap: 10,
+    paddingVertical: 2,
   },
-  photoChangeText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  photoEmpty: {
-    flex: 1,
+  galleryThumbWrap: {
+    width: 104,
+    height: 104,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#e2e8f0',
+  },
+  galleryThumb: { width: '100%', height: '100%' },
+  coverBadge: {
+    position: 'absolute',
+    left: 6,
+    bottom: 6,
+    backgroundColor: 'rgba(124,58,237,0.92)',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  coverBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  galleryRemove: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(15,23,42,0.7)',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    padding: 24,
   },
-  photoIconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#fff',
+  galleryAdd: {
+    width: 104,
+    height: 104,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#c4b5fd',
+    borderStyle: 'dashed',
+    backgroundColor: '#f5f3ff',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 4,
   },
-  photoEmptyTitle: { color: '#fff', fontSize: 17, fontWeight: '800' },
-  photoEmptyHint: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '500' },
+  galleryAddText: { fontSize: 12, fontWeight: '700', color: '#7c3aed' },
   sectionCard: {
     backgroundColor: '#fff',
     borderRadius: 18,

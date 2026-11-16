@@ -9,6 +9,7 @@ import {
   FORUM_PARTNER_STORE_POST_TYPE,
   type ForumAuthorCommercial,
 } from '@/types/forumCommercial';
+import { personDisplayName } from '@/utils/userDisplayName';
 
 export { FORUM_PARTNER_STORE_POST_TYPE };
 
@@ -44,9 +45,9 @@ export function buildStoreContactDraftMessage(storeName: string, postTitle?: str
   const store = storeName.trim() || 'sua loja';
   const title = postTitle?.trim();
   if (title) {
-    return `Olá! Vi a publicação "${title}" no fórum e gostaria de falar com ${store}.`;
+    return `Olá! Vi a publicação "${title}" no feed e gostaria de falar com ${store}.`;
   }
-  return `Olá! Vi uma publicação de ${store} no fórum e gostaria de conversar.`;
+  return `Olá! Vi uma publicação de ${store} no feed e gostaria de conversar.`;
 }
 
 export function forumListItemToFeedPost(row: ForumPostListItemDto): ForumPostResponseDto {
@@ -83,6 +84,15 @@ export function forumPostImageUrl(mediaId: string | null): string | null {
   return `${getApiBaseUrl()}/api/v1/upload/files/${encodeURIComponent(mediaId)}`;
 }
 
+export function forumPostMediaUri(post: {
+  mediaId?: string | null;
+  mediaPublicUrl?: string | null;
+}): string | null {
+  const direct = post.mediaPublicUrl?.trim();
+  if (direct) return direct;
+  return forumPostImageUrl(post.mediaId ?? null);
+}
+
 export function withListImageCacheBust(url: string, epoch: number): string {
   return url.includes('?') ? `${url}&v=${epoch}` : `${url}?v=${epoch}`;
 }
@@ -91,7 +101,7 @@ export function forumDisplayHandle(
   author: { id: string; name: string | null } | null | undefined,
 ): string {
   const id = author?.id ?? '';
-  const raw = (author?.name || 'Morador').trim();
+  const raw = personDisplayName(author?.name, 'Morador');
   const slug = raw
     .toLowerCase()
     .normalize('NFD')
@@ -107,6 +117,12 @@ export function forumDisplayHandle(
 export function formatOpinioesLabel(count: number): string {
   if (count === 1) return '1 opinião';
   return `${count} opiniões`;
+}
+
+/** Rótulo de comentários do Feed (módulo social). */
+export function formatComentariosLabel(count: number): string {
+  if (count === 1) return '1 comentário';
+  return `${count} comentários`;
 }
 
 export type ForumAuthorLike = ForumAuthorDto;
@@ -181,5 +197,7 @@ export function profileLabel(profile?: string | null): string | null {
   if (p === 'VISITANTE') return 'Visitante';
   if (p === 'COMERCIANTE') return 'Comerciante';
   if (p === 'PRESTADOR') return 'Prestador';
-  return p;
+  if (p === 'ADMIN') return 'Administração';
+  if (p === 'SUPERADMIN' || p === 'SUPER_ADMIN') return 'Superadmin';
+  return null;
 }

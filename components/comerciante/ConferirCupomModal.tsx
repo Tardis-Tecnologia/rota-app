@@ -135,7 +135,7 @@ export default function ConferirCupomModal({
         <View style={styles.scannerOverlay}>
           <View style={styles.scannerFrame} />
           <Text style={styles.scannerHint}>
-            Aponte para o QR Code do cliente (Loja de Recompensas → QR na loja)
+            Aponte para o QR Code do cliente (Programa Cidadão → QR na loja)
           </Text>
         </View>
       </View>

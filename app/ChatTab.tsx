@@ -2,8 +2,30 @@ import ChatScreen, { ChatMessage, ChatOption, ChatParticipant } from '@/componen
 import { chatCopy } from '@/constants/chatCopy';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConversations } from '@/contexts/ConversationsContext';
-import { getChatResponseConfig } from '@/data/chatResponses';
+import {
+  END_SERVICE_OPTION_ID,
+  endServiceUiOptions,
+  getChatResponseConfig,
+  makeFlowProtocol,
+  type ChatOption as FlowOption,
+} from '@/data/chatResponses';
+import * as authApi from '@/services/authApi';
 import { getApiBaseUrl, getAuthToken, getWhitelabelHostId } from '@/services/authApi';
+import { scheduleAppointmentReminder } from '@/services/appointmentReminders';
+import { checkCitizenCpfAgainstSession } from '@/services/chatCitizenLookup';
+import {
+  loadingLabelForOption,
+  resolveChatServiceResult,
+} from '@/services/chatCitizenServices';
+import {
+  bookChatAppointment,
+  briefDelay,
+  loadChatUbsOptions,
+  loadSlotsForChat,
+  specialtyOptionsForUnit,
+  timeOptionsForDay,
+} from '@/services/chatHealthSchedule';
+import { formatSlotDateTime, type HealthSlot, type HealthUnit } from '@/services/healthApi';
 import { isChatPeerUserId, resolveChatPeerPhotoUrl } from '@/services/chatPeerPhotos';
 import {
   clearStreamChannelHistory,
@@ -22,7 +44,7 @@ import { type Href, router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StreamChat } from 'stream-chat';
 import { useFocusEffect } from 'expo-router';
-import { AppState } from 'react-native';
+import { Alert, AppState } from 'react-native';
 
 const { stream: streamCopy, errors: errCopy, handoff: handoffCopy, mock: mockCopy } = chatCopy;
 
@@ -127,32 +149,125 @@ function mapChannelStateToMessages(
   }));
 }
 
+type ChatProviderParam = {
+  id: string;
+  name: string;
+  image?: string;
+  channelId?: string;
+  channelType?: string;
+  cid?: string;
+  draftMessage?: string;
+  autoSentDraftMessageId?: string;
+};
+
+function parseChatProviderParam(
+  provider: string | string[] | ChatProviderParam | undefined,
+): ChatProviderParam | null {
+  try {
+    const raw = Array.isArray(provider) ? provider[0] : provider;
+    if (raw == null) return null;
+    if (typeof raw === 'object') {
+      const obj = raw as ChatProviderParam;
+      return obj.id && obj.name ? obj : null;
+    }
+    const parsed = JSON.parse(String(raw)) as ChatProviderParam;
+    if (!parsed?.id || !parsed?.name) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 export default function ChatTab() {
-  const { user } = useAuth();
+  const { user, refreshUserFromApi } = useAuth();
   const { provider, returnTo } = useLocalSearchParams<{
     provider?: string;
     returnTo?: string | string[];
   }>();
-  const data = JSON.parse(provider as string) as {
-    id: string;
-    name: string;
-    image?: string;
-    channelId?: string;
-    channelType?: string;
-    cid?: string;
-    draftMessage?: string;
-    autoSentDraftMessageId?: string;
-  };
+  const data = parseChatProviderParam(provider as string | string[] | undefined);
   const { addOrUpdateConversation, getConversation } = useConversations();
   const streamClientRef = useRef<StreamChat | null>(null);
-  const agendamentoHandoffRef = useRef<{
-    optionId: string;
-    especialidade: string;
-    handoffChannelName: string;
-    secondStepPrompt: string;
-  } | null>(null);
+  type CitizenFlowPending =
+    | { step: 'cpf'; option: FlowOption }
+    | {
+        step: 'pick-ubs';
+        option: FlowOption;
+        name: string;
+        cpf: string;
+        units: HealthUnit[];
+      }
+    | {
+        step: 'pick-specialty';
+        option: FlowOption;
+        name: string;
+        cpf: string;
+        unit: HealthUnit;
+      }
+    | {
+        step: 'pick-date';
+        option: FlowOption;
+        name: string;
+        cpf: string;
+        unit: HealthUnit;
+        specialty: string;
+        slotsByDay: Record<string, HealthSlot[]>;
+      }
+    | {
+        step: 'pick-time';
+        option: FlowOption;
+        name: string;
+        cpf: string;
+        unit: HealthUnit;
+        specialty: string;
+        dateLabel: string;
+        daySlots: HealthSlot[];
+      }
+    | { step: 'description'; option: FlowOption; name: string; cpf: string }
+    | { step: 'await-end' };
+  const citizenFlowRef = useRef<CitizenFlowPending | null>(null);
+  const flowBusyRef = useRef(false);
 
-  const responseConfig = useMemo(() => getChatResponseConfig(data.id), [data.id]);
+  const clearMessageOptions = (list: ChatMessage[]): ChatMessage[] =>
+    list.map((msg) => (msg.options ? { ...msg, options: undefined } : msg));
+
+  const pushLoading = (text: string): string => {
+    const id = `${Date.now()}-loading`;
+    setMessages((prev) => [
+      ...clearMessageOptions(prev),
+      {
+        id,
+        text,
+        isFromOther: true,
+        timestamp: new Date(),
+        loading: true,
+      },
+    ]);
+    return id;
+  };
+
+  const dropMessage = (id: string) => {
+    setMessages((prev) => prev.filter((msg) => msg.id !== id));
+  };
+
+  const messagesInboxRoute = useMemo(
+    () =>
+      resolveMessagesInboxRoute({
+        returnTo,
+        email: user?.email,
+        profile: user?.profile,
+      }),
+    [returnTo, user?.email, user?.profile],
+  );
+
+  useEffect(() => {
+    if (data) return;
+    router.replace(messagesInboxRoute as Href);
+  }, [data, messagesInboxRoute]);
+
+  const responseConfig = useMemo(
+    () => (data ? getChatResponseConfig(data.id) : undefined),
+    [data],
+  );
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreamReady, setIsStreamReady] = useState(false);
@@ -163,6 +278,7 @@ export default function ChatTab() {
   } | null>(null);
 
   const streamChannelInfo = useMemo(() => {
+    if (!data) return null;
     const channelType = data.channelType;
     const channelId = data.channelId;
     if (channelType && channelId) {
@@ -176,20 +292,18 @@ export default function ChatTab() {
       }
     }
     return null;
-  }, [data.channelId, data.channelType, data.cid]);
+  }, [data]);
 
   const isStreamConversation = Boolean(streamChannelInfo);
 
-  const existingConversation = useMemo(() => getConversation(data.id), [data.id, getConversation]);
+  const existingConversation = useMemo(
+    () => (data ? getConversation(data.id) : undefined),
+    [data, getConversation],
+  );
 
-  const getInitialMessage = () => {
-    if (responseConfig) {
-      return responseConfig.initialMessage;
-    }
-    return chatCopy.fallbackInitialMessage(data.name);
-  };
-
-  const initialMessage = getInitialMessage();
+  const initialMessage = responseConfig
+    ? responseConfig.initialMessage
+    : chatCopy.fallbackInitialMessage(data?.name ?? 'contato');
 
   const ensureStreamClient = useCallback(async (): Promise<StreamChat> => {
     const authToken = getAuthToken();
@@ -229,7 +343,7 @@ export default function ChatTab() {
           `${streamChannelInfo.channelType}:${streamChannelInfo.channelId}`,
         );
         let mapped = mapChannelStateToMessages(ch.state, user.id);
-        const autoSentId = data.autoSentDraftMessageId?.trim();
+        const autoSentId = data?.autoSentDraftMessageId?.trim();
         if (autoSentId) {
           try {
             await client.deleteMessage(autoSentId);
@@ -263,9 +377,11 @@ export default function ChatTab() {
           streamChannelInfo.channelType,
           streamChannelInfo.channelId,
         ).catch(() => {});
-      } catch {
+      } catch (e) {
         if (!cancelled) {
-          setIsStreamReady(false);
+          // Mantém composer visível; envio tenta reconectar. Evita tela sem campo de texto.
+          setIsStreamReady(true);
+          console.warn('[ChatTab] Stream watch failed:', e);
         }
       }
     };
@@ -275,10 +391,10 @@ export default function ChatTab() {
       cancelled = true;
       subscriptions.forEach((subscription) => subscription.unsubscribe());
     };
-  }, [ensureStreamClient, streamChannelInfo, user?.id, data.autoSentDraftMessageId]));
+  }, [ensureStreamClient, streamChannelInfo, user?.id, data?.autoSentDraftMessageId]));
 
   useEffect(() => {
-    if (!isStreamConversation) return;
+    if (!isStreamConversation || !data) return;
 
     const peerId = streamPeer?.id?.trim() || data.id?.trim();
     if (!isChatPeerUserId(peerId)) return;
@@ -307,7 +423,7 @@ export default function ChatTab() {
     return () => {
       cancelled = true;
     };
-  }, [isStreamConversation, streamPeer?.id, streamPeer?.image, data.id, data.name, data.image]);
+  }, [isStreamConversation, streamPeer?.id, streamPeer?.image, data]);
 
   useEffect(() => {
     if (isStreamConversation) {
@@ -368,19 +484,13 @@ export default function ChatTab() {
     isOnline: true,
   };
 
-  const messagesInboxRoute = useMemo(
-    () =>
-      resolveMessagesInboxRoute({
-        returnTo,
-        email: user?.email,
-        profile: user?.profile,
-      }),
-    [returnTo, user?.email, user?.profile],
-  );
-
   const handleBack = () => {
     router.replace(messagesInboxRoute as Href);
   };
+
+  if (!data) {
+    return null;
+  }
 
   const handleClearStreamConversation = useCallback(async () => {
     if (!streamChannelInfo || !user?.id) return;
@@ -409,8 +519,283 @@ export default function ChatTab() {
     [responseConfig?.initialOptions],
   );
 
+  const appendEndOptions = useCallback(
+    (msg: ChatMessage): ChatMessage => ({
+      ...msg,
+      options: endServiceUiOptions(),
+    }),
+    [],
+  );
+
+  const finishWithEndOption = useCallback(
+    (finalText: string, processingText?: string) => {
+      citizenFlowRef.current = { step: 'await-end' };
+      setMessages((prev) => {
+        const base = clearMessageOptions(prev);
+        const next: ChatMessage[] = [...base];
+        if (processingText) {
+          next.push({
+            id: `${Date.now()}-proc`,
+            text: processingText,
+            isFromOther: true,
+            timestamp: new Date(),
+          });
+        }
+        next.push(
+          appendEndOptions({
+            id: `${Date.now()}-final`,
+            text: finalText,
+            isFromOther: true,
+            timestamp: new Date(),
+          }),
+        );
+        return next;
+      });
+      addOrUpdateConversation(data, finalText);
+    },
+    [addOrUpdateConversation, appendEndOptions, data],
+  );
+
   const handleOptionSelect = (option: ChatOption) => {
     if (!responseConfig) return;
+
+    if (option.id === END_SERVICE_OPTION_ID) {
+      citizenFlowRef.current = null;
+      const userMessage: ChatMessage = {
+        id: `${Date.now()}-end-user`,
+        text: mockCopy.endServiceResponse,
+        isFromOther: false,
+        timestamp: new Date(),
+        emoji: '🔚',
+      };
+      const menu: ChatMessage = {
+        id: `${Date.now()}-end-menu`,
+        text: mockCopy.endedService,
+        isFromOther: true,
+        timestamp: new Date(),
+        options: mapOptionsForMessage(),
+      };
+      setMessages((prev) => [...clearMessageOptions(prev), userMessage, menu]);
+      addOrUpdateConversation(data, mockCopy.endedService);
+      return;
+    }
+
+    const pending = citizenFlowRef.current;
+    if (flowBusyRef.current) return;
+
+    if (pending?.step === 'pick-ubs' && option.id.startsWith('pick-ubs-')) {
+      const unitId = option.id.replace('pick-ubs-', '');
+      const unit = pending.units.find((item) => item.id === unitId);
+      if (!unit) return;
+      flowBusyRef.current = true;
+      setMessages((prev) => [
+        ...clearMessageOptions(prev),
+        {
+          id: `${Date.now()}-ubs-user`,
+          text: option.label,
+          isFromOther: false,
+          timestamp: new Date(),
+        },
+      ]);
+      const loadingId = pushLoading(mockCopy.loadingSpecialties);
+      void (async () => {
+        try {
+          await briefDelay(600);
+          const options = specialtyOptionsForUnit(unit);
+          dropMessage(loadingId);
+          if (!options.length) {
+            finishWithEndOption('Esta UBS não tem especialidades disponíveis no momento.');
+            return;
+          }
+          citizenFlowRef.current = {
+            step: 'pick-specialty',
+            option: pending.option,
+            name: pending.name,
+            cpf: pending.cpf,
+            unit,
+          };
+          setMessages((prev) => [
+            ...clearMessageOptions(prev),
+            {
+              id: `${Date.now()}-specialty`,
+              text: mockCopy.pickSpecialty,
+              isFromOther: true,
+              timestamp: new Date(),
+              options,
+            },
+          ]);
+        } catch (e) {
+          dropMessage(loadingId);
+          finishWithEndOption(
+            e instanceof Error ? e.message : 'Não foi possível carregar as especialidades.',
+          );
+        } finally {
+          flowBusyRef.current = false;
+        }
+      })();
+      return;
+    }
+
+    if (pending?.step === 'pick-specialty' && option.id.startsWith('pick-specialty-')) {
+      flowBusyRef.current = true;
+      setMessages((prev) => [
+        ...clearMessageOptions(prev),
+        {
+          id: `${Date.now()}-spec-user`,
+          text: option.label,
+          isFromOther: false,
+          timestamp: new Date(),
+        },
+      ]);
+      const loadingId = pushLoading(mockCopy.loadingAgenda);
+      void (async () => {
+        try {
+          const [{ dateOptions, slotsByDay }] = await Promise.all([
+            loadSlotsForChat(pending.unit.id, option.label),
+            briefDelay(700),
+          ]);
+          dropMessage(loadingId);
+          if (!dateOptions.length) {
+            finishWithEndOption(
+              'Não há horários disponíveis para esta especialidade nesta UBS nos próximos dias.',
+            );
+            return;
+          }
+          citizenFlowRef.current = {
+            step: 'pick-date',
+            option: pending.option,
+            name: pending.name,
+            cpf: pending.cpf,
+            unit: pending.unit,
+            specialty: option.label,
+            slotsByDay,
+          };
+          setMessages((prev) => [
+            ...clearMessageOptions(prev),
+            {
+              id: `${Date.now()}-date`,
+              text: mockCopy.pickDate,
+              isFromOther: true,
+              timestamp: new Date(),
+              options: dateOptions,
+            },
+          ]);
+        } catch (e) {
+          dropMessage(loadingId);
+          finishWithEndOption(
+            e instanceof Error ? e.message : 'Não foi possível consultar a agenda.',
+          );
+        } finally {
+          flowBusyRef.current = false;
+        }
+      })();
+      return;
+    }
+
+    if (pending?.step === 'pick-date' && option.id.startsWith('pick-date-')) {
+      const dayKey = option.id.replace('pick-date-', '');
+      const daySlots = pending.slotsByDay[dayKey] ?? [];
+      flowBusyRef.current = true;
+      setMessages((prev) => [
+        ...clearMessageOptions(prev),
+        {
+          id: `${Date.now()}-date-user`,
+          text: option.label,
+          isFromOther: false,
+          timestamp: new Date(),
+        },
+      ]);
+      const loadingId = pushLoading(mockCopy.loadingTimes);
+      void (async () => {
+        try {
+          await briefDelay(500);
+          dropMessage(loadingId);
+          const options = timeOptionsForDay(daySlots);
+          if (!options.length) {
+            finishWithEndOption('Não há horários neste dia. Escolha outra data após encerrar.');
+            return;
+          }
+          citizenFlowRef.current = {
+            step: 'pick-time',
+            option: pending.option,
+            name: pending.name,
+            cpf: pending.cpf,
+            unit: pending.unit,
+            specialty: pending.specialty,
+            dateLabel: option.label,
+            daySlots,
+          };
+          setMessages((prev) => [
+            ...clearMessageOptions(prev),
+            {
+              id: `${Date.now()}-time`,
+              text: mockCopy.pickTime,
+              isFromOther: true,
+              timestamp: new Date(),
+              options,
+            },
+          ]);
+        } finally {
+          flowBusyRef.current = false;
+        }
+      })();
+      return;
+    }
+
+    if (pending?.step === 'pick-time' && option.id.startsWith('pick-slot-')) {
+      const slotId = option.id.replace('pick-slot-', '');
+      const slot = pending.daySlots.find((item) => item.id === slotId);
+      if (!slot) return;
+      flowBusyRef.current = true;
+      setMessages((prev) => [
+        ...clearMessageOptions(prev),
+        {
+          id: `${Date.now()}-time-user`,
+          text: option.label,
+          isFromOther: false,
+          timestamp: new Date(),
+        },
+      ]);
+      const loadingId = pushLoading(mockCopy.loadingBook);
+      void (async () => {
+        try {
+          const [appointment] = await Promise.all([
+            bookChatAppointment({
+              slotId: slot.id,
+              patientName: pending.name,
+              patientCpf: pending.cpf,
+              reason: `Agendado pelo chat — ${pending.specialty}`,
+            }),
+            briefDelay(700),
+          ]);
+          dropMessage(loadingId);
+          void scheduleAppointmentReminder(appointment).catch(() => {});
+          const protocol = appointment.id.slice(0, 8).toUpperCase();
+          const finalText =
+            pending.option.buildFinalMessage?.({
+              name: pending.name,
+              cpf: pending.cpf,
+              specialty: appointment.specialty,
+              ubs: appointment.unit.name,
+              date: pending.dateLabel,
+              time: option.label,
+              protocol,
+            }) ||
+            `Consulta agendada.\n\n• Protocolo: ${protocol}\n• ${formatSlotDateTime(appointment.startsAt)}\n• ${appointment.unit.name}\n\nO agendamento já aparece em Saúde → Meus agendamentos.`;
+          finishWithEndOption(finalText);
+        } catch (e) {
+          dropMessage(loadingId);
+          finishWithEndOption(
+            e instanceof Error
+              ? e.message
+              : 'Não foi possível confirmar o agendamento. Tente novamente.',
+          );
+        } finally {
+          flowBusyRef.current = false;
+        }
+      })();
+      return;
+    }
 
     const fullOption =
       responseConfig.initialOptions?.find((opt) => opt.id === option.id) ||
@@ -420,8 +805,16 @@ export default function ChatTab() {
 
     if (!fullOption) return;
 
-    if (fullOption.handoffToAgent) {
-      const connectingId = `${Date.now()}-connecting`;
+    const needsCpf =
+      fullOption.flowKind === 'cpf-then-final' ||
+      fullOption.flowKind === 'cpf-then-schedule' ||
+      fullOption.flowKind === 'cpf-then-description-then-final';
+
+    if (needsCpf) {
+      citizenFlowRef.current = { step: 'cpf', option: fullOption };
+    } else if (fullOption.flowKind === 'info-only') {
+      if (flowBusyRef.current) return;
+      flowBusyRef.current = true;
       const userMessage: ChatMessage = {
         id: Date.now().toString(),
         text: fullOption.response,
@@ -429,55 +822,35 @@ export default function ChatTab() {
         timestamp: new Date(),
         emoji: fullOption.emoji,
       };
-      const connectingMessage: ChatMessage = {
-        id: connectingId,
-        text: handoffCopy.connectingAttendant,
-        isFromOther: true,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, userMessage, connectingMessage]);
+      setMessages((prev) => [...clearMessageOptions(prev), userMessage]);
       addOrUpdateConversation(data, fullOption.response);
-
-      const handoffChannelName = fullOption.handoffChannelName || `Atendimento — ${data.name}`;
-
+      const loadingId = pushLoading(loadingLabelForOption(fullOption.id));
       void (async () => {
         try {
-          const handoff = await requestSupportHandoff(handoffChannelName);
-          if (!handoff.ok) {
-            throw new Error(handoff.message);
-          }
-          await postWaitMessage(handoff.channelType, handoff.channelId);
-          router.replace({
-            pathname: '/ChatTab',
-            params: {
-              provider: JSON.stringify({
-                ...data,
-                name: handoffChannelName,
-                channelType: handoff.channelType,
-                channelId: handoff.channelId,
-                cid: handoff.cid,
-              }),
-            },
-          });
+          const [text] = await Promise.all([
+            resolveChatServiceResult({
+              optionId: fullOption.id,
+              name: user?.name?.trim() || 'Cidadão',
+              cpf: user?.cpf?.replace(/\D/g, '') || '',
+            }),
+            briefDelay(550),
+          ]);
+          dropMessage(loadingId);
+          finishWithEndOption(text || fullOption.followUpMessage || mockCopy.finalDefault);
         } catch (e) {
-          const msg =
+          dropMessage(loadingId);
+          finishWithEndOption(
             e instanceof Error
               ? e.message
-              : errCopy.handoffOpenFailedFallback;
-          setMessages((prev) => [
-            ...prev.filter((m) => m.id !== connectingId),
-            {
-              id: `${Date.now()}-err`,
-              text: msg,
-              isFromOther: true,
-              timestamp: new Date(),
-              options: mapOptionsForMessage(),
-            },
-          ]);
+              : fullOption.followUpMessage || mockCopy.finalDefault,
+          );
+        } finally {
+          flowBusyRef.current = false;
         }
       })();
-
       return;
+    } else {
+      citizenFlowRef.current = null;
     }
 
     const userMessage: ChatMessage = {
@@ -494,21 +867,15 @@ export default function ChatTab() {
       isFromOther: true,
       timestamp: new Date(),
       options:
-        !fullOption.waitForUserInput && fullOption.showOptionsAfter
-          ? responseConfig.initialOptions?.map((opt) => ({
-              id: opt.id,
-              label: opt.label,
-              emoji: opt.emoji,
-            }))
-          : undefined,
+        !fullOption.waitForUserInput && !needsCpf ? endServiceUiOptions() : undefined,
     };
 
-    setMessages((prev) => [...prev, userMessage, systemMessage]);
-    addOrUpdateConversation(data, systemMessage.text);
+    setMessages((prev) => [...clearMessageOptions(prev), userMessage, systemMessage]);
+    addOrUpdateConversation(data, systemMessage.text || fullOption.response);
   };
 
   const handleSendMessage = (text: string) => {
-    if (isStreamConversation && streamChannelInfo && user?.id && streamClientRef.current) {
+    if (isStreamConversation && streamChannelInfo && user?.id) {
       const optimisticMessage: ChatMessage = {
         id: `tmp-${Date.now()}`,
         text,
@@ -519,10 +886,16 @@ export default function ChatTab() {
 
       const sendToStream = async () => {
         try {
-          const channel = streamClientRef.current!.channel(
+          const client = streamClientRef.current ?? (await ensureStreamClient());
+          streamClientRef.current = client;
+          const channel = client.channel(
             streamChannelInfo.channelType,
             streamChannelInfo.channelId,
           );
+          if (!channel.initialized) {
+            await channel.watch();
+            if (!isStreamReady) setIsStreamReady(true);
+          }
           const res = await channel.sendMessage({ text });
           setMessages((prev) =>
             prev.filter((m) => m.id !== res.message.id).map((m) =>
@@ -537,8 +910,14 @@ export default function ChatTab() {
                 : m,
             ),
           );
-        } catch {
+        } catch (e) {
           setMessages((prev) => prev.filter((m) => m.id !== optimisticMessage.id));
+          Alert.alert(
+            'Chat',
+            e instanceof Error
+              ? e.message
+              : 'Não foi possível enviar a mensagem. Verifique a conexão e tente novamente.',
+          );
         }
       };
 
@@ -547,120 +926,207 @@ export default function ChatTab() {
     }
 
     const trimmed = text.trim();
+    if (!trimmed) return;
 
-    setMessages((prev) => {
-      const others = prev.filter((m) => m.isFromOther);
-      const lastSystemMessage = others[others.length - 1];
+    const pending = citizenFlowRef.current;
 
-      const pend = agendamentoHandoffRef.current;
-      if (pend && responseConfig && lastSystemMessage?.text === pend.secondStepPrompt) {
-        const connectingId = `${Date.now()}-connecting-ag`;
-        const snapshot = { ...pend };
-        agendamentoHandoffRef.current = null;
+    if (pending?.step === 'cpf') {
+      const option = pending.option;
+      const userLineId = `${Date.now()}-cpf-user`;
+      const checkingId = `${Date.now()}-cpf-checking`;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: userLineId,
+          text: trimmed,
+          isFromOther: false,
+          timestamp: new Date(),
+        },
+        {
+          id: checkingId,
+          text: mockCopy.cpfChecking,
+          isFromOther: true,
+          timestamp: new Date(),
+          loading: true,
+        },
+      ]);
 
-        void (async () => {
-          const handoff = await requestSupportHandoff(snapshot.handoffChannelName, {
-            especialidade: snapshot.especialidade,
-            cpf: trimmed,
-          });
-          if (!handoff.ok) {
-            agendamentoHandoffRef.current = snapshot;
-            setMessages((p) => [
-              ...p.filter((m) => m.id !== connectingId),
-              {
-                id: `${Date.now()}-err`,
-                text: handoff.message,
-                isFromOther: true,
-                timestamp: new Date(),
-                options: mapOptionsForMessage(),
-              },
-            ]);
-            return;
+      void (async () => {
+        let sessionUser = user;
+        try {
+          if (user?.id) {
+            const details = await authApi.getUserById(user.id);
+            sessionUser = {
+              ...user,
+              cpf: details.cpf ?? user.cpf ?? null,
+              name: details.name?.trim() || user.name,
+            };
+            await refreshUserFromApi();
           }
-          await postWaitMessage(handoff.channelType, handoff.channelId);
-          router.replace({
-            pathname: '/ChatTab',
-            params: {
-              provider: JSON.stringify({
-                ...data,
-                name: snapshot.handoffChannelName,
-                channelType: handoff.channelType,
-                channelId: handoff.channelId,
-                cid: handoff.cid,
-              }),
-            },
-          });
-        })();
+        } catch {
+          // mantém CPF da sessão local
+        }
 
-        return [
-          ...prev,
-          {
-            id: connectingId,
-            text: handoffCopy.openingConversation,
-            isFromOther: true,
-            timestamp: new Date(),
-          },
-        ];
-      }
-
-      if (responseConfig && lastSystemMessage) {
-        const singleHandoffOpt = responseConfig.initialOptions?.find(
-          (o) =>
-            o.followUpMessage === lastSystemMessage.text &&
-            o.waitForUserInput &&
-            o.handoffAfterFirstInput &&
-            o.handoffChannelName &&
-            !(o.secondStepPrompt && o.handoffAfterSecondStep),
-        );
-        if (singleHandoffOpt?.handoffChannelName) {
-          const connectingId = `${Date.now()}-connecting-1step`;
-          const channelName = singleHandoffOpt.handoffChannelName;
-
-          void (async () => {
-            const handoff = await requestSupportHandoff(channelName, {
-              especialidade: '',
-              cpf: trimmed,
-            });
-            if (!handoff.ok) {
-              setMessages((p) => [
-                ...p.filter((m) => m.id !== connectingId),
-                {
-                  id: `${Date.now()}-err`,
-                  text: handoff.message,
-                  isFromOther: true,
-                  timestamp: new Date(),
-                  options: mapOptionsForMessage(),
-                },
-              ]);
-              return;
-            }
-            await postWaitMessage(handoff.channelType, handoff.channelId);
-            router.replace({
-              pathname: '/ChatTab',
-              params: {
-                provider: JSON.stringify({
-                  ...data,
-                  name: channelName,
-                  channelType: handoff.channelType,
-                  channelId: handoff.channelId,
-                  cid: handoff.cid,
-                }),
-              },
-            });
-          })();
-
-          return [
-            ...prev,
+        const check = checkCitizenCpfAgainstSession(trimmed, sessionUser);
+        if (!check.ok) {
+          setMessages((prev) => [
+            ...clearMessageOptions(prev.filter((m) => m.id !== checkingId)),
             {
-              id: connectingId,
-              text: handoffCopy.openingConversation,
+              id: `${Date.now()}-cpf-err`,
+              text: check.message,
               isFromOther: true,
               timestamp: new Date(),
             },
-          ];
+          ]);
+          addOrUpdateConversation(data, check.message);
+          return;
         }
-      }
 
+        if (option.flowKind === 'cpf-then-schedule') {
+          setMessages((prev) => clearMessageOptions(prev.filter((m) => m.id !== checkingId)));
+          const loadingId = pushLoading(mockCopy.loadingUnits);
+          try {
+            const [{ units, options },] = await Promise.all([
+              loadChatUbsOptions(),
+              briefDelay(650),
+            ]);
+            dropMessage(loadingId);
+            if (!options.length) {
+              finishWithEndOption(
+                'Não encontrei UBS com agenda disponível no momento. Tente de novo mais tarde.',
+              );
+              return;
+            }
+            citizenFlowRef.current = {
+              step: 'pick-ubs',
+              option,
+              name: check.citizenName,
+              cpf: check.cpf,
+              units,
+            };
+            setMessages((prev) => [
+              ...clearMessageOptions(prev),
+              {
+                id: `${Date.now()}-ubs`,
+                text: mockCopy.pickUbs,
+                isFromOther: true,
+                timestamp: new Date(),
+                options,
+              },
+            ]);
+            addOrUpdateConversation(data, 'CPF confirmado');
+          } catch (e) {
+            dropMessage(loadingId);
+            finishWithEndOption(
+              e instanceof Error
+                ? e.message
+                : 'Não foi possível buscar as unidades. Verifique a conexão e tente novamente.',
+            );
+          }
+          return;
+        }
+
+        if (option.flowKind === 'cpf-then-description-then-final') {
+          citizenFlowRef.current = {
+            step: 'description',
+            option,
+            name: check.citizenName,
+            cpf: check.cpf,
+          };
+          setMessages((prev) => [
+            ...clearMessageOptions(prev.filter((m) => m.id !== checkingId)),
+            {
+              id: `${Date.now()}-desc`,
+              text:
+                option.afterCpfPrompt ||
+                'CPF confirmado. Descreva a ocorrência com local aproximado.',
+              isFromOther: true,
+              timestamp: new Date(),
+            },
+          ]);
+          addOrUpdateConversation(data, 'CPF confirmado');
+          return;
+        }
+
+        // cpf-then-final e demais: busca real / orientação com loading
+        setMessages((prev) => clearMessageOptions(prev.filter((m) => m.id !== checkingId)));
+        const loadingId = pushLoading(
+          option.processingMessage || loadingLabelForOption(option.id),
+        );
+        try {
+          const [finalText] = await Promise.all([
+            resolveChatServiceResult({
+              optionId: option.id,
+              name: check.citizenName,
+              cpf: check.cpf,
+            }),
+            briefDelay(600),
+          ]);
+          dropMessage(loadingId);
+          finishWithEndOption(
+            finalText ||
+              option.buildFinalMessage?.({
+                name: check.citizenName,
+                cpf: check.cpf,
+                protocol: makeFlowProtocol(option.id.slice(0, 3).toUpperCase() || 'ROT'),
+              }) ||
+              option.finalMessage ||
+              mockCopy.finalDefault,
+          );
+        } catch (e) {
+          dropMessage(loadingId);
+          finishWithEndOption(
+            e instanceof Error ? e.message : 'Não foi possível concluir a consulta. Tente novamente.',
+          );
+        }
+      })();
+      return;
+    }
+
+    if (pending?.step === 'description') {
+      if (flowBusyRef.current) return;
+      const description = trimmed;
+      flowBusyRef.current = true;
+      setMessages((prev) => [
+        ...clearMessageOptions(prev),
+        {
+          id: `${Date.now()}-desc-user`,
+          text: description,
+          isFromOther: false,
+          timestamp: new Date(),
+        },
+      ]);
+      const loadingId = pushLoading(
+        pending.option.processingMessage || loadingLabelForOption(pending.option.id),
+      );
+      void (async () => {
+        try {
+          const [finalText] = await Promise.all([
+            resolveChatServiceResult({
+              optionId: pending.option.id,
+              name: pending.name,
+              cpf: pending.cpf,
+              description,
+            }),
+            briefDelay(650),
+          ]);
+          dropMessage(loadingId);
+          finishWithEndOption(finalText || mockCopy.finalDefault);
+        } catch (e) {
+          dropMessage(loadingId);
+          finishWithEndOption(
+            e instanceof Error
+              ? e.message
+              : 'Não foi possível concluir o registro. Tente novamente.',
+          );
+        } finally {
+          flowBusyRef.current = false;
+        }
+      })();
+      return;
+    }
+
+    setMessages((prev) => {
       const userMessage: ChatMessage = {
         id: Date.now().toString(),
         text: trimmed,
@@ -668,78 +1134,23 @@ export default function ChatTab() {
         timestamp: new Date(),
       };
 
-      if (responseConfig && lastSystemMessage) {
-        const multiOpt = responseConfig.initialOptions?.find(
-          (o) =>
-            o.followUpMessage === lastSystemMessage.text &&
-            o.waitForUserInput &&
-            o.secondStepPrompt &&
-            o.handoffAfterSecondStep &&
-            o.handoffChannelName,
-        );
-        if (multiOpt?.secondStepPrompt) {
-          agendamentoHandoffRef.current = {
-            optionId: multiOpt.id,
-            especialidade: trimmed,
-            handoffChannelName: multiOpt.handoffChannelName!,
-            secondStepPrompt: multiOpt.secondStepPrompt,
-          };
-          const step2Msg: ChatMessage = {
-            id: `${Date.now() + 1}-cpf`,
-            text: multiOpt.secondStepPrompt,
+      if (responseConfig?.freeTextReply) {
+        citizenFlowRef.current = { step: 'await-end' };
+        addOrUpdateConversation(data, trimmed);
+        return [
+          ...clearMessageOptions(prev),
+          userMessage,
+          appendEndOptions({
+            id: `${Date.now() + 1}-free`,
+            text: responseConfig.freeTextReply,
             isFromOther: true,
             timestamp: new Date(),
-          };
-          const neutralUserLine: ChatMessage = {
-            ...userMessage,
-            text: mockCopy.specialtyRegistered,
-          };
-          addOrUpdateConversation(data, multiOpt.secondStepPrompt);
-          return [...prev, neutralUserLine, step2Msg];
-        }
-      }
-
-      const updated = [...prev, userMessage];
-
-      if (responseConfig && lastSystemMessage) {
-        const optionThatTriggered = responseConfig.initialOptions?.find(
-          (opt) =>
-            opt.followUpMessage === lastSystemMessage.text &&
-            opt.waitForUserInput &&
-            !(opt.secondStepPrompt && opt.handoffAfterSecondStep) &&
-            !opt.handoffAfterFirstInput,
-        );
-
-        if (optionThatTriggered) {
-          const processingMessage: ChatMessage = {
-            id: `${Date.now() + 2}-proc`,
-            text: optionThatTriggered.processingMessage || mockCopy.processingDefault,
-            isFromOther: true,
-            timestamp: new Date(),
-          };
-
-          const finalMessage: ChatMessage = {
-            id: `${Date.now() + 3}-final`,
-            text:
-              optionThatTriggered.finalMessage || mockCopy.finalDefault,
-            isFromOther: true,
-            timestamp: new Date(),
-            options: optionThatTriggered.showOptionsAfter
-              ? responseConfig.initialOptions?.map((opt) => ({
-                  id: opt.id,
-                  label: opt.label,
-                  emoji: opt.emoji,
-                }))
-              : undefined,
-          };
-
-          addOrUpdateConversation(data, trimmed);
-          return [...updated, processingMessage, finalMessage];
-        }
+          }),
+        ];
       }
 
       addOrUpdateConversation(data, trimmed);
-      return updated;
+      return [...clearMessageOptions(prev), userMessage];
     });
   };
 
@@ -751,9 +1162,8 @@ export default function ChatTab() {
       onSaveConversation={handleSaveConversation}
       onOptionSelect={isStreamConversation ? undefined : handleOptionSelect}
       onSendMessage={handleSendMessage}
-      canSendMessages={
-        isStreamConversation ? isStreamReady : data.id !== 'comunicados-oficiais'
-      }
+      /* Stream: sempre mostra o campo; envio reconecta se watch falhou. */
+      canSendMessages
       showClearConversation={isStreamConversation && Boolean(streamChannelInfo)}
       onClearConversation={
         isStreamConversation && streamChannelInfo ? handleClearStreamConversation : undefined

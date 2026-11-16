@@ -1,4 +1,10 @@
-import { getApiBaseUrl, getAuthToken, getWhitelabelHostId } from './authApi';
+import {
+  buildAuthHeaders,
+  ensureAuthTokenHydrated,
+  getApiBaseUrl,
+  getAuthToken,
+  getWhitelabelHostId,
+} from './authApi';
 
 const BASE_PATH = '/api/v1';
 
@@ -79,12 +85,21 @@ export type MySubmissionItem = {
   evidenceImage: { id: string; publicUrl: string | null } | null;
 };
 
-function requireAuthToken(): string {
-  const token = getAuthToken();
+async function requireAuthToken(): Promise<string> {
+  const token = (await ensureAuthTokenHydrated()) || getAuthToken();
   if (!token) {
     throw new Error('Não autenticado');
   }
   return token;
+}
+
+function appendHostId(qs: URLSearchParams): void {
+  try {
+    const hostId = getWhitelabelHostId();
+    if (hostId) qs.set('hostId', hostId);
+  } catch {
+    /* sem host configurado */
+  }
 }
 
 function parseApiErrorMessage(text: string): string {
@@ -106,7 +121,7 @@ async function requestApi<T>(
     headers?: Record<string, string>;
   } = {},
 ): Promise<T> {
-  const token = requireAuthToken();
+  const token = await requireAuthToken();
   const url = `${getApiBaseUrl()}${BASE_PATH}${endpoint}`;
   const res = await fetch(url, {
     method: options.method ?? 'GET',
@@ -121,6 +136,9 @@ async function requestApi<T>(
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
+    if (res.status === 401) {
+      throw new Error('Sessão expirada ou inválida. Faça login novamente para aceitar a missão.');
+    }
     throw new Error(parseApiErrorMessage(text) || `Erro HTTP: ${res.status}`);
   }
   if (res.status === 204) return undefined as T;
@@ -136,13 +154,11 @@ async function requestApiOptionalAuth<T>(
   } = {},
 ): Promise<T> {
   const url = `${getApiBaseUrl()}${BASE_PATH}${endpoint}`;
-  const token = getAuthToken();
+  const headers = await buildAuthHeaders(Boolean(options.body));
   const res = await fetch(url, {
     method: options.method ?? 'GET',
     headers: {
-      Accept: 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : null),
-      ...(options.body ? { 'Content-Type': 'application/json' } : null),
+      ...headers,
       ...(options.headers ?? {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
@@ -168,20 +184,8 @@ export async function listMissions(params?: {
   if (params?.end != null && Number.isFinite(params.end)) {
     qs.set('end', String(Math.max(0, Math.floor(params.end))));
   }
-
-  const token = getAuthToken();
-  if (token) {
-    const suffix = qs.toString() ? `?${qs.toString()}` : '';
-    const data = await requestApi<CitizenMissionListItem[]>(`/missions${suffix}`);
-    return Array.isArray(data) ? data : [];
-  }
-
-  try {
-    const hostId = getWhitelabelHostId();
-    if (hostId) qs.set('hostId', hostId);
-  } catch {
-    /* visitante / sem host: só missões globais */
-  }
+  // Sempre envia hostId (Maricá): evita lista vazia quando o JWT não traz host.
+  appendHostId(qs);
 
   const suffix = qs.toString() ? `?${qs.toString()}` : '';
   const data = await requestApiOptionalAuth<CitizenMissionListItem[]>(`/missions${suffix}`);
@@ -193,7 +197,7 @@ export async function submitMissionEvidenceSupabaseFromUri(
   uri: string,
   options?: { mimeType?: string; fileName?: string },
 ): Promise<SubmitMissionSupabaseResult> {
-  const token = requireAuthToken();
+  const token = await requireAuthToken();
   const mime = options?.mimeType?.trim() || 'image/jpeg';
   const name = options?.fileName?.trim() || 'mission-evidence.jpg';
 

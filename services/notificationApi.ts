@@ -10,6 +10,8 @@ export interface NotificationDto {
   createdAt: string;
   isRead?: boolean;
   readAt?: string | null;
+  channelType?: string | null;
+  channelId?: string | null;
 }
 
 export interface NotificationReadResponseDto {
@@ -47,6 +49,8 @@ function normalizeNotification(raw: unknown): NotificationDto {
     createdAt: String(r.createdAt),
     isRead: typeof r.isRead === 'boolean' ? r.isRead : undefined,
     readAt,
+    channelType: r.channelType == null ? null : String(r.channelType),
+    channelId: r.channelId == null ? null : String(r.channelId),
   };
 }
 

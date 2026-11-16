@@ -291,6 +291,7 @@ export default function ForumCommunityExploreFeed({
                 setCommentDraftByPost((prev) => ({ ...prev, [post.id]: t }))
               }
               onSendComment={() => void onSendComment(post.id)}
+              onRemoved={() => setPosts((prev) => prev.filter((item) => item.id !== post.id))}
             />
           ))
         : null}

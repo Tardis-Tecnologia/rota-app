@@ -104,6 +104,11 @@ const NotificationsList: React.FC<NotificationsListProps> = ({
               {item.description}
             </Text>
           ) : null}
+          {item.channelType === 'forum_community' && item.channelId ? (
+            <Text style={styles.cardDescription}>Toque para abrir a comunidade</Text>
+          ) : item.channelId ? (
+            <Text style={styles.cardDescription}>Toque para abrir a mensagem</Text>
+          ) : null}
         </View>
       </Pressable>
     );

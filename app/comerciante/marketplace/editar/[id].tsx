@@ -60,6 +60,18 @@ export default function ComercianteMarketplaceEditScreen() {
           advertiserContact: item.advertiserContact,
           imageUri: item.imageUri,
           imageId: item.imageId,
+          images: (item.imageUris?.length
+            ? item.imageUris
+            : item.imageUri
+              ? [item.imageUri]
+              : []
+          ).map((uri, index) => ({
+            uri,
+            id:
+              index === 0
+                ? item.imageId
+                : item.galleryImageIds?.[index - 1] ?? null,
+          })),
         });
       }
     } catch {

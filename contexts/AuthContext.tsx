@@ -5,6 +5,7 @@ import { loginWithEmailPassword } from '@/services/loginApi';
 import { clearAuthSession, getAuthSession, saveAuthSession } from '@/services/authSessionStore';
 import { disconnectGoogleAccount } from '@/services/googleAuth';
 import { disconnectStreamChat } from '@/services/streamChatApi';
+import { markHasLoggedInBefore } from '@/services/welcomeAccessStore';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 export type UserRole = 'client';
@@ -20,6 +21,7 @@ export interface AuthUser {
   govbrSub?: string | null;
   cpf?: string | null;
   photoUrl?: string | null;
+  bio?: string | null;
   commercialCep?: string | null;
   commercialCnpj?: string | null;
 }
@@ -71,6 +73,9 @@ function applyUserDetailsFromApi(prev: AuthUser, details: UserSummary): AuthUser
   if (Object.prototype.hasOwnProperty.call(details, 'photoUrl')) {
     next.photoUrl = bustPhotoIfPresent(details.photoUrl);
   }
+  if (Object.prototype.hasOwnProperty.call(details, 'bio')) {
+    next.bio = details.bio ?? null;
+  }
   return next;
 }
 
@@ -82,10 +87,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
     const restoreSession = async () => {
       try {
+        // Hidrata o token o mais cedo possível (evita 401 em massa no boot).
+        await authApi.ensureAuthTokenHydrated();
         const session = await getAuthSession();
         if (!mounted || !session) return;
         authApi.setAuthToken(session.token);
         setUser(session.user);
+        void markHasLoggedInBefore();
         const uid = session.user.id?.trim();
         const token = session.token;
         const profile = session.user.profile?.trim().toUpperCase() ?? '';
@@ -103,8 +111,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               void saveAuthSession({ token, user: next });
               return next;
             });
-          } catch {
-            /* mantém dados da sessão local */
+          } catch (err) {
+            // Token morto: não manter "logado" na UI (causava Unauthorized em tudo).
+            const status = err instanceof authApi.AuthHttpError ? err.status : 0;
+            const msg = err instanceof Error ? err.message : '';
+            if (status === 401 || /unauthorized/i.test(msg)) {
+              authApi.setAuthToken(null);
+              await clearAuthSession();
+              if (mounted) setUser(null);
+              return;
+            }
+            /* rede/5xx: mantém sessão local */
           }
         }
       } catch {
@@ -137,6 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role: profileToRole(data.profile),
       profile: data.profile,
       themeSlug: data.themeSlug ?? null,
+      cpf: data.cpf ?? undefined,
       photoUrl: bustPhotoIfPresent(data.photoUrl),
       ...(data.accountKind === 'commercial'
         ? {
@@ -146,6 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         : {}),
     };
     setUser(nextUser);
+    void markHasLoggedInBefore();
 
     if (data.accountKind === 'commercial') {
       try {
@@ -210,6 +229,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         photoUrl: bustPhotoIfPresent(session.user.photoUrl),
       };
       setUser(baseUser);
+      void markHasLoggedInBefore();
       try {
         await saveAuthSession({ token: session.token, user: baseUser });
       } catch {
@@ -312,6 +332,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         cpf: updated.cpf ?? null,
         ...(Object.prototype.hasOwnProperty.call(updated, 'photoUrl')
           ? { photoUrl: bustPhotoIfPresent(updated.photoUrl) }
+          : {}),
+        ...(Object.prototype.hasOwnProperty.call(updated, 'bio')
+          ? { bio: updated.bio ?? null }
           : {}),
       };
       void saveAuthSession({ token, user: next });

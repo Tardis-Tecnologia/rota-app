@@ -1,4 +1,5 @@
 import EventAttendanceSection from '@/components/events/EventAttendanceSection';
+import LinkedPhotoMural from '@/components/forum/LinkedPhotoMural';
 import EventCoverImage from '@/components/events/EventCoverImage';
 import { AppColors } from '@/constants/theme';
 import { useSavedEvents } from '@/hooks/useSavedEvents';
@@ -247,6 +248,8 @@ export default function EventoDetalheScreen() {
                 </Text>
               </View>
             </View>
+
+            <LinkedPhotoMural eventId={eventId} hostId={item.hostId} />
 
             {item.descricao ? (
               <View style={styles.section}>

@@ -2,7 +2,6 @@ import { AppColors } from '@/constants/theme';
 import type { GuiaListItem } from '@/services/guiaCatalog';
 import { formatDistanceMeters } from '@/utils/guiaGeo';
 import { navigateToDirections } from '@/utils/navigateDirections';
-import { openExternalDirections } from '@/utils/openExternalMaps';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React from 'react';
@@ -75,16 +74,8 @@ export default function GuiaPlaceDetail({ item }: { item: GuiaListItem }) {
           onPress={openDirections}
           style={({ pressed }) => [styles.mapsBtn, pressed && styles.mapsBtnPressed]}
         >
-          <Ionicons name="navigate-outline" size={20} color="#fff" />
+          <Ionicons name="git-branch-outline" size={20} color="#fff" />
           <Text style={styles.mapsBtnText}>Como chegar</Text>
-        </Pressable>
-
-        <Pressable
-          onPress={() => openExternalDirections(item.latitude, item.longitude, item.name)}
-          style={({ pressed }) => [styles.mapsBtnSecondary, pressed && styles.mapsBtnPressed]}
-        >
-          <Ionicons name="open-outline" size={18} color="#6d28d9" />
-          <Text style={styles.mapsBtnSecondaryText}>Abrir no app de mapas</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -166,21 +157,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#fff',
-  },
-  mapsBtnSecondary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 12,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#ddd6fe',
-    backgroundColor: '#faf5ff',
-  },
-  mapsBtnSecondaryText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6d28d9',
   },
 });

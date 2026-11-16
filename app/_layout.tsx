@@ -1,6 +1,8 @@
 import { AuthNavigationSync } from '@/components/AuthNavigationSync';
 import { ThemeSyncOnNavigation } from '@/components/ThemeSyncOnNavigation';
+import WelcomeGate from '@/components/WelcomeGate';
 import { AppThemeProvider } from '@/contexts/AppThemeContext';
+import { CityBrandProvider } from '@/contexts/CityBrandContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ForumModerationProvider } from '@/contexts/ForumModerationContext';
 import { VisitanteLoginDialogProvider } from '@/contexts/VisitanteLoginDialogContext';
@@ -25,6 +27,8 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
+        <CityBrandProvider>
+        <WelcomeGate>
         <ForumModerationProvider>
         <VisitanteLoginDialogProvider>
         <AppThemeProvider>
@@ -53,18 +57,22 @@ export default function RootLayout() {
           <Stack.Screen name="guia" options={{ headerShown: false }} />
           <Stack.Screen name="directions" options={{ headerShown: false }} />
           <Stack.Screen name="EducationTab" options={{ headerShown: false }} />
+          <Stack.Screen name="education" options={{ headerShown: false }} />
           <Stack.Screen name="saude/agendar" options={{ headerShown: false }} />
           <Stack.Screen name="saude/agendamentos" options={{ headerShown: false }} />
           <Stack.Screen name="saude/exames" options={{ headerShown: false }} />
           <Stack.Screen name="saude/fila" options={{ headerShown: false }} />
           <Stack.Screen name="saude/teleconsulta" options={{ headerShown: false }} />
+          <Stack.Screen name="saude/unidades" options={{ headerShown: false }} />
           <Stack.Screen name="JobsTab" options={{ headerShown: false }} />
+          <Stack.Screen name="EditalDetail" options={{ headerShown: false }} />
           <Stack.Screen name="JobDetailTab" options={{ headerShown: false }} />
+          <Stack.Screen name="JobCandidateProfile" options={{ headerShown: false }} />
+          <Stack.Screen name="CertificadosMedalhas" options={{ headerShown: false }} />
           <Stack.Screen name="ProfileProviderTab" options={{ headerShown: false }} />
           <Stack.Screen name="ChatTab" options={{ headerShown: false }} />
           <Stack.Screen name="Profile" options={{ headerShown: false }} />
           <Stack.Screen name="edit-account" options={{ headerShown: false }} />
-          <Stack.Screen name="pulso" options={{ headerShown: false }} />
           <Stack.Screen name="missions" options={{ headerShown: false }} />
           <Stack.Screen name="comerciante" options={{ headerShown: false }} />
           <Stack.Screen name="forum" options={{ headerShown: false }} />
@@ -81,6 +89,8 @@ export default function RootLayout() {
         </AppThemeProvider>
         </VisitanteLoginDialogProvider>
         </ForumModerationProvider>
+        </WelcomeGate>
+        </CityBrandProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

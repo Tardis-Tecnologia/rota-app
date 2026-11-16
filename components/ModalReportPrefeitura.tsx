@@ -2,11 +2,13 @@ import { VisitanteBottomSheetPrompt } from '@/components/VisitanteBottomSheetPro
 import { AppColors } from '@/constants/theme';
 import { useIsVisitante } from '@/hooks/useIsVisitante';
 import { promptVisitanteLogin } from '@/utils/visitanteAccess';
+import { getCurrentPositionWithRetry } from '@/services/locationPermission';
 import { createUrbanReport, type UrbanReportCategory } from '@/services/urbanReportsApi';
 import { formatBrazilPhoneInput } from '@/utils/phoneMask';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo } from 'react';
 import {
     Alert,
@@ -14,8 +16,9 @@ import {
     Modal,
     Pressable,
     ScrollView,
-    StyleSheet,
-    Text,
+  Platform,
+  StyleSheet,
+  Text,
     TextInput,
     TouchableOpacity,
     View,
@@ -34,7 +37,7 @@ interface ModalReportPrefeituraProps {
   initialAssunto?: string;
 }
 
-const SHEET_HEIGHT_RATIO = 0.5;
+const SHEET_HEIGHT_RATIO = 0.72;
 
 const CATEGORIAS = [
   { id: '', label: 'Selecione uma categoria' },
@@ -45,6 +48,22 @@ const CATEGORIAS = [
   { id: 'parques', label: 'Parques e praças' },
   { id: 'outros', label: 'Outros' },
 ];
+
+async function optionalReportCoordinates(): Promise<{ latitude: number; longitude: number } | null> {
+  if (Platform.OS === 'web') return null;
+  try {
+    const existing = await Location.getForegroundPermissionsAsync();
+    const status =
+      existing.status === 'granted' ? 'granted' : (await Location.requestForegroundPermissionsAsync()).status;
+    if (status !== 'granted') return null;
+    const position = await getCurrentPositionWithRetry(undefined, 0, 0, 8000);
+    const { latitude, longitude } = position.coords;
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    return { latitude, longitude };
+  } catch {
+    return null;
+  }
+}
 
 function mapCategoriaToUrbanReportCategory(categoriaId: string): UrbanReportCategory {
   switch (categoriaId) {
@@ -85,6 +104,7 @@ export function ModalReportPrefeitura({
   const [assunto, setAssunto] = React.useState('');
   const [descricao, setDescricao] = React.useState('');
   const [categoriaId, setCategoriaId] = React.useState('');
+  const [bairro, setBairro] = React.useState('');
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
   const [isSubmitted, setIsSubmitted] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
@@ -101,6 +121,7 @@ export function ModalReportPrefeitura({
       setAssunto('');
       setDescricao('');
       setCategoriaId('');
+      setBairro('');
       setDropdownOpen(false);
       return;
     }
@@ -111,6 +132,7 @@ export function ModalReportPrefeitura({
     setAssunto(initialAssunto ?? '');
     setDescricao('');
     setCategoriaId('');
+    setBairro('');
     setDropdownOpen(false);
   }, [visible, initialAssunto]);
 
@@ -158,6 +180,7 @@ export function ModalReportPrefeitura({
 
     setSubmitting(true);
     try {
+      const point = await optionalReportCoordinates();
       await createUrbanReport(
         {
           title,
@@ -165,6 +188,9 @@ export function ModalReportPrefeitura({
           contactName,
           contactPhone,
           category: mapCategoriaToUrbanReportCategory(categoriaId),
+          neighborhood: bairro.trim() || undefined,
+          latitude: point?.latitude,
+          longitude: point?.longitude,
         },
         { imageUri: imagem },
       );
@@ -177,7 +203,7 @@ export function ModalReportPrefeitura({
     } finally {
       setSubmitting(false);
     }
-  }, [assunto, categoriaId, descricao, imagem, isVisitante, nome, submitting, telefone]);
+  }, [assunto, bairro, categoriaId, descricao, imagem, isVisitante, nome, submitting, telefone]);
 
   const handleClose = () => {
     setIsSubmitted(false);
@@ -426,6 +452,20 @@ export function ModalReportPrefeitura({
                     </View>
                   )}
                 </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.fieldLabel}>Bairro (opcional)</Text>
+                <TextInput
+                  value={bairro}
+                  onChangeText={setBairro}
+                  placeholder="Ex: Centro"
+                  placeholderTextColor="#9CA3AF"
+                  style={styles.input}
+                />
+                <Text style={styles.fieldHint}>
+                  Se a localização já estiver autorizada, o ponto entra no chamado. Sem autorização, o chamado segue sem ponto.
+                </Text>
               </View>
 
               <View style={styles.formGroup}>

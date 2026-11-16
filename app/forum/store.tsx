@@ -1,5 +1,8 @@
 import ComercianteProfileModal from '@/components/comerciante/ComercianteProfileModal';
+import LinkedPhotoMural from '@/components/forum/LinkedPhotoMural';
 import StoreProfileGallery from '@/components/forum/StoreProfileGallery';
+import StoreProfilePosts from '@/components/forum/StoreProfilePosts';
+import StoreProfileReviews from '@/components/forum/StoreProfileReviews';
 import {
   buildStoreContactDraftMessage,
   withListImageCacheBust,
@@ -22,7 +25,6 @@ import {
   resolveStoreMapTarget,
   storeProfileFromRouteParams,
 } from '@/utils/commercialStoreProfile';
-import { navigateToDirections } from '@/utils/navigateDirections';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
@@ -31,7 +33,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -288,34 +289,21 @@ export default function ForumStoreProfileScreen() {
         return;
       }
       setGeocodedCoords(coords);
-      navigateToDirections({
-        destLat: coords.latitude,
-        destLng: coords.longitude,
-        destName: storeName,
+      router.push({
+        pathname: '/(tabs)/map',
+        params: {
+          focusLat: String(coords.latitude),
+          focusLng: String(coords.longitude),
+          focusLabel: storeName,
+          focusAddress: storeProfile.address?.trim() || '',
+          traceRoute: '1',
+          routeKey: String(Date.now()),
+        },
       });
     } finally {
       setRouteLoading(false);
     }
   }, [geocodedCoords, routeLoading, storeName, storeProfile]);
-
-  const callStore = useCallback(() => {
-    const displayPhone = storeProfile?.phone?.trim() || '';
-    const digits = displayPhone.replace(/\D/g, '');
-    if (!digits) return;
-    Alert.alert(
-      'Ligar para a loja',
-      `Deseja ligar para ${storeName}?\n\nTelefone: ${displayPhone}`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Ligar',
-          onPress: () => {
-            void Linking.openURL(`tel:${digits}`);
-          },
-        },
-      ],
-    );
-  }, [storeName, storeProfile?.phone]);
 
   const startContact = useCallback(async () => {
     if (!user?.id || isVisitante) {
@@ -397,7 +385,7 @@ export default function ForumStoreProfileScreen() {
           </View>
           <Text style={styles.storeName}>{storeName}</Text>
           <Text style={styles.storeHint}>
-            Loja parceira do fórum do bairro — cupons, promoções e atendimento direto pelo app.
+            Loja parceira do feed da cidade — cupons, promoções e atendimento direto pelo app.
           </Text>
         </LinearGradient>
 
@@ -415,6 +403,24 @@ export default function ForumStoreProfileScreen() {
           </View>
         ) : null}
 
+        {!profileLoading && commercialId ? (
+          <StoreProfilePosts commercialAccountId={commercialId} />
+        ) : null}
+
+        {!profileLoading && commercialId ? (
+          <StoreProfileReviews
+            commercialAccountId={commercialId}
+            canReview={!viewingOwnStore && !isVisitante}
+            loginHint={isVisitante && !viewingOwnStore}
+          />
+        ) : null}
+
+        {!profileLoading ? (
+          <View style={styles.sectionCard}>
+            <LinkedPhotoMural commercialAccountId={commercialId} />
+          </View>
+        ) : null}
+
         {!profileLoading ? (
           <StoreProfileGallery
             images={galleryImages}
@@ -428,9 +434,7 @@ export default function ForumStoreProfileScreen() {
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Contato e dados</Text>
             {cep ? <InfoRow icon="mail-outline" label="CEP" value={cep} /> : null}
-            {phone ? (
-              <InfoRow icon="call-outline" label="Telefone" value={phone} onPress={callStore} />
-            ) : null}
+            {phone ? <InfoRow icon="call-outline" label="Telefone" value={phone} /> : null}
           </View>
         ) : null}
 
@@ -470,18 +474,6 @@ export default function ForumStoreProfileScreen() {
                 <Text style={styles.mapBtnPrimaryText}>
                   {routeLoading ? 'Calculando rota…' : 'Como chegar'}
                 </Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.mapBtnSecondary,
-                  pressed && styles.btnPressed,
-                  (routeLoading || geocodeLoading) && styles.mapBtnDisabled,
-                ]}
-                onPress={() => void openInAppDirections()}
-                disabled={routeLoading || geocodeLoading}
-              >
-                <Ionicons name="map-outline" size={18} color="#0d9488" />
-                <Text style={styles.mapBtnSecondaryText}>Ver rota no mapa</Text>
               </Pressable>
             </View>
           </View>
@@ -523,7 +515,7 @@ export default function ForumStoreProfileScreen() {
           <View style={styles.ownStoreBanner}>
             <Ionicons name="storefront-outline" size={18} color="#0d9488" />
             <Text style={styles.ownStoreBannerText}>
-              Este é o perfil público da sua loja no fórum. Toque na engrenagem para editar dados de
+              Este é o perfil público da sua loja no feed. Toque na engrenagem para editar dados de
               contato e endereço.
             </Text>
           </View>
@@ -671,18 +663,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   mapBtnPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  mapBtnSecondary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#f0fdfa',
-    borderRadius: 12,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#99f6e4',
-  },
-  mapBtnSecondaryText: { color: '#0d9488', fontSize: 15, fontWeight: '700' },
   mapBtnDisabled: { opacity: 0.5 },
   postRefCard: {
     backgroundColor: '#fff',

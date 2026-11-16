@@ -1,3 +1,4 @@
+import MarketplaceProductImageGallery from '@/components/marketplace/MarketplaceProductImageGallery';
 import { getMarketplaceCategoryMeta } from '@/constants/marketplaceCategories';
 import { AppColors } from '@/constants/theme';
 import {
@@ -7,13 +8,11 @@ import {
 import type { MarketplaceListing } from '@/types/marketplace';
 import { formatMarketplacePrice } from '@/utils/marketplaceFormat';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Linking,
   Pressable,
   ScrollView,
@@ -113,13 +112,15 @@ export default function ComercianteMarketplaceDetailScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
         showsVerticalScrollIndicator={false}
       >
-        {item.imageUri ? (
-          <Image source={{ uri: item.imageUri }} style={styles.hero} resizeMode="cover" />
-        ) : (
-          <LinearGradient colors={['#6366f1', '#a855f7']} style={styles.heroPlaceholder}>
-            <Ionicons name="cube-outline" size={48} color="#fff" />
-          </LinearGradient>
-        )}
+        <MarketplaceProductImageGallery
+          imageUris={
+            item.imageUris?.length
+              ? item.imageUris
+              : item.imageUri
+                ? [item.imageUri]
+                : []
+          }
+        />
 
         <View style={styles.body}>
           <View style={[styles.catBadge, { backgroundColor: cat.bg }]}>

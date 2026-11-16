@@ -1,6 +1,5 @@
 import DirectionsMapView from '@/components/DirectionsMapView';
 import { AppColors } from '@/constants/theme';
-import { openExternalDirections } from '@/utils/openExternalMaps';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo } from 'react';
@@ -85,16 +84,6 @@ export default function WorkLocationScreen() {
           </View>
         ) : null}
         <Text style={styles.hint}>Localização exata da obra no mapa.</Text>
-        <TouchableOpacity
-          style={styles.externalBtn}
-          onPress={() =>
-            openExternalDirections(destination.latitude, destination.longitude, title)
-          }
-          activeOpacity={0.85}
-        >
-          <Ionicons name="open-outline" size={18} color={AppColors.text.secondary} />
-          <Text style={styles.externalBtnText}>Abrir no app de mapas</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -193,22 +182,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: AppColors.gray[500],
     fontWeight: '500',
-  },
-  externalBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: AppColors.gray[300],
-    backgroundColor: AppColors.gray[100],
-    marginTop: 4,
-  },
-  externalBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: AppColors.text.secondary,
   },
 });

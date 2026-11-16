@@ -22,7 +22,8 @@ export type NearbyCategory =
   | 'hospital'
   | 'bank'
   | 'gas_station'
-  | 'shopping';
+  | 'shopping'
+  | 'company';
 
 export type NearbyPlace = {
   id: string;
@@ -130,12 +131,23 @@ const CATEGORY_OSM_FILTERS: Record<NearbyCategory, string[]> = {
   hospital: ['["amenity"="hospital"]', '["amenity"="clinic"]'],
   bank: ['["amenity"="bank"]'],
   gas_station: ['["amenity"="fuel"]'],
-  shopping: ['["shop"="mall"]', '["shop"="department_store"]'],
+  shopping: ['["shop"="mall"]', '["shop"="department_store"]', '["shop"="clothes"]'],
+  company: [
+    '["office"]',
+    '["shop"="yes"]',
+    '["shop"="furniture"]',
+    '["shop"="hardware"]',
+    '["shop"="car"]',
+    '["craft"]',
+  ],
 };
 
 const OVERPASS_NEARBY_URLS = [
-  'https://overpass-api.de/api/interpreter',
+  'https://lz4.overpass-api.de/api/interpreter',
+  'https://z.overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
 ];
 
 const CATEGORY_PHOTON_QUERY: Record<NearbyCategory, string> = {
@@ -157,6 +169,52 @@ const CATEGORY_PHOTON_QUERY: Record<NearbyCategory, string> = {
   bank: 'bank',
   gas_station: 'gas station',
   shopping: 'shop',
+  company: 'company office',
+};
+
+/** Busca textual em PT-BR (Nominatim) — densifica POIs quando Overpass/Photon falham. */
+const CATEGORY_NOMINATIM_QUERY: Record<NearbyCategory, string> = {
+  restaurant: 'restaurante',
+  fast_food: 'lanchonete',
+  bakery: 'padaria',
+  bar: 'bar',
+  cafe: 'cafeteria',
+  pharmacy: 'farmácia',
+  atm: 'caixa eletrônico',
+  shopping_center: 'shopping',
+  market: 'mercado',
+  supermarket: 'supermercado',
+  gym: 'academia',
+  park: 'parque',
+  school: 'escola',
+  hotel: 'hotel',
+  hospital: 'hospital',
+  bank: 'banco',
+  gas_station: 'posto de combustível',
+  shopping: 'shopping',
+  company: 'empresa',
+};
+
+const NOMINATIM_PREFERRED_CLASS: Partial<Record<NearbyCategory, Set<string>>> = {
+  restaurant: new Set(['amenity']),
+  fast_food: new Set(['amenity']),
+  bakery: new Set(['shop', 'amenity']),
+  bar: new Set(['amenity']),
+  cafe: new Set(['amenity']),
+  pharmacy: new Set(['amenity', 'shop']),
+  atm: new Set(['amenity']),
+  shopping_center: new Set(['shop', 'amenity']),
+  market: new Set(['shop', 'amenity']),
+  supermarket: new Set(['shop']),
+  gym: new Set(['leisure', 'amenity']),
+  park: new Set(['leisure']),
+  school: new Set(['amenity']),
+  hotel: new Set(['tourism']),
+  hospital: new Set(['amenity', 'healthcare']),
+  bank: new Set(['amenity', 'office']),
+  gas_station: new Set(['amenity']),
+  shopping: new Set(['shop', 'amenity']),
+  company: new Set(['office', 'shop', 'craft', 'amenity']),
 };
 
 function isOverpassRelatedFailure(error: unknown): boolean {
@@ -169,6 +227,7 @@ function isOverpassRelatedFailure(error: unknown): boolean {
     message.includes('504') ||
     message.includes('network request failed') ||
     message.includes('failed to fetch') ||
+    message.includes('tempo esgotado') ||
     message.includes('places/nearby failed')
   );
 }
@@ -293,7 +352,113 @@ async function fetchNearbyFromOverpass(params: NearbyPlacesParams): Promise<Near
   throw lastError ?? new Error('Falha ao consultar Overpass');
 }
 
-/** Photon (Komoot) — fallback quando Overpass também falha. */
+function viewboxAround(lat: number, lon: number, radiusMeters: number): string {
+  const dLat = radiusMeters / 111_320;
+  const dLon = radiusMeters / (111_320 * Math.cos((lat * Math.PI) / 180));
+  // Nominatim: left, top, right, bottom
+  return `${lon - dLon},${lat + dLat},${lon + dLon},${lat - dLat}`;
+}
+
+/** Nominatim com viewbox — retorna POIs reais perto do centro (melhor que Photon por nome EN). */
+async function fetchNearbyFromNominatim(params: NearbyPlacesParams): Promise<NearbyPlace[]> {
+  const limit = params.limit ?? 20;
+  const category = params.category;
+  const radius = Math.min(params.radius ?? NEARBY_PLACES_RADIUS_METERS, 12_000);
+  const q = category
+    ? CATEGORY_NOMINATIM_QUERY[category] ?? category
+    : 'restaurante';
+  const preferredClass = category ? NOMINATIM_PREFERRED_CLASS[category] : undefined;
+
+  const url = new URL('https://nominatim.openstreetmap.org/search');
+  url.searchParams.set('format', 'jsonv2');
+  url.searchParams.set('addressdetails', '1');
+  url.searchParams.set('limit', String(Math.min(Math.max(limit * 2, 20), 40)));
+  url.searchParams.set('countrycodes', 'br');
+  url.searchParams.set('bounded', '1');
+  url.searchParams.set('viewbox', viewboxAround(params.lat, params.lon, radius));
+  url.searchParams.set('q', q);
+
+  const res = await fetch(url.toString(), {
+    headers: { Accept: 'application/json', 'User-Agent': 'RotaApp/1.0' },
+  });
+  if (!res.ok) {
+    throw new Error(`Nominatim failed (${res.status})`);
+  }
+
+  const data = (await res.json()) as Array<{
+    place_id?: number;
+    osm_type?: string;
+    osm_id?: number;
+    name?: string;
+    display_name?: string;
+    lat?: string;
+    lon?: string;
+    class?: string;
+    type?: string;
+    address?: {
+      road?: string;
+      suburb?: string;
+      neighbourhood?: string;
+      city?: string;
+      town?: string;
+      village?: string;
+    };
+  }>;
+
+  if (!Array.isArray(data)) return [];
+
+  const places: NearbyPlace[] = [];
+  const seen = new Set<string>();
+  for (const item of data) {
+    if (places.length >= limit) break;
+    const lat = Number(item.lat);
+    const lon = Number(item.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    if (distanceMeters([params.lon, params.lat], [lon, lat]) > radius) continue;
+
+    const cls = (item.class || '').toLowerCase();
+    if (preferredClass && preferredClass.size > 0 && !preferredClass.has(cls)) {
+      // Mantém se o nome claramente casa com a busca (ex.: "Mendes Bar Restaurante").
+      const nameLower = (item.name || '').toLowerCase();
+      if (!nameLower.includes(q.toLowerCase().split(' ')[0] ?? q)) continue;
+    }
+
+    const name =
+      (item.name || '').trim() ||
+      (item.display_name || '').split(',')[0]?.trim() ||
+      '';
+    if (!name) continue;
+
+    const osmType = (item.osm_type || 'node').toLowerCase();
+    const id =
+      item.osm_id != null
+        ? `${osmType}/${item.osm_id}`
+        : item.place_id != null
+          ? `nom-${item.place_id}`
+          : `nom-${lat}-${lon}-${places.length}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+
+    const addr = item.address ?? {};
+    const addressParts = [
+      addr.road,
+      addr.suburb || addr.neighbourhood,
+      addr.city || addr.town || addr.village,
+    ].filter((p) => typeof p === 'string' && p.trim().length > 0);
+
+    places.push({
+      id,
+      name,
+      latitude: lat,
+      longitude: lon,
+      category: item.type || category || 'place',
+      formattedAddress: addressParts.length > 0 ? addressParts.join(' — ') : undefined,
+    });
+  }
+  return places;
+}
+
+/** Photon (Komoot) — fallback secundário. */
 async function fetchNearbyFromPhoton(params: NearbyPlacesParams): Promise<NearbyPlace[]> {
   const limit = params.limit ?? 20;
   const category = params.category;
@@ -365,66 +530,100 @@ async function fetchNearbyFromPhoton(params: NearbyPlacesParams): Promise<Nearby
   return places;
 }
 
+/** Nominatim (PT) primeiro; Photon/Overpass como reforço. */
 async function fetchNearbyClientFallback(params: NearbyPlacesParams): Promise<NearbyPlace[]> {
   try {
-    return await fetchNearbyFromOverpass(params);
+    const nominatim = await fetchNearbyFromNominatim(params);
+    if (nominatim.length > 0) return nominatim;
   } catch {
-    return fetchNearbyFromPhoton(params);
+    // tenta próximos
   }
+  try {
+    const photon = await fetchNearbyFromPhoton(params);
+    if (photon.length > 0) return photon;
+  } catch {
+    // tenta Overpass
+  }
+  return fetchNearbyFromOverpass(params);
+}
+
+// A busca de Maricá (raio de 45 km) leva ~8 s na API e mais um pouco no túnel.
+// 6 s cancelava a resposta certa e caía no Overpass do celular, que estoura o alerta.
+const PLACES_API_TIMEOUT_MS = 20_000;
+
+function buildNearbyPlacesUrl(baseUrl: string, params: NearbyPlacesParams): string {
+  const query = [
+    `lat=${encodeURIComponent(String(params.lat))}`,
+    `lon=${encodeURIComponent(String(params.lon))}`,
+  ];
+  if (params.category) query.push(`category=${encodeURIComponent(params.category)}`);
+  if (params.radius != null) query.push(`radius=${encodeURIComponent(String(params.radius))}`);
+  if (params.limit != null) query.push(`limit=${encodeURIComponent(String(params.limit))}`);
+  return `${baseUrl.replace(/\/$/, '')}/api/v1/places/nearby?${query.join('&')}`;
 }
 
 async function requestNearbyPlaces(
   baseUrl: string,
   params: NearbyPlacesParams,
+  timeoutMs = PLACES_API_TIMEOUT_MS,
 ): Promise<NearbyPlace[]> {
-  const url = new URL('/api/v1/places/nearby', baseUrl);
-  url.searchParams.set('lat', String(params.lat));
-  url.searchParams.set('lon', String(params.lon));
-  if (params.category) url.searchParams.set('category', params.category);
-  if (params.radius != null) url.searchParams.set('radius', String(params.radius));
-  if (params.limit != null) url.searchParams.set('limit', String(params.limit));
-
-  const res = await fetch(url.toString(), {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
+  const url = buildNearbyPlacesUrl(baseUrl, params);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('Tempo esgotado ao buscar locais.')), timeoutMs);
   });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    try {
-      const j = JSON.parse(text) as { message?: string };
-      if (j?.message) throw new Error(j.message);
-    } catch (e) {
-      if (e instanceof Error && e.message !== text) throw e;
+  try {
+    const res = await Promise.race([
+      fetch(url, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      }),
+      timeout,
+    ]);
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      try {
+        const j = JSON.parse(text) as { message?: string };
+        if (j?.message) throw new Error(j.message);
+      } catch (e) {
+        if (e instanceof Error && e.message !== text) throw e;
+      }
+      throw new Error(text || `places/nearby failed (${res.status})`);
     }
-    throw new Error(text || `places/nearby failed (${res.status})`);
+    const raw = await res.json();
+    return unwrapPlacesArray(raw)
+      .map((item) =>
+        item && typeof item === 'object' ? normalizeNearbyPlace(item as Record<string, unknown>) : null,
+      )
+      .filter((p): p is NearbyPlace => p != null);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
-  const raw = await res.json();
-  return unwrapPlacesArray(raw)
-    .map((item) =>
-      item && typeof item === 'object' ? normalizeNearbyPlace(item as Record<string, unknown>) : null,
-    )
-    .filter((p): p is NearbyPlace => p != null);
 }
 
 export async function getNearbyPlaces(params: NearbyPlacesParams): Promise<NearbyPlace[]> {
   const primaryBaseUrl = getApiBaseUrl();
   try {
     return await requestNearbyPlaces(primaryBaseUrl, params);
-  } catch (error) {
-    if (
+  } catch (primaryError) {
+    const canTryBackup =
       PLACES_FALLBACK_API_BASE_URL !== primaryBaseUrl &&
-      shouldFallbackToPlacesApi(error, primaryBaseUrl)
-    ) {
+      (shouldFallbackToPlacesApi(primaryError, primaryBaseUrl) || isOverpassRelatedFailure(primaryError));
+    if (canTryBackup) {
       try {
         return await requestNearbyPlaces(PLACES_FALLBACK_API_BASE_URL, params);
       } catch {
-        // Segue para fallback no device.
+        // Segue para a busca direta no OpenStreetMap.
       }
     }
-    if (isOverpassRelatedFailure(error)) {
-      return fetchNearbyClientFallback(params);
+    try {
+      return await fetchNearbyClientFallback(params);
+    } catch (fallbackError) {
+      const primaryMessage = primaryError instanceof Error ? primaryError.message : String(primaryError);
+      const fallbackMessage =
+        fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+      throw new Error(primaryMessage || fallbackMessage || 'Falha ao buscar locais');
     }
-    throw error;
   }
 }
 
@@ -473,6 +672,7 @@ export const searchNearbyPlaces = async (
     'bank',
     'gas_station',
     'shopping',
+    'company',
   ]);
   if (!supported.has(type)) {
     throw new Error('UNSUPPORTED_CATEGORY');

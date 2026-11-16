@@ -3,7 +3,7 @@ import type {
     ForumPromotedCoupon,
 } from '@/types/forumCommercial';
 import { mapForumAuthorCommercial } from '@/utils/commercialStoreProfile';
-import { getApiBaseUrl, getAuthToken } from './authApi';
+import { ensureAuthTokenHydrated, getApiBaseUrl, getAuthToken } from './authApi';
 import { assertForumResponseOk } from './forumApiError';
 import { parseJwtAccessTokenPayload } from './jwtAccessTokenClaims';
 
@@ -26,11 +26,20 @@ export interface ForumPostListItemDto {
   commentsCount: number;
   locationDescription: string | null;
   mediaId: string | null;
+  mediaPublicUrl?: string | null;
+  mediaContentType?: string | null;
   communityId: string | null;
+  eventId?: string | null;
+  eventTitle?: string | null;
+  commercialAccountId?: string | null;
+  commercialStoreName?: string | null;
   createdAt: string;
   author?: ForumAuthorDto;
   authorCommercial?: ForumAuthorCommercial;
   promotedCoupon?: ForumPromotedCoupon | null;
+  official?: boolean;
+  officialInstitution?: string | null;
+  officialRole?: string | null;
 }
 
 export interface ForumContactStoreResponse {
@@ -63,6 +72,8 @@ export interface CreateForumPostBody {
   mediaId?: string;
   communityId?: string;
   locationDescription?: string;
+  eventId?: string | null;
+  commercialAccountId?: string | null;
 }
 
 export function resolveForumHostId(explicit?: string): string {
@@ -106,8 +117,8 @@ async function readErrorMessage(res: Response): Promise<string> {
   return res.statusText || `HTTP ${res.status}`;
 }
 
-function authHeaders(): HeadersInit {
-  const token = getAuthToken();
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = (await ensureAuthTokenHydrated()) || getAuthToken();
   const headers: Record<string, string> = {
     Accept: 'application/json',
     'Content-Type': 'application/json',
@@ -121,6 +132,9 @@ export async function listForumPosts(
   options?: {
     postType?: string;
     communityId?: string;
+    official?: boolean;
+    eventId?: string;
+    commercialAccountId?: string;
     init?: number;
     end?: number;
   },
@@ -130,13 +144,18 @@ export async function listForumPosts(
   const params = new URLSearchParams();
   if (options?.postType?.trim()) params.set('postType', options.postType.trim());
   if (options?.communityId?.trim()) params.set('communityId', options.communityId.trim());
+  if (options?.official) params.set('official', 'true');
+  if (options?.eventId?.trim()) params.set('eventId', options.eventId.trim());
+  if (options?.commercialAccountId?.trim()) {
+    params.set('commercialAccountId', options.commercialAccountId.trim());
+  }
   if (typeof options?.init === 'number') params.set('init', String(options.init));
   if (typeof options?.end === 'number') params.set('end', String(options.end));
   const qs = params.toString();
   const url = `${base}${BASE_PATH}/forum/hosts/${encodeURIComponent(hid)}/posts${
     qs ? `?${qs}` : ''
   }`;
-  const res = await fetch(url, { method: 'GET', headers: authHeaders() });
+  const res = await fetch(url, { method: 'GET', headers: await authHeaders() });
   if (!res.ok) throw new Error(await readErrorMessage(res));
   const data = (await res.json()) as unknown;
   if (!Array.isArray(data)) return [];
@@ -154,10 +173,29 @@ function normalizeForumPostResponse(raw: unknown): ForumPostResponseDto {
   };
 }
 
+export async function listAuthorForumPosts(
+  userId: string,
+  options?: { init?: number; end?: number },
+): Promise<ForumPostResponseDto[]> {
+  const base = getApiBaseUrl();
+  const params = new URLSearchParams();
+  if (typeof options?.init === 'number') params.set('init', String(options.init));
+  if (typeof options?.end === 'number') params.set('end', String(options.end));
+  const qs = params.toString();
+  const url = `${base}${BASE_PATH}/forum/users/${encodeURIComponent(userId)}/posts${
+    qs ? `?${qs}` : ''
+  }`;
+  const res = await fetch(url, { method: 'GET', headers: await authHeaders() });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+  const data = (await res.json()) as unknown;
+  if (!Array.isArray(data)) return [];
+  return data.map((row) => normalizeForumPostResponse(row));
+}
+
 export async function getForumPost(postId: string): Promise<ForumPostResponseDto> {
   const base = getApiBaseUrl();
   const url = `${base}${BASE_PATH}/forum/posts/${encodeURIComponent(postId)}`;
-  const res = await fetch(url, { method: 'GET', headers: authHeaders() });
+  const res = await fetch(url, { method: 'GET', headers: await authHeaders() });
   if (!res.ok) throw new Error(await readErrorMessage(res));
   return normalizeForumPostResponse(await res.json());
 }
@@ -174,7 +212,7 @@ export async function listForumComments(
   const url = `${base}${BASE_PATH}/forum/posts/${encodeURIComponent(postId)}/comments${
     qs ? `?${qs}` : ''
   }`;
-  const res = await fetch(url, { method: 'GET', headers: authHeaders() });
+  const res = await fetch(url, { method: 'GET', headers: await authHeaders() });
   if (!res.ok) throw new Error(await readErrorMessage(res));
   const data = (await res.json()) as unknown;
   return Array.isArray(data) ? (data as ForumPostCommentListItemDto[]) : [];
@@ -185,7 +223,7 @@ export async function createForumComment(postId: string, content: string): Promi
   const url = `${base}${BASE_PATH}/forum/posts/${encodeURIComponent(postId)}/comments`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify({ content: content.trim() }),
   });
   await assertForumResponseOk(res);
@@ -200,7 +238,7 @@ export async function createForumPost(
   const url = `${base}${BASE_PATH}/forum/hosts/${encodeURIComponent(hid)}/posts`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify(body),
   });
   await assertForumResponseOk(res);
@@ -214,7 +252,7 @@ export async function updateForumPost(
   const url = `${base}${BASE_PATH}/forum/posts/${encodeURIComponent(postId)}`;
   const res = await fetch(url, {
     method: 'PATCH',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res));
@@ -283,12 +321,56 @@ export async function uploadForumImageFromUri(
   return (await res.json()) as { id: string; publicUrl: string; path: string };
 }
 
+export interface ForumLikeListItemDto {
+  userId: string;
+  name: string;
+  photoUrl: string | null;
+}
+
+export async function listForumLikes(
+  postId: string,
+  options?: { init?: number; end?: number },
+): Promise<ForumLikeListItemDto[]> {
+  const base = getApiBaseUrl();
+  const params = new URLSearchParams();
+  if (typeof options?.init === 'number') params.set('init', String(options.init));
+  if (typeof options?.end === 'number') params.set('end', String(options.end));
+  const qs = params.toString();
+  const url = `${base}${BASE_PATH}/forum/posts/${encodeURIComponent(postId)}/likes${
+    qs ? `?${qs}` : ''
+  }`;
+  const res = await fetch(url, { method: 'GET', headers: await authHeaders() });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+  const data = (await res.json()) as unknown;
+  if (!Array.isArray(data)) return [];
+  return data
+    .map((row) => {
+      const record = row as Record<string, unknown>;
+      const userId = String(record.userId ?? record.user_id ?? '').trim();
+      if (!userId) return null;
+      const photo = record.photoUrl ?? record.photo_url;
+      return {
+        userId,
+        name: String(record.name ?? 'Morador(a)').trim() || 'Morador(a)',
+        photoUrl: typeof photo === 'string' ? photo : null,
+      };
+    })
+    .filter((row): row is ForumLikeListItemDto => row !== null);
+}
+
+export async function deleteForumPost(postId: string): Promise<void> {
+  const base = getApiBaseUrl();
+  const url = `${base}${BASE_PATH}/forum/posts/${encodeURIComponent(postId)}`;
+  const res = await fetch(url, { method: 'DELETE', headers: await authHeaders() });
+  if (!res.ok) throw new Error(await readErrorMessage(res));
+}
+
 export async function likeForumPost(postId: string): Promise<void> {
   const base = getApiBaseUrl();
   const url = `${base}${BASE_PATH}/forum/posts/${encodeURIComponent(postId)}/like`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res));
 }
@@ -298,7 +380,7 @@ export async function likeForumComment(commentId: string): Promise<void> {
   const url = `${base}${BASE_PATH}/forum/comments/${encodeURIComponent(commentId)}/like`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res));
 }
@@ -328,7 +410,7 @@ export async function contactForumStorePost(
   const url = `${base}${BASE_PATH}/forum/posts/${encodeURIComponent(forumPostId)}/contact`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res));

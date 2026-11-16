@@ -153,7 +153,7 @@ export default function CommunityChannelForm({ mode, communityId }: CommunityCha
         const c = await getForumCommunity(communityId.trim());
         if (cancelled) return;
         if (c.myRole !== 'OWNER') {
-          setError('Somente o dono do canal pode editá-lo.');
+          setError('Somente um criador do canal pode editá-lo.');
           return;
         }
         const coords = parseCommunityCoords(c);
@@ -541,7 +541,7 @@ export default function CommunityChannelForm({ mode, communityId }: CommunityCha
 
           <FormSection
             title="Quem pode ver"
-            subtitle="Canais públicos aparecem para seguir no carrossel"
+            subtitle="Canais públicos aparecem para quem quiser participar"
             icon="shield-checkmark-outline"
           >
             <View style={styles.privacyRow}>
@@ -557,7 +557,7 @@ export default function CommunityChannelForm({ mode, communityId }: CommunityCha
                 <Text style={[styles.privacyTitle, !isPrivate && styles.privacyTitleActive]}>
                   Público
                 </Text>
-                <Text style={styles.privacyHint}>Quem seguir pode publicar</Text>
+                <Text style={styles.privacyHint}>Quem for membro pode publicar</Text>
               </Pressable>
               <Pressable
                 onPress={() => setIsPrivate(true)}
@@ -571,7 +571,7 @@ export default function CommunityChannelForm({ mode, communityId }: CommunityCha
                 <Text style={[styles.privacyTitle, isPrivate && styles.privacyTitleActive]}>
                   Privado
                 </Text>
-                <Text style={styles.privacyHint}>Só o dono publica</Text>
+                <Text style={styles.privacyHint}>Entrada com aprovação do criador</Text>
               </Pressable>
             </View>
           </FormSection>
@@ -717,8 +717,8 @@ export default function CommunityChannelForm({ mode, communityId }: CommunityCha
           </Pressable>
           <Text style={styles.footerHint}>
             {isEdit
-              ? 'Somente o dono pode alterar as informações do canal.'
-              : 'Você será o dono do canal e poderá publicar assim que criar.'}
+              ? 'Somente um criador pode alterar as informações do canal.'
+              : 'Você será criador do canal e poderá publicar assim que criar.'}
           </Text>
         </View>
       </View>

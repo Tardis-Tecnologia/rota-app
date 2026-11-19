@@ -12,6 +12,8 @@ export type GuiaListItem = Profile & {
   distanceMeters?: number;
   categoryLabel: string;
   approvalStatus?: GuiaProviderApprovalStatus;
+  /** Falso quando o cadastro não tem coordenada e o ponto cairia no centro da cidade. */
+  hasMapLocation?: boolean;
 };
 
 export function matchesGuiaSearch(item: GuiaListItem, query: string): boolean {
@@ -59,6 +61,8 @@ export function filterAndSortGuia(
 
 export function guiaProfileToPonto(item: GuiaListItem): PontoInteresse | null {
   if (item.approvalStatus && item.approvalStatus !== 'APPROVED') return null;
+  if (item.hasMapLocation === false) return null;
+  const photo = item.image?.trim();
   return {
     id: item.id,
     titulo: item.name,
@@ -66,9 +70,11 @@ export function guiaProfileToPonto(item: GuiaListItem): PontoInteresse | null {
     latitude: item.latitude,
     longitude: item.longitude,
     tipo: item.type === 'COMPANY' ? 'turismo' : 'cultura',
+    placeType: item.type === 'COMPANY' ? 'empresa' : 'prestador',
     rating: item.rating,
     userRatingsTotal: item.review,
     formattedAddress: item.address ?? item.serviceArea,
+    photoUrl: photo || undefined,
   };
 }
 

@@ -1,6 +1,12 @@
 import { forumPostImageUrl } from '@/components/forum/forumUtils';
 import { AppColors } from '@/constants/theme';
+import { getWhitelabelHostId } from '@/services/authApi';
+import {
+  listActiveCommercialCouponsCatalog,
+  type CommercialCouponCatalogItem,
+} from '@/services/commercialCouponsApi';
 import { listForumPosts, type ForumPostListItemDto } from '@/services/forumApi';
+import { listJobs } from '@/services/jobsApi';
 import { listMarketplaceListings } from '@/services/marketplaceApi';
 import type { MarketplaceListing } from '@/types/marketplace';
 import { formatMarketplacePrice } from '@/utils/marketplaceFormat';
@@ -8,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 type StoreProfilePostsProps = {
   commercialAccountId: string;
@@ -26,6 +32,26 @@ function postImage(post: ForumPostListItemDto): string | null {
   const direct = post.mediaPublicUrl?.trim();
   if (direct) return direct;
   return forumPostImageUrl(post.mediaId);
+}
+
+async function loadStoreCoupons(
+  commercialAccountId: string,
+): Promise<CommercialCouponCatalogItem[]> {
+  const id = commercialAccountId.trim();
+  const hostId = getWhitelabelHostId()?.trim();
+  const rows = await listActiveCommercialCouponsCatalog(hostId || undefined);
+  return rows.filter((row) => row.commercialAccountId === id && row.active);
+}
+
+async function loadStoreJobs(commercialAccountId: string) {
+  const id = commercialAccountId.trim();
+  try {
+    const rows = await listJobs({ commercialAccountId: id, init: 0, end: 20 });
+    return rows.filter((job) => job.commercialAccountId === id);
+  } catch {
+    const rows = await listJobs({ init: 0, end: 40 });
+    return rows.filter((job) => job.commercialAccountId === id);
+  }
 }
 
 async function loadStoreProducts(commercialAccountId: string): Promise<MarketplaceListing[]> {
@@ -57,19 +83,38 @@ export default function StoreProfilePosts({ commercialAccountId }: StoreProfileP
         return;
       }
       setLoading(true);
-      const [productsResult, postsResult] = await Promise.allSettled([
+      const [couponsResult, productsResult, postsResult, jobsResult] = await Promise.allSettled([
+        loadStoreCoupons(id),
         loadStoreProducts(id),
         listForumPosts(undefined, { commercialAccountId: id, init: 0, end: 40 }),
+        loadStoreJobs(id),
       ]);
       if (cancelled) return;
 
+      const coupons = couponsResult.status === 'fulfilled' ? couponsResult.value : [];
       const products = productsResult.status === 'fulfilled' ? productsResult.value : [];
       const posts = postsResult.status === 'fulfilled' ? postsResult.value : [];
+      const jobs = jobsResult.status === 'fulfilled' ? jobsResult.value : [];
       const next: PostRow[] = [
+        ...coupons.map((coupon) => ({
+          key: `coupon-${coupon.id}`,
+          title: coupon.name,
+          meta: `Cupom · ${coupon.discountPercent}% · ${coupon.code}`,
+          imageUri: null,
+          onPress: () => {
+            Alert.alert(
+              coupon.name,
+              `Apresente o código ${coupon.code} na loja para usar o desconto de ${coupon.discountPercent}%.`,
+            );
+          },
+        })),
         ...products.map((item) => ({
           key: `product-${item.id}`,
           title: item.title,
-          meta: `Produto · ${formatMarketplacePrice(item.price)}`,
+          meta:
+            Number(item.price) > 0
+              ? `Produto · ${formatMarketplacePrice(item.price)}`
+              : 'Serviço da loja',
           imageUri: item.imageUri,
           onPress: () => {
             router.push({ pathname: '/marketplace/[id]', params: { id: item.id } });
@@ -84,6 +129,17 @@ export default function StoreProfilePosts({ commercialAccountId }: StoreProfileP
             router.push('/(tabs)/forum');
           },
         })),
+        ...jobs
+          .filter((job) => job.commercialAccountId === id)
+          .map((job) => ({
+            key: `job-${job.id}`,
+            title: job.title,
+            meta: `Vaga · ${job.salaryLabel}`,
+            imageUri: job.imageUrl,
+            onPress: () => {
+              router.push({ pathname: '/JobDetailTab', params: { jobId: job.id } });
+            },
+          })),
       ];
       setRows(next);
       setLoading(false);
@@ -99,7 +155,9 @@ export default function StoreProfilePosts({ commercialAccountId }: StoreProfileP
       <Text style={styles.title}>Produtos/Serviços</Text>
       {loading ? <ActivityIndicator color="#0d9488" /> : null}
       {!loading && rows.length === 0 ? (
-        <Text style={styles.empty}>Esta loja ainda não publicou produtos nem serviços.</Text>
+        <Text style={styles.empty}>
+          Esta loja ainda não publicou cupons, produtos, vagas ou serviços.
+        </Text>
       ) : null}
       {!loading
         ? rows.map((row) => (

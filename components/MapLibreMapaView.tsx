@@ -95,6 +95,8 @@ const MapLibreMapaView = forwardRef<MapLibreMapaViewRef, MapLibreMapaViewProps>(
           markerColor: ponto.markerColor ?? getMarkerColor?.(ponto.tipo) ?? defaultMarkerColor,
           photoUrl: ponto.photoUrl,
           partner: ponto.placeType === 'partner_stores',
+          shape: ponto.placeType === 'prestador' ? 'round' : 'card',
+          motion: ponto.placeType === 'events' ? 'event' : undefined,
         })),
       [defaultMarkerColor, getMarkerColor, pontos],
     );

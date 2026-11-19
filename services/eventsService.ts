@@ -161,6 +161,18 @@ function appendHostIdToEventsPath(path: string): string {
   return `${path}${join}hostId=${encodeURIComponent(hostId)}`;
 }
 
+export function explorePontoEventId(ponto: { id: string; placeType?: string }): string | null {
+  if (ponto.id.startsWith('event-')) {
+    const id = ponto.id.slice('event-'.length).trim();
+    return id || null;
+  }
+  if (ponto.placeType === 'events') {
+    const id = ponto.id.trim();
+    return id || null;
+  }
+  return null;
+}
+
 export async function getEvents(options?: {
   status?: string;
   featured?: boolean;

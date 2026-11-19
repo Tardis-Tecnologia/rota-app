@@ -26,6 +26,11 @@ import {
   timeOptionsForDay,
 } from '@/services/chatHealthSchedule';
 import { formatSlotDateTime, type HealthSlot, type HealthUnit } from '@/services/healthApi';
+import {
+  askCitizenAssistant,
+  confirmCitizenReport,
+  type AssistantReply,
+} from '@/services/cityAssistantApi';
 import { isChatPeerUserId, resolveChatPeerPhotoUrl } from '@/services/chatPeerPhotos';
 import {
   clearStreamChannelHistory,
@@ -226,6 +231,9 @@ export default function ChatTab() {
     | { step: 'await-end' };
   const citizenFlowRef = useRef<CitizenFlowPending | null>(null);
   const flowBusyRef = useRef(false);
+  const assistantBusyRef = useRef(false);
+  const pendingDraftRef = useRef<string | null>(null);
+  const messagesRef = useRef<ChatMessage[]>([]);
 
   const clearMessageOptions = (list: ChatMessage[]): ChatMessage[] =>
     list.map((msg) => (msg.options ? { ...msg, options: undefined } : msg));
@@ -270,6 +278,7 @@ export default function ChatTab() {
   );
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  messagesRef.current = messages;
   const [isStreamReady, setIsStreamReady] = useState(false);
   const [streamPeer, setStreamPeer] = useState<{
     id: string;
@@ -556,7 +565,198 @@ export default function ChatTab() {
     [addOrUpdateConversation, appendEndOptions, data],
   );
 
+  const assistantOptions = (reply: AssistantReply): ChatOption[] | undefined => {
+    if (!reply.actions.length) return undefined;
+    return reply.actions.map((action, index) => ({
+      id: action.id === 'suggestion' ? `assistant-suggestion-${index}` : `assistant-${action.id}`,
+      label: action.label,
+    }));
+  };
+
+  const showAssistantReply = (loadingId: string, reply: AssistantReply) => {
+    pendingDraftRef.current = reply.pendingDraftToken;
+    setMessages((prev) => [
+      ...prev.filter((item) => item.id !== loadingId),
+      {
+        id: `${Date.now()}-assistant`,
+        text: reply.text,
+        isFromOther: true,
+        timestamp: new Date(),
+        options: assistantOptions(reply),
+      },
+    ]);
+    addOrUpdateConversation(data, reply.text);
+  };
+
+  const askOfficialAssistant = (text: string) => {
+    if (assistantBusyRef.current) return;
+    assistantBusyRef.current = true;
+    const history = messagesRef.current
+      .filter((item) => !item.loading && item.text.trim())
+      .slice(-6)
+      .map((item) => ({
+        role: item.isFromOther ? ('assistant' as const) : ('user' as const),
+        text: item.text,
+      }));
+    const loadingId = `${Date.now()}-assistant-loading`;
+    setMessages((prev) => [
+      ...clearMessageOptions(prev),
+      { id: `${Date.now()}-user`, text, isFromOther: false, timestamp: new Date() },
+      {
+        id: loadingId,
+        text: 'Consultando os registros do município…',
+        isFromOther: true,
+        timestamp: new Date(),
+        loading: true,
+      },
+    ]);
+    void (async () => {
+      try {
+        const reply = await askCitizenAssistant({
+          message: text,
+          history,
+          draftToken: pendingDraftRef.current,
+        });
+        showAssistantReply(loadingId, reply);
+      } catch (error) {
+        pendingDraftRef.current = null;
+        setMessages((prev) => [
+          ...prev.filter((item) => item.id !== loadingId),
+          {
+            id: `${Date.now()}-assistant-error`,
+            text: error instanceof Error ? error.message : 'Não foi possível consultar os registros do município.',
+            isFromOther: true,
+            timestamp: new Date(),
+          },
+        ]);
+      } finally {
+        assistantBusyRef.current = false;
+      }
+    })();
+  };
+
+  const confirmOfficialReport = () => {
+    const token = pendingDraftRef.current;
+    if (!token || assistantBusyRef.current) return;
+    assistantBusyRef.current = true;
+    const loadingId = `${Date.now()}-confirm-loading`;
+    setMessages((prev) => [
+      ...clearMessageOptions(prev),
+      {
+        id: `${Date.now()}-confirm-user`,
+        text: 'Abrir solicitação',
+        isFromOther: false,
+        timestamp: new Date(),
+      },
+      {
+        id: loadingId,
+        text: 'Abrindo a solicitação no seu município…',
+        isFromOther: true,
+        timestamp: new Date(),
+        loading: true,
+      },
+    ]);
+    void (async () => {
+      try {
+        const reply = await confirmCitizenReport(token);
+        showAssistantReply(loadingId, reply);
+      } catch (error) {
+        setMessages((prev) => [
+          ...prev.filter((item) => item.id !== loadingId),
+          {
+            id: `${Date.now()}-confirm-error`,
+            text: error instanceof Error ? error.message : 'Não foi possível abrir a solicitação.',
+            isFromOther: true,
+            timestamp: new Date(),
+          },
+        ]);
+      } finally {
+        assistantBusyRef.current = false;
+      }
+    })();
+  };
+
+  const handoffToHuman = () => {
+    if (assistantBusyRef.current) return;
+    assistantBusyRef.current = true;
+    const loadingId = `${Date.now()}-handoff-loading`;
+    setMessages((prev) => [
+      ...clearMessageOptions(prev),
+      {
+        id: `${Date.now()}-handoff-user`,
+        text: 'Falar com atendente',
+        isFromOther: false,
+        timestamp: new Date(),
+      },
+      {
+        id: loadingId,
+        text: handoffCopy.connectingAttendant,
+        isFromOther: true,
+        timestamp: new Date(),
+        loading: true,
+      },
+    ]);
+    void (async () => {
+      try {
+        const result = await requestSupportHandoff('Atendimento humano');
+        if (!result.ok) {
+          setMessages((prev) => [
+            ...prev.filter((item) => item.id !== loadingId),
+            {
+              id: `${Date.now()}-handoff-error`,
+              text: result.message,
+              isFromOther: true,
+              timestamp: new Date(),
+            },
+          ]);
+          return;
+        }
+        await postWaitMessage(result.channelType, result.channelId);
+        router.push({
+          pathname: '/ChatTab',
+          params: {
+            provider: JSON.stringify({
+              id: 'atendimento',
+              name: 'Atendimento',
+              channelType: result.channelType,
+              channelId: result.channelId,
+              cid: result.cid,
+            }),
+          },
+        });
+      } catch (error) {
+        setMessages((prev) => [
+          ...prev.filter((item) => item.id !== loadingId),
+          {
+            id: `${Date.now()}-handoff-error`,
+            text: error instanceof Error ? error.message : errCopy.handoffOpenFailedFallback,
+            isFromOther: true,
+            timestamp: new Date(),
+          },
+        ]);
+      } finally {
+        assistantBusyRef.current = false;
+      }
+    })();
+  };
+
   const handleOptionSelect = (option: ChatOption) => {
+    if (option.id.startsWith('assistant-')) {
+      if (option.id.startsWith('assistant-suggestion-')) {
+        askOfficialAssistant(option.label);
+        return;
+      }
+      if (option.id === 'assistant-confirm-report') {
+        confirmOfficialReport();
+        return;
+      }
+      if (option.id === 'assistant-handoff') {
+        handoffToHuman();
+        return;
+      }
+    }
+
+    pendingDraftRef.current = null;
     if (!responseConfig) return;
 
     if (option.id === END_SERVICE_OPTION_ID) {
@@ -929,6 +1129,11 @@ export default function ChatTab() {
     if (!trimmed) return;
 
     const pending = citizenFlowRef.current;
+    const collecting = Boolean(pending && pending.step !== 'await-end');
+    if (data.id === 'comunicados-oficiais' && !collecting) {
+      askOfficialAssistant(trimmed);
+      return;
+    }
 
     if (pending?.step === 'cpf') {
       const option = pending.option;

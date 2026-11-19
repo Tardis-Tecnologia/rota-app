@@ -7,7 +7,7 @@ export const mockFixedConversations: Conversation[] = [
     providerId: 'comunicados-oficiais',
     providerName: 'Comunicados Oficiais',
     providerImage: '',
-    lastMessage: 'Leia avisos ou gere a guia de IPTU 2026.',
+    lastMessage: 'Pergunte sobre a cidade ou relate um problema. A resposta usa os registros do município.',
     unreadCount: 1,
     date: ' ',
     providerData: {

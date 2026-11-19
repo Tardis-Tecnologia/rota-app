@@ -26,6 +26,9 @@ import { NEARBY_PLACES_RADIUS_METERS, searchNearbyPlaces } from '@/services/plac
 import { enrichPontosWithPhotos } from '@/services/placePhotoService';
 import { cnesMarkerColor, getCnesEstablishments, type CnesEstablishment } from '@/services/cnesApi';
 import { listPublicServiceProviders } from '@/services/serviceProvidersApi';
+import { getEvents, type EventItem } from '@/services/eventsService';
+import type { ServiceProviderListItem } from '@/types/serviceProvider';
+import { distanceMeters } from '@/utils/guiaGeo';
 import {
   formatRouteDistance,
   formatRouteDuration,
@@ -86,13 +89,101 @@ const CHIP_LABELS: Record<string, string> = {
   gas_station: 'Postos',
   communities: 'Comunidades',
   partner_stores: 'Parceiros',
+  events: 'Eventos',
 };
+
+const CHIP_MARKER_COLOR: Record<string, string> = {
+  restaurant: '#dc2626',
+  bakery: '#a16207',
+  pharmacy: '#16a34a',
+  market: '#d97706',
+  school: '#1e40af',
+  hospital: '#db2777',
+  gas_station: '#6b7280',
+  prestador: '#0d9488',
+  communities: '#0891b2',
+  partner_stores: '#b45309',
+  events: '#7c3aed',
+};
+
+const ALL_MAP_PER_CATEGORY = 10;
+
+function serviceProviderToMapPonto(item: ServiceProviderListItem): PontoInteresse | null {
+  if (item.status !== 'APPROVED' || item.type === 'COMPANY') return null;
+  const latitude = Number.parseFloat(String(item.latitude ?? ''));
+  const longitude = Number.parseFloat(String(item.longitude ?? ''));
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  const address = item.locationName?.trim() || '';
+  return {
+    id: item.id,
+    titulo: item.name,
+    descricao: address || 'Prestador de serviço',
+    latitude,
+    longitude,
+    placeType: 'prestador',
+    formattedAddress: address || undefined,
+    photoUrl: item.imagePublicUrl?.trim() || undefined,
+    markerColor: CHIP_MARKER_COLOR.prestador,
+  };
+}
+
+function eventToMapPonto(event: EventItem): PontoInteresse | null {
+  if (event.status && event.status !== 'published') return null;
+  const latitude = Number.parseFloat(String(event.latitude ?? ''));
+  const longitude = Number.parseFloat(String(event.longitude ?? ''));
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  return {
+    id: `event-${event.id}`,
+    titulo: event.title,
+    descricao: event.locationName?.trim() || event.locationAddress?.trim() || 'Evento',
+    latitude,
+    longitude,
+    tipo: 'cultura',
+    placeType: 'events',
+    formattedAddress: event.locationAddress?.trim() || undefined,
+    photoUrl: event.image?.publicUrl?.trim() || undefined,
+    markerColor: CHIP_MARKER_COLOR.events,
+  };
+}
+
+function paintMarker(ponto: PontoInteresse, chipId: string): PontoInteresse {
+  return { ...ponto, markerColor: ponto.markerColor ?? CHIP_MARKER_COLOR[chipId] };
+}
+
+function nearestMapPontos(
+  items: PontoInteresse[],
+  origin: { latitude: number; longitude: number },
+  radiusMeters: number,
+  limit: number,
+  fallback = true,
+): PontoInteresse[] {
+  const ranked = items
+    .map((ponto) => ({
+      ponto,
+      distance: distanceMeters(origin.latitude, origin.longitude, ponto.latitude, ponto.longitude),
+    }))
+    .sort((a, b) => a.distance - b.distance);
+  const near = ranked.filter((item) => item.distance <= radiusMeters).map((item) => item.ponto);
+  const picked = near.length > 0 || !fallback ? near : ranked.map((item) => item.ponto);
+  return picked.slice(0, limit);
+}
+
+function dedupePontos(items: PontoInteresse[]): PontoInteresse[] {
+  const seen = new Set<string>();
+  const out: PontoInteresse[] = [];
+  for (const ponto of items) {
+    if (seen.has(ponto.id)) continue;
+    seen.add(ponto.id);
+    out.push(ponto);
+  }
+  return out;
+}
 
 function routeParamToChipId(raw: string): string | undefined {
   const chip = raw;
   if (chip === EXPLORE_COMMUNITIES_CHIP_ID) return chip;
   if (chip === EXPLORE_PARTNER_STORES_CHIP_ID) return chip;
-  if (chip === 'prestador') return chip;
+  if (chip === 'prestador' || chip === 'events') return chip;
   return FILTER_CHIP_TO_PLACE_TYPE[chip] ? chip : undefined;
 }
 
@@ -117,6 +208,7 @@ export default function MapScreen() {
   const [locationReady, setLocationReady] = useState(false);
   const [locationError, setLocationError] = useState<'denied' | 'error' | null>(null);
   const [pontos, setPontos] = useState<PontoInteresse[]>([]);
+  const [catalogPontos, setCatalogPontos] = useState<PontoInteresse[]>([]);
   const [mapPontosForView, setMapPontosForView] = useState<PontoInteresse[]>([]);
   const [healthLayerOn, setHealthLayerOn] = useState(false);
   const [healthPontos, setHealthPontos] = useState<PontoInteresse[]>([]);
@@ -153,6 +245,7 @@ export default function MapScreen() {
   const locationReadyRef = useRef(false);
   const hadLocationErrorRef = useRef(false);
   const filterRequestSeqRef = useRef(0);
+  const catalogStartedRef = useRef(false);
 
   const searchOrigin = useMemo(
     (): Localizacao =>
@@ -396,27 +489,14 @@ export default function MapScreen() {
         try {
           const rows = await listPublicServiceProviders({ init: 0, end: 200 });
           if (isStale()) return;
-          const mapped = rows
-            .filter((item) => item.status === 'APPROVED')
-            .map((item) => {
-              const latitude = Number.parseFloat(String(item.latitude ?? ''));
-              const longitude = Number.parseFloat(String(item.longitude ?? ''));
-              if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-              const address = item.locationName?.trim() || '';
-              const ponto: PontoInteresse = {
-                id: item.id,
-                titulo: item.name,
-                descricao: address || 'Prestador de serviço',
-                latitude,
-                longitude,
-                placeType: 'prestador',
-                formattedAddress: address || undefined,
-                photoUrl: item.imagePublicUrl?.trim() || undefined,
-              };
-              return ponto;
-            })
-            .filter((ponto): ponto is PontoInteresse => ponto != null)
-            .slice(0, EXPLORE_MAP_MAX_MARKERS);
+          const mapped = nearestMapPontos(
+            rows
+              .map(serviceProviderToMapPonto)
+              .filter((ponto): ponto is PontoInteresse => ponto != null),
+            searchOrigin,
+            city.placesSearchRadiusMeters || NEARBY_PLACES_RADIUS_METERS,
+            EXPLORE_MAP_MAX_MARKERS,
+          );
           setPontos(mapped);
           publishMapPontos(mapped);
           setCategoriaSelecionada(chipId);
@@ -431,6 +511,42 @@ export default function MapScreen() {
         } catch {
           if (!isStale()) {
             Alert.alert('Erro', 'Não foi possível carregar os prestadores.');
+          }
+        } finally {
+          if (!isStale()) {
+            setFilterLoading(false);
+          }
+        }
+        return;
+      }
+
+      if (chipId === 'events') {
+        setFilterLoading(true);
+        try {
+          const rows = await getEvents({ status: 'published', init: 0, end: 100 });
+          if (isStale()) return;
+          const mapped = nearestMapPontos(
+            rows
+              .map(eventToMapPonto)
+              .filter((ponto): ponto is PontoInteresse => ponto != null),
+            searchOrigin,
+            city.placesSearchRadiusMeters || NEARBY_PLACES_RADIUS_METERS,
+            EXPLORE_MAP_MAX_MARKERS,
+          );
+          setPontos(mapped);
+          publishMapPontos(mapped);
+          setCategoriaSelecionada(chipId);
+          setToastType(mapped.length > 0 ? 'success' : 'info');
+          setToastMessage(
+            mapped.length > 0
+              ? `${mapped.length} evento${mapped.length === 1 ? '' : 's'} no mapa.`
+              : 'Nenhum evento com localização cadastrada.',
+          );
+          setToastKey((k) => k + 1);
+          setShowToast(true);
+        } catch {
+          if (!isStale()) {
+            Alert.alert('Erro', 'Não foi possível carregar os eventos.');
           }
         } finally {
           if (!isStale()) {
@@ -808,12 +924,145 @@ export default function MapScreen() {
     };
   }, [healthLayerOn]);
 
+  useEffect(() => {
+    if (Platform.OS === 'web' || !locationReady || catalogStartedRef.current) return;
+    catalogStartedRef.current = true;
+    let active = true;
+    const origin = searchOrigin;
+    const radius = city.placesSearchRadiusMeters || NEARBY_PLACES_RADIUS_METERS;
+    const pos: [number, number] = [origin.longitude, origin.latitude];
+    const buckets: PontoInteresse[][] = [[], [], [], [], []];
+    const publish = () => {
+      if (!active) return;
+      setCatalogPontos(dedupePontos(buckets.flat()));
+    };
+
+    async function loadPlaces(): Promise<PontoInteresse[]> {
+      const types = Object.keys(FILTER_CHIP_TO_PLACE_TYPE);
+      const groups: PontoInteresse[][] = [];
+      for (let index = 0; index < types.length; index += 2) {
+        const chunk = types.slice(index, index + 2);
+        const loaded = await Promise.all(
+          chunk.map(async (type) => {
+            try {
+              const places = await searchNearbyPlaces(type, pos, radius, ALL_MAP_PER_CATEGORY);
+              return places.map((place) => paintMarker(placeToPonto(place, type), type));
+            } catch {
+              return [];
+            }
+          }),
+        );
+        groups.push(...loaded);
+        buckets[0] = groups.flat();
+        publish();
+      }
+      return groups.flat();
+    }
+
+    void Promise.all([
+      loadPlaces(),
+      listPublicServiceProviders({ init: 0, end: 200 })
+        .then((rows) =>
+          nearestMapPontos(
+            rows
+              .map(serviceProviderToMapPonto)
+              .filter((ponto): ponto is PontoInteresse => ponto != null),
+            origin,
+            radius,
+            ALL_MAP_PER_CATEGORY,
+            false,
+          ),
+        )
+        .then((rows) => {
+          buckets[1] = rows;
+          publish();
+          return rows;
+        })
+        .catch(() => [] as PontoInteresse[]),
+      loadPartnerStoresForMap()
+        .then((rows) =>
+          nearestMapPontos(
+            rows.map((ponto) => paintMarker(ponto, EXPLORE_PARTNER_STORES_CHIP_ID)),
+            origin,
+            radius,
+            ALL_MAP_PER_CATEGORY,
+            false,
+          ),
+        )
+        .then((rows) => {
+          buckets[2] = rows;
+          publish();
+          return rows;
+        })
+        .catch(() => [] as PontoInteresse[]),
+      listForumCommunities(undefined, { init: 0, end: 200 })
+        .then((rows) =>
+          nearestMapPontos(
+            rows
+              .map(communityToExplorePonto)
+              .filter((ponto): ponto is PontoInteresse => ponto != null)
+              .map((ponto) => paintMarker(ponto, EXPLORE_COMMUNITIES_CHIP_ID)),
+            origin,
+            radius,
+            ALL_MAP_PER_CATEGORY,
+            false,
+          ),
+        )
+        .then((rows) => {
+          buckets[3] = rows;
+          publish();
+          return rows;
+        })
+        .catch(() => [] as PontoInteresse[]),
+      getEvents({ status: 'published', init: 0, end: 100 })
+        .then((rows) =>
+          nearestMapPontos(
+            rows
+              .map(eventToMapPonto)
+              .filter((ponto): ponto is PontoInteresse => ponto != null),
+            origin,
+            radius,
+            ALL_MAP_PER_CATEGORY,
+            false,
+          ),
+        )
+        .then((rows) => {
+          buckets[4] = rows;
+          publish();
+          return rows;
+        })
+        .catch(() => [] as PontoInteresse[]),
+    ]).then(([places, providers, partners, communities, events]) => {
+      if (!active) return;
+      buckets[0] = places;
+      buckets[1] = providers;
+      buckets[2] = partners;
+      buckets[3] = communities;
+      buckets[4] = events;
+      publish();
+    });
+
+    return () => {
+      active = false;
+    };
+    // A carga inicial usa a posição do momento em que o GPS fica pronto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationReady]);
+
   const pontosForMap = useMemo(() => {
-    const base = filterLoading ? [] : mapPontosForView;
+    const filtered = categoriaSelecionada != null;
+    const base = filtered ? (filterLoading ? [] : mapPontosForView) : catalogPontos;
     if (!healthLayerOn) return base;
     const ids = new Set(base.map((ponto) => ponto.id));
     return [...base, ...healthPontos.filter((ponto) => !ids.has(ponto.id))];
-  }, [filterLoading, healthLayerOn, healthPontos, mapPontosForView]);
+  }, [
+    catalogPontos,
+    categoriaSelecionada,
+    filterLoading,
+    healthLayerOn,
+    healthPontos,
+    mapPontosForView,
+  ]);
 
   const handleUserDragMap = useCallback(() => {
     setShowDragHint(false);
@@ -1082,6 +1331,7 @@ export default function MapScreen() {
         ponto={selectedPontoDetail}
         userLng={searchOrigin.longitude}
         userLat={searchOrigin.latitude}
+        bottomOffset={tabBarHeight}
         onClose={() => setSelectedPontoDetail(null)}
         onRequestDirections={(ponto) => void handleRequestDirections(ponto)}
       />

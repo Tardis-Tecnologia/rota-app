@@ -27,6 +27,7 @@ type ComercianteStoreContextValue = {
   contactMetrics: CommercialMetrics | null;
   historicoUso: CommercialCouponUsageHistoryItem[];
   statsLoading: boolean;
+  statsError: string | null;
   refreshCouponStats: () => Promise<void>;
   refreshContactMetrics: () => Promise<void>;
   setCuponsAtivosCount: (count: number) => void;
@@ -41,6 +42,7 @@ export function ComercianteStoreProvider({ children }: { children: React.ReactNo
   const [contactMetrics, setContactMetrics] = useState<CommercialMetrics | null>(null);
   const [historicoUso, setHistoricoUso] = useState<CommercialCouponUsageHistoryItem[]>([]);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   const refreshContactMetrics = useCallback(async () => {
     try {
@@ -53,6 +55,7 @@ export function ComercianteStoreProvider({ children }: { children: React.ReactNo
 
   const refreshCouponStats = useCallback(async () => {
     setStatsLoading(true);
+    setStatsError(null);
     try {
       const [coupons, history] = await Promise.all([
         listCommercialCoupons('all'),
@@ -63,10 +66,13 @@ export function ComercianteStoreProvider({ children }: { children: React.ReactNo
       setCuponsAtivosCount(summary.activeCount);
       setTotalUso(summary.totalUsage);
       setHistoricoUso(history);
-    } catch {
+    } catch (e) {
       setCuponsAtivosCount(0);
       setTotalUso(0);
       setHistoricoUso([]);
+      setStatsError(
+        e instanceof Error ? e.message : 'Não foi possível carregar os serviços da loja.',
+      );
     } finally {
       setStatsLoading(false);
     }
@@ -105,6 +111,7 @@ export function ComercianteStoreProvider({ children }: { children: React.ReactNo
       contactMetrics,
       historicoUso,
       statsLoading,
+      statsError,
       refreshCouponStats,
       refreshContactMetrics,
       setCuponsAtivosCount,
@@ -116,6 +123,7 @@ export function ComercianteStoreProvider({ children }: { children: React.ReactNo
       contactMetrics,
       historicoUso,
       statsLoading,
+      statsError,
       refreshCouponStats,
       refreshContactMetrics,
       registrarUsoCupom,

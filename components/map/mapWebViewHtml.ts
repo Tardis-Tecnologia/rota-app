@@ -44,9 +44,45 @@ export const MAP_WEBVIEW_HTML = `<!DOCTYPE html>
     }
     .route-dot.origin { background: #2563eb; }
     .route-dot.destination { background: #dc2626; }
-    .user-dot {
-      width: 16px; height: 16px; border-radius: 8px; background: #2563eb;
-      border: 3px solid #fff; box-shadow: 0 0 0 2px rgba(37,99,235,0.35);
+    .user-walker { width: 48px; height: 66px; pointer-events: none; }
+    .user-rot {
+      width: 48px; height: 66px; display: flex; align-items: flex-end; justify-content: center;
+      transform-origin: 50% 100%;
+    }
+    .user-figure { width: 48px; height: 66px; animation: pin-bob 1.6s ease-in-out infinite; }
+    .user-figure svg { display: block; overflow: visible; }
+    @keyframes pin-bob {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+    .event-motion { animation: event-bob 1.3s ease-in-out infinite; transform-origin: center bottom; }
+    .event-motion .card-marker-card { position: relative; }
+    .event-live {
+      position: absolute; top: -3px; right: -3px; width: 9px; height: 9px; border-radius: 50%;
+      background: #7c3aed; border: 2px solid #fff;
+      animation: event-pulse 1.3s ease-out infinite;
+    }
+    @keyframes event-bob {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+    @keyframes event-pulse {
+      0% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.55); }
+      100% { box-shadow: 0 0 0 8px rgba(124, 58, 237, 0); }
+    }
+    .round-pin { display: flex; flex-direction: column; align-items: center; width: 72px; cursor: pointer; }
+    .round-photo {
+      width: 54px; height: 54px; border-radius: 50%; border: 3px solid #fff;
+      box-shadow: 0 0 0 2px #0d9488, 0 3px 8px rgba(15, 23, 42, 0.28);
+      background: #0f766e; overflow: hidden; position: relative;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 800; font-size: 18px;
+    }
+    .round-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+    .round-name {
+      margin-top: 4px; max-width: 72px; font-size: 11px; line-height: 13px; font-weight: 800;
+      color: #134e4a; text-align: center; background: rgba(255,255,255,0.94);
+      border-radius: 8px; padding: 1px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
   </style>
 </head>
@@ -136,23 +172,55 @@ export const MAP_WEBVIEW_HTML = `<!DOCTYPE html>
         var partner = !!ponto.partner;
         var photo = ponto.photoUrl ? String(ponto.photoUrl) : '';
         var cls = 'card-marker-avatar' + (partner ? ' partner' : '');
+        var color = ponto.markerColor ? ' style="background:' + escapeHtml(ponto.markerColor) + '"' : '';
         var inner = photo
           ? '<img alt="" src="' + escapeHtml(photo) + '" />'
           : escapeHtml(markerInitial(ponto.titulo));
-        return '<div class="' + cls + '">' + inner + '</div>';
+        return '<div class="' + cls + '"' + color + '>' + inner + '</div>';
       }
+
+      var USER_WALKER_SVG =
+        '<svg viewBox="0 0 64 86" width="48" height="66" aria-hidden="true">' +
+          '<defs><linearGradient id="rotaPinFace" x1="0" y1="0" x2="1" y2="1">' +
+            '<stop offset="0" stop-color="#1d4ed8"/><stop offset="1" stop-color="#38bdf8"/>' +
+          '</linearGradient></defs>' +
+          '<ellipse cx="32" cy="80" rx="8" ry="3" fill="rgba(15,23,42,0.22)"/>' +
+          '<path d="M32 78 C32 78 6 50 6 28 a26 26 0 1 1 52 0 C58 50 32 78 32 78 Z" fill="url(#rotaPinFace)" stroke="#fff" stroke-width="2.4"/>' +
+          '<circle cx="32" cy="28" r="15" fill="#fff"/>' +
+          '<g>' +
+            '<ellipse cx="26.5" cy="26.5" rx="2.1" ry="2.4" fill="#1e3a8a"/>' +
+            '<ellipse cx="37.5" cy="26.5" rx="2.1" ry="2.4" fill="#1e3a8a"/>' +
+            '<animate attributeName="opacity" values="1;1;0.15;1" dur="3.2s" repeatCount="indefinite"/>' +
+          '</g>' +
+          '<path d="M26 33.5 Q32 38 38 33.5" stroke="#1e3a8a" stroke-width="1.8" fill="none" stroke-linecap="round"/>' +
+        '</svg>';
 
       function addCardMarker(ponto) {
         var wrap = document.createElement('div');
-        wrap.className = 'card-marker-wrap';
         wrap.style.touchAction = 'manipulation';
-        var cardCls = 'card-marker-card' + (ponto.partner ? ' partner' : '');
-        wrap.innerHTML =
-          '<div class="' + cardCls + '">' +
-            markerAvatarHtml(ponto) +
-            '<div class="card-marker-label">' + escapeHtml(ponto.titulo || '') + '</div>' +
-          '</div>' +
-          '<div class="card-marker-pointer"></div>';
+        if (ponto.shape === 'round') {
+          wrap.className = 'round-pin';
+          var photo = ponto.photoUrl ? String(ponto.photoUrl) : '';
+          wrap.innerHTML =
+            '<div class="round-photo">' +
+              escapeHtml(markerInitial(ponto.titulo)) +
+              (photo ? '<img alt="" src="' + escapeHtml(photo) + '" onerror="this.remove()" />' : '') +
+            '</div>' +
+            '<div class="round-name">' + escapeHtml(ponto.titulo || '') + '</div>';
+        } else {
+          wrap.className = 'card-marker-wrap';
+          var cardCls = 'card-marker-card' + (ponto.partner ? ' partner' : '');
+          var event = ponto.motion === 'event';
+          wrap.innerHTML =
+            '<div class="' + (event ? 'event-motion' : '') + '">' +
+              '<div class="' + cardCls + '">' +
+                (event ? '<span class="event-live"></span>' : '') +
+                markerAvatarHtml(ponto) +
+                '<div class="card-marker-label">' + escapeHtml(ponto.titulo || '') + '</div>' +
+              '</div>' +
+              '<div class="card-marker-pointer"></div>' +
+            '</div>';
+        }
         bindMarkerPress(wrap, ponto.id);
         var marker = new maplibregl.Marker({ element: wrap, anchor: 'bottom' })
           .setLngLat([ponto.longitude, ponto.latitude])
@@ -169,11 +237,13 @@ export const MAP_WEBVIEW_HTML = `<!DOCTYPE html>
         routeMarkers.push(marker);
       }
 
-      function ensureUserMarker(lng, lat) {
+      function ensureUserMarker(lng, lat, heading) {
         if (!userMarker) {
           var el = document.createElement('div');
-          el.className = 'user-dot';
-          userMarker = new maplibregl.Marker({ element: el, anchor: 'center' })
+          el.className = 'user-walker';
+          el.innerHTML =
+            '<div class="user-rot"><div class="user-figure">' + USER_WALKER_SVG + '</div></div>';
+          userMarker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
             .setLngLat([lng, lat])
             .addTo(map);
         } else {
@@ -185,10 +255,10 @@ export const MAP_WEBVIEW_HTML = `<!DOCTYPE html>
         if (!navigator.geolocation || userWatchId != null) return;
         userWatchId = navigator.geolocation.watchPosition(
           function (pos) {
-            ensureUserMarker(pos.coords.longitude, pos.coords.latitude);
+            ensureUserMarker(pos.coords.longitude, pos.coords.latitude, pos.coords.heading);
           },
           function () {},
-          { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+          { enableHighAccuracy: true, maximumAge: 4000, timeout: 15000 }
         );
       }
 
@@ -446,10 +516,17 @@ export const MAP_WEBVIEW_HTML = `<!DOCTYPE html>
           dotsLayerId = null;
           dotsSourceId = null;
           if (!cmd.pontos || !cmd.pontos.length) return;
+          var roundPontos = [];
+          var otherPontos = [];
+          cmd.pontos.forEach(function (ponto) {
+            if (ponto.shape === 'round' || ponto.motion === 'event') roundPontos.push(ponto);
+            else otherPontos.push(ponto);
+          });
+          roundPontos.forEach(addCardMarker);
           if (cmd.variant === 'card') {
-            cmd.pontos.forEach(addCardMarker);
-          } else {
-            applyDots(cmd.pontos, cmd.layerKey || 'default');
+            otherPontos.forEach(addCardMarker);
+          } else if (otherPontos.length) {
+            applyDots(otherPontos, cmd.layerKey || 'default');
           }
           return;
         }

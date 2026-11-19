@@ -44,6 +44,7 @@ export default function NearbyHealthUnitsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<CnesDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
   const load = useCallback((q: string, selectedKind: string) => {

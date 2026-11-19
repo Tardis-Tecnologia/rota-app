@@ -644,7 +644,7 @@ export default function GuiaIndexScreen() {
             ref={mapRef}
             localizacao={mapRegion}
             pontos={mapPointsForView}
-            markerVariant="dot"
+            markerVariant="card"
             getMarkerColor={() => '#7C3AED'}
             onRegionChangeComplete={handleMapRegionChangeComplete}
             onUserGestureStart={focusMap}

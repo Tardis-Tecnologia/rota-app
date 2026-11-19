@@ -59,6 +59,8 @@ export type MapWebViewCommand =
         markerColor?: string;
         photoUrl?: string;
         partner?: boolean;
+        shape?: 'round' | 'card';
+        motion?: 'event';
       }>;
       variant: 'card' | 'dot';
       layerKey?: string | number;

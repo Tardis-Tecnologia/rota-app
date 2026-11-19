@@ -15,7 +15,7 @@ function displayUserName(name: string | undefined, userId: string): string {
 }
 
 export default function ComerciantePainelScreen() {
-  const { metrics, historicoUso, headerStats, statsLoading } = useComercianteStore();
+  const { metrics, historicoUso, headerStats, statsLoading, statsError } = useComercianteStore();
 
   return (
     <View style={styles.container}>
@@ -27,6 +27,13 @@ export default function ComerciantePainelScreen() {
             title="PAINEL DE AÇÃO"
             description="Objetivo do painel: responder rápido clientes e acompanhar uso de cupons."
           />
+
+          {statsError ? (
+            <View style={styles.connectionError}>
+              <Ionicons name="cloud-offline-outline" size={18} color="#b45309" />
+              <Text style={styles.connectionErrorText}>{statsError}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.metricsRow}>
             <View style={styles.metricCard}>
@@ -124,6 +131,23 @@ const styles = StyleSheet.create({
   body: {
     paddingHorizontal: 16,
     gap: 14,
+  },
+  connectionError: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#fffbeb',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#fde68a',
+  },
+  connectionErrorText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#92400e',
+    fontWeight: '600',
   },
   metricsRow: {
     flexDirection: 'row',

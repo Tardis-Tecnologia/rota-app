@@ -46,6 +46,7 @@ const DEFAULT_ITEMS: QuickAccessItem[] = [
   { id: 'prestador', label: 'Prestadores', icon: 'construct-outline', iconColor: '#0d9488' },
   { id: 'partner_stores', label: 'Parceiros', icon: 'storefront-outline', iconColor: '#b45309' },
   { id: 'communities', label: 'Comunidades', icon: 'people-outline', iconColor: '#0891b2' },
+  { id: 'events', label: 'Eventos', icon: 'calendar-outline', iconColor: '#7c3aed' },
   { id: 'bakery', label: 'Padarias', icon: 'pizza-outline', iconColor: '#a16207' },
   { id: 'gas_station', label: 'Postos', icon: 'car-outline', iconColor: '#b45309' },
 ];

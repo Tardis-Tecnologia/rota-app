@@ -94,6 +94,7 @@ export default function SearchTab() {
       { id: 'prestador', label: 'Prestadores', iconSet: 'ion', iconName: 'construct-outline', iconColor: '#0d9488', backgroundColor: '#0d948820' },
       { id: 'partner_stores', label: 'Parceiros', iconSet: 'ion', iconName: 'storefront-outline', iconColor: '#b45309', backgroundColor: '#b4530920' },
       { id: 'communities', label: 'Comunidades', iconSet: 'ion', iconName: 'people-outline', iconColor: '#0891b2', backgroundColor: '#0891b220' },
+      { id: 'events', label: 'Eventos', iconSet: 'ion', iconName: 'calendar-outline', iconColor: '#7c3aed', backgroundColor: '#7c3aed20' },
       { id: 'bakery', label: 'Padarias', iconSet: 'ion', iconName: 'pizza-outline', iconColor: '#b45309', backgroundColor: '#b4530920' },
       { id: 'gas_station', label: 'Postos', iconSet: 'material', iconName: 'local-gas-station', iconColor: '#6b7280', backgroundColor: '#6b728020' },
     ],

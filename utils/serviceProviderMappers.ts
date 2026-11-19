@@ -28,10 +28,13 @@ function parseCoord(value?: string | null, fallback?: number): number {
 export function serviceProviderListItemToGuia(
   item: ServiceProviderListItem,
 ): GuiaListItem | null {
-  let latitude = parseCoord(item.latitude);
-  let longitude = parseCoord(item.longitude);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    // Alguns aprovados ainda podem não ter coord registrada; mantemos visível no Guia.
+  const rawLatitude = parseCoord(item.latitude);
+  const rawLongitude = parseCoord(item.longitude);
+  const hasMapLocation = Number.isFinite(rawLatitude) && Number.isFinite(rawLongitude);
+  let latitude = rawLatitude;
+  let longitude = rawLongitude;
+  if (!hasMapLocation) {
+    // Alguns aprovados ainda podem não ter coord registrada; mantemos visível na lista.
     latitude = GUIA_DEFAULT_CENTER.latitude;
     longitude = GUIA_DEFAULT_CENTER.longitude;
   }
@@ -62,6 +65,7 @@ export function serviceProviderListItemToGuia(
     services: [],
     categoryLabel: formatCategoriesLabel(categoryIds) || item.category,
     approvalStatus: item.status,
+    hasMapLocation,
   };
 }
 

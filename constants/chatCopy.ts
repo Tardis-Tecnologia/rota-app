@@ -155,7 +155,7 @@ export const chatCopy = {
     },
     comunicados: {
       initialMessage:
-        'Comunicados Oficiais da Prefeitura de Maricá.\n\nLeia um aviso ou gere a guia do IPTU 2026. Para a guia, validamos o CPF do titular no cadastro ROTA.',
+        'Comunicados Oficiais da Prefeitura de Maricá.\n\nLeia um aviso ou gere a guia do IPTU 2026. Para a guia, validamos o CPF do titular no cadastro ROTA.\n\nVocê também pode escrever uma pergunta ou relatar um problema. Essa resposta usa os registros do seu município.',
       iptu2026: {
         label: 'IPTU 2026 — calendário',
         response: 'Quero ler o comunicado de IPTU 2026',

@@ -1,4 +1,5 @@
 import { AppColors } from '@/constants/theme';
+import { explorePontoEventId } from '@/services/eventsService';
 import { explorePontoCommunityId } from '@/services/forumCommunityApi';
 import { distanceMeters } from '@/services/placesService';
 import { PontoInteresse } from '@/types';
@@ -27,6 +28,8 @@ interface PlaceDetailsSheetProps {
   userLng: number;
   userLat: number;
   onClose: () => void;
+  /** Espaço extra embaixo, para o botão não ficar atrás da barra do app. */
+  bottomOffset?: number;
   /** Traça a rota no mapa atual, sem abrir app externo. */
   onRequestDirections?: (ponto: PontoInteresse) => void;
 }
@@ -43,6 +46,7 @@ export default function PlaceDetailsSheet({
   userLng,
   userLat,
   onClose,
+  bottomOffset = 0,
   onRequestDirections,
 }: PlaceDetailsSheetProps) {
   const insets = useSafeAreaInsets();
@@ -51,6 +55,7 @@ export default function PlaceDetailsSheet({
   if (!profile) return null;
 
   const communityId = explorePontoCommunityId(profile);
+  const eventId = explorePontoEventId(profile);
   const commercialStoreId = explorePontoCommercialStoreId(profile);
   const isPartner = !!commercialStoreId;
 
@@ -84,11 +89,24 @@ export default function PlaceDetailsSheet({
     });
   };
 
+  const openEvent = () => {
+    if (!eventId) return;
+    const imageUri = profile.photoUrl?.trim();
+    router.push({
+      pathname: '/evento/[id]',
+      params: {
+        id: eventId,
+        ...(imageUri ? { imageUri } : {}),
+      },
+    });
+    onClose();
+  };
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable
-          style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 14) }]}
+          style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 14) + bottomOffset }]}
           onPress={(e) => e.stopPropagation()}
         >
           <View style={styles.handle} />
@@ -103,6 +121,12 @@ export default function PlaceDetailsSheet({
               <Ionicons name="close" size={18} color={AppColors.text.secondary} />
             </TouchableOpacity>
           </View>
+          {eventId ? (
+            <TouchableOpacity style={styles.btnEvent} onPress={openEvent} activeOpacity={0.85}>
+              <Ionicons name="calendar-outline" size={18} color="#fff" />
+              <Text style={styles.btnPrimaryText}>Ver evento</Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity style={styles.btnPrimaryFull} onPress={openDirections} activeOpacity={0.85}>
             <Ionicons name="git-branch-outline" size={18} color={AppColors.text.white} />
             <Text style={styles.btnPrimaryText}>Como chegar</Text>
@@ -116,7 +140,7 @@ export default function PlaceDetailsSheet({
           {communityId ? (
             <TouchableOpacity style={styles.btnSecondaryFull} onPress={openCommunity} activeOpacity={0.85}>
               <Ionicons name="people-outline" size={18} color="#0891b2" />
-              <Text style={[styles.btnSecondaryText, { color: '#0891b2' }]}>Ver comunidade</Text>
+              <Text style={[styles.btnSecondaryText, { color: '#0891b2' }]}>Ver perfil</Text>
             </TouchableOpacity>
           ) : null}
         </Pressable>
@@ -304,6 +328,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: AppColors.text.white,
+  },
+  btnEvent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#7c3aed',
+    paddingVertical: 12,
+    borderRadius: 12,
   },
   btnSecondaryFull: {
     flexDirection: 'row',

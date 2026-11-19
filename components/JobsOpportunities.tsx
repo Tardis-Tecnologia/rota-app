@@ -33,6 +33,7 @@ export type JobCard = {
   commercialAccountId?: string | null;
   companyPhotoUrl?: string | null;
   deadlineLabel?: string | null;
+  reason?: string | null;
 };
 
 export const jobsNearBy: JobCard[] = [
@@ -359,6 +360,9 @@ export default function JobsOpportunities({
                       {job.title}
                     </Text>
                     <Text style={styles.cardCompany}>{job.company}</Text>
+                    {job.reason ? (
+                      <Text style={styles.cardCompany} numberOfLines={2}>{job.reason}</Text>
+                    ) : null}
                   </View>
                 </View>
 

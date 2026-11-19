@@ -7,7 +7,7 @@ import JobsOpportunities, {
 import type { JobCategoryId } from '@/constants/jobCategories';
 import { JOB_CATEGORIES } from '@/constants/jobCategories';
 import { AppColors } from '@/constants/theme';
-import { listJobs } from '@/services/jobsApi';
+import { jobRecommendationReasons, listJobs } from '@/services/jobsApi';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -27,6 +27,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 function mapApiJobsToCards(
   rows: Awaited<ReturnType<typeof listJobs>>,
+  reasons: Record<string, string> = {},
 ): JobCard[] {
   return rows.map((job, index) => {
     const workType = (['Remoto', 'Presencial', 'Híbrido'].includes(job.workType)
@@ -45,6 +46,7 @@ function mapApiJobsToCards(
       commercialAccountId: job.commercialAccountId,
       companyPhotoUrl: job.companyPhotoUrl,
       deadlineLabel: job.deadlineLabel,
+      reason: reasons[job.id] ?? null,
       tags: [job.contractType, job.workType].filter(Boolean),
     };
   });
@@ -79,7 +81,8 @@ export default function JobsTab() {
         init: 0,
         end: 40,
       });
-      setApiJobs(mapApiJobsToCards(rows));
+      const reasons = await jobRecommendationReasons(searchQuery).catch(() => ({}));
+      setApiJobs(mapApiJobsToCards(rows, reasons));
       if (rows.length === 0) {
         setJobsError('Nenhuma vaga publicada no momento.');
       }

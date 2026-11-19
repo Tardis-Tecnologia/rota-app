@@ -120,9 +120,31 @@ function hostQs(extra?: Record<string, string | undefined>): string {
   return params.toString();
 }
 
+export async function jobRecommendationReasons(query: string): Promise<Record<string, string>> {
+  const q = query.trim();
+  if (!q) return {};
+  const base = getApiBaseUrl();
+  const params = new URLSearchParams({ hostId: getWhitelabelHostId(), q });
+  const res = await fetch(`${base}${BASE.replace('/jobs', '/recommendations')}?${params.toString()}`, {
+    headers: await authHeaders(false),
+  });
+  if (!res.ok) return {};
+  const data = (await res.json()) as {
+    enabled?: boolean;
+    items?: { kind?: string; id?: string; reason?: string | null }[];
+  };
+  if (!data.enabled || !Array.isArray(data.items)) return {};
+  const reasons: Record<string, string> = {};
+  for (const item of data.items) {
+    if (item.kind === 'job' && item.id && item.reason) reasons[item.id] = item.reason;
+  }
+  return reasons;
+}
+
 export async function listJobs(options?: {
   category?: string;
   q?: string;
+  commercialAccountId?: string;
   init?: number;
   end?: number;
 }): Promise<JobListing[]> {
@@ -130,6 +152,7 @@ export async function listJobs(options?: {
   const qs = hostQs({
     category: options?.category,
     q: options?.q,
+    commercialAccountId: options?.commercialAccountId,
     init: options?.init != null ? String(options.init) : '0',
     end: options?.end != null ? String(options.end) : '40',
   });
